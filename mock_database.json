@@ -1,0 +1,1745 @@
+{
+  "profiles": [
+    {
+      "id": "master-admin-uuid-001",
+      "email": "master@paytune.com",
+      "full_name": "PAYTUNE Master Administrator",
+      "username": "masteradmin",
+      "phone": "1922331",
+      "total_spent": 0,
+      "avatar_url": "",
+      "role": "MASTER_ADMIN",
+      "created_at": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "email": "testartist@paytune.com",
+      "full_name": "Test Artist",
+      "username": "testartist",
+      "phone": "0788000000",
+      "total_spent": 0,
+      "avatar_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+      "role": "ARTIST",
+      "created_at": "2026-09-11T13:00:00.000Z"
+    },
+    {
+      "id": "guest-e15112d2",
+      "created_at": "2026-09-21T12:39:40.028Z",
+      "uploaded_at": "2026-09-21T12:39:40.089Z",
+      "purchased_at": "2026-09-21T12:39:40.089Z",
+      "email": "guest_123456@paytune.rw",
+      "phone": "0788123456",
+      "full_name": "Viewer (3456)",
+      "role": "user"
+    }
+  ],
+  "artists": [
+    {
+      "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "full_name": "Test Artist",
+      "username": "testartist",
+      "email": "testartist@paytune.com",
+      "phone": "0788000000",
+      "profile_image": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+      "banner_image": "",
+      "bio": "Official test artist account for playback and sound verification.",
+      "is_verified": true,
+      "subscribers_count": 0,
+      "created_at": "2026-09-11T13:00:00.000Z",
+      "total_earnings": 333,
+      "pending_balance": 333,
+      "updated_at": "2026-09-18T06:34:51.743Z"
+    }
+  ],
+  "videos": [
+    {
+      "id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "artist_name": "Test Artist",
+      "title": "Test Video – Playback & Sound Check",
+      "description": "This is a test video used to verify that playback and sound work correctly on PAYTUNE. It will be removed once testing is complete.",
+      "price_rwf": 0,
+      "price_usd": 0,
+      "is_free": true,
+      "is_short": false,
+      "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "thumbnail_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+      "preview_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "duration": 596,
+      "category": "Test",
+      "visibility": "public",
+      "is_active": true,
+      "views": 1,
+      "likes": 1,
+      "rating_avg": 5,
+      "rating_count": 1,
+      "uploaded_at": "2026-09-11T13:00:00.000Z",
+      "upload_date": "2026-09-11T13:00:00.000Z",
+      "created_at": "2026-09-11T13:00:00.000Z",
+      "tags": [
+        "Test",
+        "Playback",
+        "AudioCheck"
+      ],
+      "updated_at": "2026-09-18T06:12:55.624Z"
+    },
+    {
+      "id": "v-paid-premium-002",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "artist_name": "Test Artist",
+      "title": "Kigali Nights – Official 4K Music Video",
+      "description": "Exclusive premiere of Kigali Nights. Master quality audio and visual performance.",
+      "price_rwf": 500,
+      "price_usd": 0.5,
+      "is_free": false,
+      "is_short": false,
+      "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      "thumbnail_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg",
+      "preview_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      "duration": 653,
+      "category": "Afrobeat",
+      "visibility": "public",
+      "is_active": true,
+      "views": 422,
+      "likes": 88,
+      "rating_avg": 4.9,
+      "rating_count": 32,
+      "uploaded_at": "2026-09-12T10:00:00.000Z",
+      "upload_date": "2026-09-12T10:00:00.000Z",
+      "created_at": "2026-09-12T10:00:00.000Z",
+      "tags": [
+        "Afrobeat",
+        "Kigali",
+        "Exclusive"
+      ],
+      "updated_at": "2026-09-20T20:40:32.507Z"
+    },
+    {
+      "id": "v-short-reel-003",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "artist_name": "Test Artist",
+      "title": "Studio Jam Session Snippet #Shorts",
+      "description": "Quick behind-the-scenes loop in the Kigali studio.",
+      "price_rwf": 0,
+      "price_usd": 0,
+      "is_free": true,
+      "is_short": true,
+      "category": "Shorts",
+      "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "thumbnail_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg",
+      "preview_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "duration": 15,
+      "visibility": "public",
+      "is_active": true,
+      "views": 1522,
+      "likes": 310,
+      "rating_avg": 4.8,
+      "rating_count": 45,
+      "uploaded_at": "2026-09-13T15:00:00.000Z",
+      "upload_date": "2026-09-13T15:00:00.000Z",
+      "created_at": "2026-09-13T15:00:00.000Z",
+      "tags": [
+        "Shorts",
+        "Studio",
+        "BehindTheScenes"
+      ]
+    }
+  ],
+  "purchases": [
+    {
+      "id": "purchase-1789713291742-ikdqq",
+      "created_at": "2026-09-18T06:34:51.742Z",
+      "uploaded_at": "2026-09-18T06:34:51.742Z",
+      "purchased_at": "2026-09-18T06:34:51.742Z",
+      "user_id": "master-admin-uuid-001",
+      "video_id": "v-paid-premium-002",
+      "payment_phone": "0790710053",
+      "amount_paid": 500,
+      "paid_currency": "RWF",
+      "paid_amount": 500,
+      "exchange_rate": 1,
+      "vat_amount": 25,
+      "after_vat": 475,
+      "artist_share": 333,
+      "owner_share": 143,
+      "transaction_id": "PT-ESCROW-RW-MU6L31ZY-2553",
+      "payment_method": "MTN Mobile Money",
+      "country_code": "RW",
+      "escrow_status": "RELEASED"
+    },
+    {
+      "id": "mock-purchases-ogtz0fl1j",
+      "created_at": "2026-09-20T02:38:23.797Z",
+      "uploaded_at": "2026-09-20T02:38:23.797Z",
+      "purchased_at": "2026-09-20T02:38:23.617Z",
+      "user_id": "master-admin-uuid-001",
+      "video_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "payment_id": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+      "amount_paid": 600,
+      "currency": "RWF",
+      "artist_share": 399,
+      "owner_share": 171,
+      "receipt_number": "PT-RCP-MU97INSC-3743"
+    },
+    {
+      "id": "mock-purchases-jh6tvxpio",
+      "created_at": "2026-09-20T02:38:30.256Z",
+      "uploaded_at": "2026-09-20T02:38:30.256Z",
+      "purchased_at": "2026-09-20T02:38:30.062Z",
+      "user_id": "google-user-demo",
+      "video_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "payment_id": "3705d641-6648-4a3f-bc99-c6291c24656a",
+      "amount_paid": 600,
+      "currency": "RWF",
+      "artist_share": 399,
+      "owner_share": 171,
+      "receipt_number": "PT-RCP-MU97ISR3-2713"
+    },
+    {
+      "id": "mock-purchases-elxldn5ed",
+      "created_at": "2026-09-20T20:40:02.453Z",
+      "uploaded_at": "2026-09-20T20:40:02.453Z",
+      "purchased_at": "2026-09-20T20:40:02.453Z",
+      "user_id": "usr-test",
+      "video_id": "vid-1",
+      "payment_phone": "0780000000",
+      "amount_paid": 1000,
+      "vat_amount": 50,
+      "after_vat": 950,
+      "artist_share": 665,
+      "owner_share": 285.00000000000006,
+      "transaction_id": "tx_1789936801890",
+      "payment_method": "MTN MoMo",
+      "receipt_number": "DISB-1789936802515",
+      "updated_at": "2026-09-20T20:40:02.864Z"
+    },
+    {
+      "id": "mock-purchases-x7fyp975d",
+      "created_at": "2026-09-20T20:40:32.060Z",
+      "uploaded_at": "2026-09-20T20:40:32.060Z",
+      "purchased_at": "2026-09-20T20:40:32.060Z",
+      "user_id": "usr-test",
+      "video_id": "v-paid-premium-002",
+      "payment_phone": "0780000000",
+      "amount_paid": 500,
+      "vat_amount": 25,
+      "after_vat": 475,
+      "artist_share": 332.5,
+      "owner_share": 142.50000000000003,
+      "transaction_id": "tx_1789936831765",
+      "payment_method": "MTN MoMo",
+      "receipt_number": "DISB-1789936832117",
+      "updated_at": "2026-09-20T20:40:32.386Z"
+    },
+    {
+      "id": "mock-purchases-duxxwbb87",
+      "created_at": "2026-09-20T20:40:35.003Z",
+      "uploaded_at": "2026-09-20T20:40:35.003Z",
+      "purchased_at": "2026-09-20T20:40:35.003Z",
+      "user_id": "usr-test",
+      "video_id": "custom-nonexistent-vid",
+      "payment_phone": "0780000000",
+      "amount_paid": 1000,
+      "vat_amount": 50,
+      "after_vat": 950,
+      "artist_share": 665,
+      "owner_share": 285.00000000000006,
+      "transaction_id": "tx_1789936834835",
+      "payment_method": "MTN MoMo",
+      "receipt_number": "DISB-1789936835054",
+      "updated_at": "2026-09-20T20:40:35.287Z"
+    },
+    {
+      "id": "mock-purchases-uhkidikdo",
+      "created_at": "2026-09-21T12:39:37.303Z",
+      "uploaded_at": "2026-09-21T12:39:37.303Z",
+      "purchased_at": "2026-09-21T12:39:37.303Z",
+      "user_id": "usr-buyer-01",
+      "video_id": "6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "payment_phone": "0780000000",
+      "amount_paid": 2500,
+      "vat_amount": 125,
+      "after_vat": 2375,
+      "artist_share": 1662.5,
+      "owner_share": 712.5000000000001,
+      "transaction_id": "tx_1789994377056",
+      "payment_method": "MTN MoMo",
+      "receipt_number": "DISB-1789994377395",
+      "updated_at": "2026-09-21T12:39:37.695Z"
+    },
+    {
+      "id": "mock-purchases-ghqvujrq0",
+      "created_at": "2026-09-21T12:39:52.502Z",
+      "uploaded_at": "2026-09-21T12:39:52.502Z",
+      "purchased_at": "2026-09-21T12:39:52.502Z",
+      "user_id": "usr-sample",
+      "video_id": "v-101",
+      "payment_phone": "0788123456",
+      "amount_paid": 2500,
+      "vat_amount": 125,
+      "after_vat": 2375,
+      "artist_share": 1662.5,
+      "owner_share": 712.5000000000001,
+      "transaction_id": "tx_1789994392221",
+      "payment_method": "MTN MoMo",
+      "receipt_number": "DISB-1789994392567",
+      "updated_at": "2026-09-21T12:39:52.814Z"
+    },
+    {
+      "id": "mock-purchases-a96abh5wi",
+      "created_at": "2026-09-21T12:40:10.332Z",
+      "uploaded_at": "2026-09-21T12:40:10.332Z",
+      "purchased_at": "2026-09-21T12:40:10.105Z",
+      "user_id": "guest-e15112d2",
+      "video_id": "6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "payment_id": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+      "amount_paid": 1000,
+      "currency": "RWF",
+      "artist_share": 665,
+      "owner_share": 285,
+      "receipt_number": "PT-RCP-MUB8GEEO-8490"
+    },
+    {
+      "id": "mock-purchases-u4gq3hv5v",
+      "created_at": "2026-09-21T12:51:51.014Z",
+      "uploaded_at": "2026-09-21T12:51:51.014Z",
+      "purchased_at": "2026-09-21T12:51:51.014Z",
+      "user_id": "guest_user",
+      "video_id": "v1",
+      "payment_phone": "0780000000",
+      "amount_paid": 1000,
+      "vat_amount": 50,
+      "after_vat": 950,
+      "artist_share": 665,
+      "owner_share": 285.00000000000006,
+      "transaction_id": "tx_1789995110177",
+      "payment_method": "MTN MoMo",
+      "receipt_number": "DISB-1789995111082",
+      "updated_at": "2026-09-21T12:51:51.343Z"
+    }
+  ],
+  "artist_wallets": [
+    {
+      "id": "wallet-test-001",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "balance_rwf": 0,
+      "pending_clearance_rwf": 0,
+      "total_withdrawn_rwf": 0,
+      "currency": "RWF",
+      "updated_at": "2026-09-18T06:34:51.743Z",
+      "available_balance_rwf": 333,
+      "total_earned_rwf": 333
+    }
+  ],
+  "platform_wallet": {
+    "escrow_balance_rwf": 0,
+    "revenue_balance_rwf": 143,
+    "vat_collected_rwf": 25,
+    "total_settled_rwf": 500,
+    "currency": "RWF",
+    "updated_at": "2026-09-18T06:34:51.743Z"
+  },
+  "withdrawals": [],
+  "comments": [],
+  "user_comments": [
+    {
+      "id": "mock-user_comments-7ghu4w9dj",
+      "created_at": "2026-09-18T06:10:51.794Z",
+      "uploaded_at": "2026-09-18T06:10:51.794Z",
+      "purchased_at": "2026-09-18T06:10:51.794Z",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "user_id": "master-admin-uuid-001",
+      "comment_text": "hhhhh",
+      "parent_comment_id": null,
+      "likes": 1,
+      "is_pinned": false,
+      "updated_at": "2026-09-18T06:10:59.404Z"
+    }
+  ],
+  "user_likes": [
+    {
+      "id": "mock-user_likes-z2uihzk3z",
+      "created_at": "2026-09-18T06:12:55.623Z",
+      "uploaded_at": "2026-09-18T06:12:55.623Z",
+      "purchased_at": "2026-09-18T06:12:55.623Z",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "user_id": "master-admin-uuid-001"
+    }
+  ],
+  "user_ratings": [],
+  "live_streams": [],
+  "live_chat": [],
+  "live_chat_messages": [],
+  "live_chat_blocked_users": [],
+  "membership_tiers": [],
+  "memberships": [],
+  "membership_payments": [],
+  "super_thanks": [],
+  "member_benefits": [],
+  "platform_settings": [
+    {
+      "id": "platform-config",
+      "platform_name": "PAYTUNE",
+      "vat_percentage": 5,
+      "commission_percentage": 30,
+      "min_withdrawal": 5000,
+      "momo_number": "1922331",
+      "trending_days": 7,
+      "maintenance_mode": false,
+      "welcome_template": "Welcome to PAYTUNE! Enjoy unlimited access to authentic music from creators.",
+      "receipt_template": "Thank you for supporting creators. Your purchase is complete: {{video_title}}."
+    }
+  ],
+  "playlists": [],
+  "subscriptions": [],
+  "playlist_videos": [],
+  "watch_history": [],
+  "wishlist": [],
+  "payment_phones": [],
+  "notifications": [
+    {
+      "id": "e1946ac7-d8a8-4636-bcc6-807d8452425f",
+      "user_id": null,
+      "artist_id": null,
+      "recipient_type": "master",
+      "type": "new_purchase",
+      "title": "Platform Sale Processed",
+      "message": "Payment of 1,000 RWF verified for \"Test Video – Playback & Sound Check\".",
+      "link": "/master/financials",
+      "is_read": false,
+      "related_id": "mock-purchases-u4gq3hv5v",
+      "created_at": "2026-09-21T12:51:51.432Z"
+    },
+    {
+      "id": "4f2fdae1-81bf-4321-896c-ef46dbac9fd6",
+      "user_id": "guest_user",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Confirmed ✅",
+      "message": "You unlocked \"Test Video – Playback & Sound Check\" by Test Artist. Enjoy your high-definition stream!",
+      "link": "/watch/v1",
+      "is_read": false,
+      "related_id": "mock-purchases-u4gq3hv5v",
+      "created_at": "2026-09-21T12:51:51.431Z"
+    },
+    {
+      "id": "4fe1de8e-4516-482b-a11d-949972ba54ab",
+      "user_id": null,
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Content Sale! 💰",
+      "message": "A fan purchased \"Test Video – Playback & Sound Check\" for 1,000 RWF. (Your 70% share: 665 RWF)",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "mock-purchases-u4gq3hv5v",
+      "created_at": "2026-09-21T12:51:51.429Z"
+    },
+    {
+      "id": "33fe0032-15c0-438b-a7b6-d8e4dc141668",
+      "user_id": null,
+      "artist_id": "f10047f9-ba69-4832-b4d9-f3206ddbb5bb",
+      "recipient_type": "artist",
+      "type": "wallet_credit",
+      "title": "Wallet Credited",
+      "message": "You earned 665 RWF from Nyamirambo Jazz & Brass Ensemble Special.",
+      "link": "/artist/wallet",
+      "is_read": false,
+      "related_id": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+      "created_at": "2026-09-21T12:40:10.880Z"
+    },
+    {
+      "id": "c0b312b2-0f80-44e8-b66b-51755c04bdf8",
+      "user_id": null,
+      "artist_id": "f10047f9-ba69-4832-b4d9-f3206ddbb5bb",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Video Sale",
+      "message": "New sale: Nyamirambo Jazz & Brass Ensemble Special — 1,000 RWF",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "created_at": "2026-09-21T12:40:10.879Z"
+    },
+    {
+      "id": "36c32a79-384b-4aac-9265-3f133d21aaa3",
+      "user_id": "guest-e15112d2",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Successful",
+      "message": "Purchase successful: Nyamirambo Jazz & Brass Ensemble Special",
+      "link": "/watch/6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "is_read": false,
+      "related_id": "6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "created_at": "2026-09-21T12:40:10.878Z"
+    },
+    {
+      "id": "79a2834c-d908-4cb6-b5c7-3773bd33edcf",
+      "user_id": null,
+      "artist_id": null,
+      "recipient_type": "master",
+      "type": "new_purchase",
+      "title": "Platform Sale Processed",
+      "message": "Payment of 2,500 RWF verified for \"Test Video – Playback & Sound Check\".",
+      "link": "/master/financials",
+      "is_read": false,
+      "related_id": "mock-purchases-ghqvujrq0",
+      "created_at": "2026-09-21T12:39:52.902Z"
+    },
+    {
+      "id": "25bbed15-a98b-47b2-80a8-0a98c271a1e6",
+      "user_id": "usr-sample",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Confirmed ✅",
+      "message": "You unlocked \"Test Video – Playback & Sound Check\" by Test Artist. Enjoy your high-definition stream!",
+      "link": "/watch/v-101",
+      "is_read": false,
+      "related_id": "mock-purchases-ghqvujrq0",
+      "created_at": "2026-09-21T12:39:52.902Z"
+    },
+    {
+      "id": "b32b22da-f984-4e80-8bc8-42d965ef1172",
+      "user_id": null,
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Content Sale! 💰",
+      "message": "A fan purchased \"Test Video – Playback & Sound Check\" for 2,500 RWF. (Your 70% share: 1,662.5 RWF)",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "mock-purchases-ghqvujrq0",
+      "created_at": "2026-09-21T12:39:52.900Z"
+    },
+    {
+      "id": "989019c4-54ae-4e29-b44c-cbc117d6b714",
+      "user_id": null,
+      "artist_id": null,
+      "recipient_type": "master",
+      "type": "new_purchase",
+      "title": "Platform Sale Processed",
+      "message": "Payment of 2,500 RWF verified for \"Nyamirambo Jazz & Brass Ensemble Special\".",
+      "link": "/master/financials",
+      "is_read": false,
+      "related_id": "mock-purchases-uhkidikdo",
+      "created_at": "2026-09-21T12:39:37.855Z"
+    },
+    {
+      "id": "29d4053f-1c57-4671-8d55-67ef65c4b887",
+      "user_id": "usr-buyer-01",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Confirmed ✅",
+      "message": "You unlocked \"Nyamirambo Jazz & Brass Ensemble Special\" by Artist. Enjoy your high-definition stream!",
+      "link": "/watch/6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "is_read": false,
+      "related_id": "mock-purchases-uhkidikdo",
+      "created_at": "2026-09-21T12:39:37.854Z"
+    },
+    {
+      "id": "fcf3b95a-57ac-4782-9e7e-1dd7337ba838",
+      "user_id": null,
+      "artist_id": "f10047f9-ba69-4832-b4d9-f3206ddbb5bb",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Content Sale! 💰",
+      "message": "A fan purchased \"Nyamirambo Jazz & Brass Ensemble Special\" for 2,500 RWF. (Your 70% share: 1,662.5 RWF)",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "mock-purchases-uhkidikdo",
+      "created_at": "2026-09-21T12:39:37.852Z"
+    },
+    {
+      "id": "442e969f-0f1f-4313-9f6e-437e1c02f03a",
+      "user_id": null,
+      "artist_id": null,
+      "recipient_type": "master",
+      "type": "new_purchase",
+      "title": "Platform Sale Processed",
+      "message": "Payment of 1,000 RWF verified for \"Test Video – Playback & Sound Check\".",
+      "link": "/master/financials",
+      "is_read": false,
+      "related_id": "mock-purchases-duxxwbb87",
+      "created_at": "2026-09-20T20:40:35.342Z"
+    },
+    {
+      "id": "0b8ea122-7b00-485c-b43a-85ce4847b947",
+      "user_id": "usr-test",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Confirmed ✅",
+      "message": "You unlocked \"Test Video – Playback & Sound Check\" by Test Artist. Enjoy your high-definition stream!",
+      "link": "/watch/custom-nonexistent-vid",
+      "is_read": false,
+      "related_id": "mock-purchases-duxxwbb87",
+      "created_at": "2026-09-20T20:40:35.341Z"
+    },
+    {
+      "id": "a02c2f4f-3d0a-4b78-a21d-a1cf5725a279",
+      "user_id": null,
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Content Sale! 💰",
+      "message": "A fan purchased \"Test Video – Playback & Sound Check\" for 1,000 RWF. (Your 70% share: 665 RWF)",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "mock-purchases-duxxwbb87",
+      "created_at": "2026-09-20T20:40:35.340Z"
+    },
+    {
+      "id": "4ab7d1d5-c845-478d-b98b-119d956b2104",
+      "user_id": null,
+      "artist_id": null,
+      "recipient_type": "master",
+      "type": "new_purchase",
+      "title": "Platform Sale Processed",
+      "message": "Payment of 500 RWF verified for \"Kigali Nights – Official 4K Music Video\".",
+      "link": "/master/financials",
+      "is_read": false,
+      "related_id": "mock-purchases-x7fyp975d",
+      "created_at": "2026-09-20T20:40:32.529Z"
+    },
+    {
+      "id": "9e027cf6-f232-4858-b2a1-1014aff4f80f",
+      "user_id": "usr-test",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Confirmed ✅",
+      "message": "You unlocked \"Kigali Nights – Official 4K Music Video\" by Test Artist. Enjoy your high-definition stream!",
+      "link": "/watch/v-paid-premium-002",
+      "is_read": false,
+      "related_id": "mock-purchases-x7fyp975d",
+      "created_at": "2026-09-20T20:40:32.528Z"
+    },
+    {
+      "id": "34b5da59-7bb1-4f68-b034-3c2423c3a640",
+      "user_id": null,
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Content Sale! 💰",
+      "message": "A fan purchased \"Kigali Nights – Official 4K Music Video\" for 500 RWF. (Your 70% share: 332.5 RWF)",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "mock-purchases-x7fyp975d",
+      "created_at": "2026-09-20T20:40:32.527Z"
+    },
+    {
+      "id": "885ed4f0-c3f9-470b-a671-a8e8ef4d5b82",
+      "user_id": null,
+      "artist_id": null,
+      "recipient_type": "master",
+      "type": "new_purchase",
+      "title": "Platform Sale Processed",
+      "message": "Payment of 1,000 RWF verified for \"Test Video – Playback & Sound Check\".",
+      "link": "/master/financials",
+      "is_read": false,
+      "related_id": "mock-purchases-elxldn5ed",
+      "created_at": "2026-09-20T20:40:02.977Z"
+    },
+    {
+      "id": "8f72d6de-e033-474e-88f3-0d9df3fc11b9",
+      "user_id": "usr-test",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Confirmed ✅",
+      "message": "You unlocked \"Test Video – Playback & Sound Check\" by Test Artist. Enjoy your high-definition stream!",
+      "link": "/watch/vid-1",
+      "is_read": false,
+      "related_id": "mock-purchases-elxldn5ed",
+      "created_at": "2026-09-20T20:40:02.977Z"
+    },
+    {
+      "id": "bb13d07c-e259-4aa2-ab7c-25474b4eb528",
+      "user_id": null,
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Content Sale! 💰",
+      "message": "A fan purchased \"Test Video – Playback & Sound Check\" for 1,000 RWF. (Your 70% share: 665 RWF)",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "mock-purchases-elxldn5ed",
+      "created_at": "2026-09-20T20:40:02.975Z"
+    },
+    {
+      "id": "3c31063b-8ab4-4391-8d4d-d6f8c1011099",
+      "user_id": null,
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "recipient_type": "artist",
+      "type": "wallet_credit",
+      "title": "Wallet Credited",
+      "message": "You earned 399 RWF from Lake Kivu Sunset Acoustic Sessions.",
+      "link": "/artist/wallet",
+      "is_read": false,
+      "related_id": "3705d641-6648-4a3f-bc99-c6291c24656a",
+      "created_at": "2026-09-20T02:38:30.647Z"
+    },
+    {
+      "id": "f02035e9-24d8-4acf-99c0-a1822bbec85b",
+      "user_id": null,
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Video Sale",
+      "message": "New sale: Lake Kivu Sunset Acoustic Sessions — 600 RWF",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "created_at": "2026-09-20T02:38:30.646Z"
+    },
+    {
+      "id": "5d58dd66-580a-4e91-949f-5bfb84f12180",
+      "user_id": "google-user-demo",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Successful",
+      "message": "Purchase successful: Lake Kivu Sunset Acoustic Sessions",
+      "link": "/watch/c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "is_read": false,
+      "related_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "created_at": "2026-09-20T02:38:30.645Z"
+    },
+    {
+      "id": "4d2bcfb4-0971-479a-979c-c8a9e0c05f0a",
+      "user_id": null,
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "recipient_type": "artist",
+      "type": "wallet_credit",
+      "title": "Wallet Credited",
+      "message": "You earned 399 RWF from Lake Kivu Sunset Acoustic Sessions.",
+      "link": "/artist/wallet",
+      "is_read": false,
+      "related_id": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+      "created_at": "2026-09-20T02:38:24.262Z"
+    },
+    {
+      "id": "75bca0ca-8242-43d4-b9f7-c85335dfeb22",
+      "user_id": null,
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "recipient_type": "artist",
+      "type": "new_purchase",
+      "title": "New Video Sale",
+      "message": "New sale: Lake Kivu Sunset Acoustic Sessions — 600 RWF",
+      "link": "/artist/earnings",
+      "is_read": false,
+      "related_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "created_at": "2026-09-20T02:38:24.261Z"
+    },
+    {
+      "id": "1a4c7735-3d21-42d3-a6e8-c3e6b0cfc9ed",
+      "user_id": "master-admin-uuid-001",
+      "artist_id": null,
+      "recipient_type": "user",
+      "type": "new_purchase",
+      "title": "Purchase Successful",
+      "message": "Purchase successful: Lake Kivu Sunset Acoustic Sessions",
+      "link": "/watch/c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "is_read": false,
+      "related_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "created_at": "2026-09-20T02:38:24.260Z"
+    },
+    {
+      "id": "f61b5134-0071-4649-b4ce-931c4ef805df",
+      "user_id": null,
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "recipient_type": "artist",
+      "type": "new_comment",
+      "title": "New Fan Comment 💬",
+      "message": "PAYTUNE Master Administrator commented on \"Test Video – Playback & Sound Check\": \"hhhhh\"",
+      "link": "/watch/e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "is_read": false,
+      "related_id": "mock-user_comments-7ghu4w9dj",
+      "created_at": "2026-09-18T06:10:51.795Z"
+    }
+  ],
+  "notification_preferences": [],
+  "gifts": [],
+  "reports": [],
+  "admin_logs": [],
+  "ads": [
+    {
+      "id": "ad-mtn-momo-001",
+      "title": "MTN MoMoPay – Pay Anyone, Anywhere in Rwanda",
+      "description": "Experience instant zero-fee transfers and easy merchant payments across Kigali and beyond with MTN Rwanda MoMo.",
+      "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "thumbnail_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg",
+      "click_url": "https://www.mtn.co.rw",
+      "duration_seconds": 15,
+      "advertiser_name": "MTN Rwanda",
+      "budget_rwf": 250000,
+      "spent_rwf": 14500,
+      "status": "active",
+      "created_by": "master-admin-uuid-001",
+      "created_at": "2026-09-01T10:00:00.000Z",
+      "updated_at": "2026-09-17T12:00:00.000Z"
+    },
+    {
+      "id": "ad-kigali-fest-002",
+      "title": "Kigali Sounds Music Festival 2026 – Early Bird Passes",
+      "description": "Join Africa's greatest afrobeat, amapiano, and hip-hop acts live at BK Arena Kigali. Get 20% off with PAYTUNE promo code.",
+      "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+      "thumbnail_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerEscapes.jpg",
+      "click_url": "https://kigalivibes.rw",
+      "duration_seconds": 15,
+      "advertiser_name": "Kigali Events Live",
+      "budget_rwf": 180000,
+      "spent_rwf": 8205,
+      "status": "active",
+      "created_by": "master-admin-uuid-001",
+      "created_at": "2026-09-05T14:30:00.000Z",
+      "updated_at": "2026-09-18T06:27:08.567Z"
+    }
+  ],
+  "ad_assignments": [
+    {
+      "id": "assign-global-001",
+      "ad_id": "ad-mtn-momo-001",
+      "scope": "global",
+      "video_id": null,
+      "start_date": "2026-09-01T00:00:00.000Z",
+      "end_date": null,
+      "priority": 1,
+      "status": "active",
+      "created_at": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "id": "assign-single-002",
+      "ad_id": "ad-kigali-fest-002",
+      "scope": "single",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "start_date": "2026-09-05T00:00:00.000Z",
+      "end_date": null,
+      "priority": 10,
+      "status": "active",
+      "created_at": "2026-09-05T14:30:00.000Z"
+    }
+  ],
+  "ad_impressions": [
+    {
+      "id": "imp-sample-001",
+      "ad_id": "ad-mtn-momo-001",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "user_id": null,
+      "country": "Rwanda",
+      "device": "desktop",
+      "watched_seconds": 15,
+      "clicked": true,
+      "created_at": "2026-09-16T18:22:10.000Z"
+    },
+    {
+      "id": "imp-sample-002",
+      "ad_id": "ad-mtn-momo-001",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "user_id": "master-admin-uuid-001",
+      "country": "Rwanda",
+      "device": "mobile",
+      "watched_seconds": 7,
+      "clicked": false,
+      "created_at": "2026-09-17T09:15:30.000Z"
+    },
+    {
+      "id": "imp-sample-003",
+      "ad_id": "ad-kigali-fest-002",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "user_id": null,
+      "country": "Kenya",
+      "device": "mobile",
+      "watched_seconds": 15,
+      "clicked": true,
+      "created_at": "2026-09-17T14:02:44.000Z"
+    },
+    {
+      "id": "imp-1789712828567-nlxpq",
+      "ad_id": "ad-kigali-fest-002",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "user_id": null,
+      "country": "Rwanda",
+      "device": "desktop",
+      "watched_seconds": 6,
+      "clicked": true,
+      "created_at": "2026-09-18T06:27:08.567Z"
+    }
+  ],
+  "countries": [
+    {
+      "id": "c-rw",
+      "name": "Rwanda",
+      "iso2": "RW",
+      "iso3": "RWA",
+      "currency_code": "RWF",
+      "phone_code": "+250",
+      "payment_gateway": "MTN MoMo",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-ke",
+      "name": "Kenya",
+      "iso2": "KE",
+      "iso3": "KEN",
+      "currency_code": "KES",
+      "phone_code": "+254",
+      "payment_gateway": "M-Pesa",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-tz",
+      "name": "Tanzania",
+      "iso2": "TZ",
+      "iso3": "TZA",
+      "currency_code": "TZS",
+      "phone_code": "+255",
+      "payment_gateway": "M-Pesa",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-ug",
+      "name": "Uganda",
+      "iso2": "UG",
+      "iso3": "UGA",
+      "currency_code": "UGX",
+      "phone_code": "+256",
+      "payment_gateway": "MTN MoMo",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-ng",
+      "name": "Nigeria",
+      "iso2": "NG",
+      "iso3": "NGA",
+      "currency_code": "NGN",
+      "phone_code": "+234",
+      "payment_gateway": "Paystack",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-za",
+      "name": "South Africa",
+      "iso2": "ZA",
+      "iso3": "ZAF",
+      "currency_code": "ZAR",
+      "phone_code": "+27",
+      "payment_gateway": "PayFast",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-in",
+      "name": "India",
+      "iso2": "IN",
+      "iso3": "IND",
+      "currency_code": "INR",
+      "phone_code": "+91",
+      "payment_gateway": "UPI",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-jp",
+      "name": "Japan",
+      "iso2": "JP",
+      "iso3": "JPN",
+      "currency_code": "JPY",
+      "phone_code": "+81",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-gb",
+      "name": "United Kingdom",
+      "iso2": "GB",
+      "iso3": "GBR",
+      "currency_code": "GBP",
+      "phone_code": "+44",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-eu",
+      "name": "European Union",
+      "iso2": "EU",
+      "iso3": "EUR",
+      "currency_code": "EUR",
+      "phone_code": "+33",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-us",
+      "name": "United States",
+      "iso2": "US",
+      "iso3": "USA",
+      "currency_code": "USD",
+      "phone_code": "+1",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-ca",
+      "name": "Canada",
+      "iso2": "CA",
+      "iso3": "CAN",
+      "currency_code": "CAD",
+      "phone_code": "+1",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-au",
+      "name": "Australia",
+      "iso2": "AU",
+      "iso3": "AUS",
+      "currency_code": "AUD",
+      "phone_code": "+61",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "c-gl",
+      "name": "Global",
+      "iso2": "XX",
+      "iso3": "GLB",
+      "currency_code": "USD",
+      "phone_code": "+1",
+      "payment_gateway": "Stripe",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "exchange_rates": [
+    {
+      "currency_code": "RWF",
+      "rate_to_rwf": 1,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "USD",
+      "rate_to_rwf": 1420,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "KES",
+      "rate_to_rwf": 11,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "TZS",
+      "rate_to_rwf": 0.54,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "UGX",
+      "rate_to_rwf": 0.38,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "NGN",
+      "rate_to_rwf": 0.95,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "ZAR",
+      "rate_to_rwf": 79,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "INR",
+      "rate_to_rwf": 16.8,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "JPY",
+      "rate_to_rwf": 9.4,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "GBP",
+      "rate_to_rwf": 1860,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "EUR",
+      "rate_to_rwf": 1540,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "CAD",
+      "rate_to_rwf": 1040,
+      "updated_at": "2026-01-01T00:00:00Z"
+    },
+    {
+      "currency_code": "AUD",
+      "rate_to_rwf": 930,
+      "updated_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "escrow_transactions": [
+    {
+      "id": "escrow-1789713291742-050pk9",
+      "video_id": "v-paid-premium-002",
+      "video_title": "Kigali Nights – Official 4K Music Video",
+      "user_id": "master-admin-uuid-001",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "artist_name": "Test Artist",
+      "base_price_rwf": 500,
+      "paid_currency": "RWF",
+      "paid_amount": 500,
+      "exchange_rate": 1,
+      "vat_rate": 0.05,
+      "vat_amount_rwf": 25,
+      "after_vat_rwf": 475,
+      "artist_share_rwf": 333,
+      "owner_share_rwf": 143,
+      "status": "RELEASED",
+      "payment_gateway": "MTN Mobile Money",
+      "country_code": "RW",
+      "transaction_ref": "PT-ESCROW-RW-MU6L31ZY-2553",
+      "created_at": "2026-09-18T06:34:51.742Z",
+      "purchase_id": "purchase-1789713291742-ikdqq",
+      "released_at": "2026-09-18T06:34:51.743Z"
+    }
+  ],
+  "copyright_claims": [],
+  "dmca_requests": [],
+  "copyright_disputes": [],
+  "video_watermarks": [
+    {
+      "id": "wm-1789713210361",
+      "video_id": "v-paid-premium-002",
+      "video_title": "Kigali Nights – Official 4K Music Video",
+      "user_id": "master-admin-uuid-001",
+      "user_name": "Guest User",
+      "user_email": "master@paytune.com",
+      "watermark_token": "PT-FORENSIC-master-a-v-paid-p-1789713210361",
+      "watermark_data": {
+        "userId": "master-admin-uuid-001",
+        "videoId": "v-paid-premium-002",
+        "timestamp": "2026-09-18T06:33:30.360Z",
+        "userIp": "169.254.169.126",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+        "forensicHash": "ETTS2EP4"
+      },
+      "embedded_at": "2026-09-18T06:33:30.360Z"
+    },
+    {
+      "id": "wm-1789713210358",
+      "video_id": "v-paid-premium-002",
+      "video_title": "Kigali Nights – Official 4K Music Video",
+      "user_id": "master-admin-uuid-001",
+      "user_name": "Guest User",
+      "user_email": "master@paytune.com",
+      "watermark_token": "PT-FORENSIC-master-a-v-paid-p-1789713210358",
+      "watermark_data": {
+        "userId": "master-admin-uuid-001",
+        "videoId": "v-paid-premium-002",
+        "timestamp": "2026-09-18T06:33:30.358Z",
+        "userIp": "169.254.169.126",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+        "forensicHash": "XFN9U3G3"
+      },
+      "embedded_at": "2026-09-18T06:33:30.358Z"
+    },
+    {
+      "id": "wm-1789711721246",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "video_title": "Test Video – Playback & Sound Check",
+      "user_id": "master-admin-uuid-001",
+      "user_name": "Guest User",
+      "user_email": "master@paytune.com",
+      "watermark_token": "PT-FORENSIC-master-a-e9a8b7c6-1789711721246",
+      "watermark_data": {
+        "userId": "master-admin-uuid-001",
+        "videoId": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+        "timestamp": "2026-09-18T06:08:41.246Z",
+        "userIp": "169.254.169.126",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+        "forensicHash": "MO2486ZU"
+      },
+      "embedded_at": "2026-09-18T06:08:41.246Z"
+    },
+    {
+      "id": "wm-1789711721244",
+      "video_id": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+      "video_title": "Test Video – Playback & Sound Check",
+      "user_id": "master-admin-uuid-001",
+      "user_name": "Guest User",
+      "user_email": "master@paytune.com",
+      "watermark_token": "PT-FORENSIC-master-a-e9a8b7c6-1789711721244",
+      "watermark_data": {
+        "userId": "master-admin-uuid-001",
+        "videoId": "e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c",
+        "timestamp": "2026-09-18T06:08:41.244Z",
+        "userIp": "169.254.169.126",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+        "forensicHash": "RHUZKQGA"
+      },
+      "embedded_at": "2026-09-18T06:08:41.244Z"
+    }
+  ],
+  "copyright_holders": [],
+  "copyright_revenue": [],
+  "infringement_strikes": [],
+  "watch_progress": [],
+  "comment_likes": [
+    {
+      "id": "mock-comment_likes-1w0wcqjez",
+      "created_at": "2026-09-18T06:10:59.404Z",
+      "uploaded_at": "2026-09-18T06:10:59.404Z",
+      "purchased_at": "2026-09-18T06:10:59.404Z",
+      "comment_id": "mock-user_comments-7ghu4w9dj",
+      "user_id": "master-admin-uuid-001"
+    }
+  ],
+  "shorts_analytics": [
+    {
+      "id": "sa-1789713156575-at7uk",
+      "short_id": "v-short-reel-003",
+      "user_id": "master-admin-uuid-001",
+      "watched_seconds": 3,
+      "completed": false,
+      "device_type": "mobile",
+      "country": "RW",
+      "watched_at": "2026-09-18T06:32:36.575Z"
+    },
+    {
+      "id": "sa-1789713156575-at7uk",
+      "created_at": "2026-09-18T06:32:36.575Z",
+      "uploaded_at": "2026-09-18T06:32:36.575Z",
+      "purchased_at": "2026-09-18T06:32:36.575Z",
+      "short_id": "v-short-reel-003",
+      "user_id": "master-admin-uuid-001",
+      "watched_seconds": 3,
+      "completed": false,
+      "device_type": "mobile",
+      "country": "RW",
+      "watched_at": "2026-09-18T06:32:36.575Z"
+    },
+    {
+      "id": "sa-1789716667009-ltqqp",
+      "short_id": "v-short-reel-003",
+      "user_id": "master-admin-uuid-001",
+      "watched_seconds": 3,
+      "completed": false,
+      "device_type": "mobile",
+      "country": "RW",
+      "watched_at": "2026-09-18T07:31:07.009Z"
+    },
+    {
+      "id": "sa-1789716667009-ltqqp",
+      "created_at": "2026-09-18T07:31:07.009Z",
+      "uploaded_at": "2026-09-18T07:31:07.009Z",
+      "purchased_at": "2026-09-18T07:31:07.009Z",
+      "short_id": "v-short-reel-003",
+      "user_id": "master-admin-uuid-001",
+      "watched_seconds": 3,
+      "completed": false,
+      "device_type": "mobile",
+      "country": "RW",
+      "watched_at": "2026-09-18T07:31:07.009Z"
+    }
+  ],
+  "payments": [
+    {
+      "id": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+      "created_at": "2026-09-20T02:38:23.255Z",
+      "uploaded_at": "2026-09-20T02:38:23.315Z",
+      "purchased_at": "2026-09-20T02:38:23.315Z",
+      "user_id": "master-admin-uuid-001",
+      "video_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "payment_type": "purchase",
+      "amount": 600,
+      "currency": "RWF",
+      "provider": "mtn_momo",
+      "status": "paid",
+      "vat_amount": 30,
+      "artist_share": 399,
+      "owner_share": 171,
+      "metadata": {
+        "message": null,
+        "phoneNumber": "0788123456",
+        "live_stream_id": null,
+        "streamId": null,
+        "initiatedFrom": "Web",
+        "initiatedIp": "127.0.0.1"
+      },
+      "provider_reference": "b4d53027-8080-43aa-ba61-d6980fc9594b",
+      "updated_at": "2026-09-20T02:38:23.665Z",
+      "provider_transaction_id": "SIM-APPROVE-MU97INNX",
+      "completed_at": "2026-09-20T02:38:23.617Z"
+    },
+    {
+      "id": "3705d641-6648-4a3f-bc99-c6291c24656a",
+      "created_at": "2026-09-20T02:38:29.751Z",
+      "uploaded_at": "2026-09-20T02:38:29.802Z",
+      "purchased_at": "2026-09-20T02:38:29.802Z",
+      "user_id": "google-user-demo",
+      "video_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "payment_type": "purchase",
+      "amount": 600,
+      "currency": "RWF",
+      "provider": "airtel_money",
+      "status": "paid",
+      "vat_amount": 30,
+      "artist_share": 399,
+      "owner_share": 171,
+      "metadata": {
+        "message": null,
+        "phoneNumber": "0733001122",
+        "live_stream_id": null,
+        "streamId": null,
+        "initiatedFrom": "Web",
+        "initiatedIp": "127.0.0.1"
+      },
+      "provider_reference": "030b5f93-b3f9-4174-8afe-99e307cac5bc",
+      "updated_at": "2026-09-20T02:38:30.110Z",
+      "provider_transaction_id": "SIM-APPROVE-MU97ISN4",
+      "completed_at": "2026-09-20T02:38:30.062Z"
+    },
+    {
+      "id": "aab70ffa-af83-4132-b305-edf90e31559c",
+      "created_at": "2026-09-20T02:38:31.016Z",
+      "uploaded_at": "2026-09-20T02:38:31.119Z",
+      "purchased_at": "2026-09-20T02:38:31.119Z",
+      "user_id": "google-user-demo",
+      "video_id": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+      "artist_id": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+      "payment_type": "purchase",
+      "amount": 600,
+      "currency": "RWF",
+      "provider": "stripe",
+      "status": "pending",
+      "vat_amount": 30,
+      "artist_share": 399,
+      "owner_share": 171,
+      "metadata": {
+        "message": null,
+        "phoneNumber": null,
+        "live_stream_id": null,
+        "streamId": null,
+        "initiatedFrom": "Web",
+        "initiatedIp": "127.0.0.1"
+      },
+      "provider_reference": "pi_simulated_1789871911281",
+      "provider_transaction_id": "pi_simulated_1789871911281",
+      "updated_at": "2026-09-20T02:38:31.332Z"
+    },
+    {
+      "id": "b730f98f-6e5a-494d-a6e1-08ead2473dc9",
+      "created_at": "2026-09-21T12:39:40.178Z",
+      "uploaded_at": "2026-09-21T12:39:40.255Z",
+      "purchased_at": "2026-09-21T12:39:40.255Z",
+      "user_id": "guest-e15112d2",
+      "video_id": "6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "artist_id": "f10047f9-ba69-4832-b4d9-f3206ddbb5bb",
+      "payment_type": "purchase",
+      "amount": 1000,
+      "currency": "RWF",
+      "provider": "mtn_momo",
+      "status": "pending",
+      "vat_amount": 50,
+      "artist_share": 665,
+      "owner_share": 285,
+      "metadata": {
+        "message": null,
+        "phoneNumber": "0788123456",
+        "live_stream_id": null,
+        "streamId": null,
+        "initiatedFrom": "curl/7.88.1",
+        "initiatedIp": "127.0.0.1"
+      },
+      "provider_reference": "e888b5be-5a84-494c-9fec-06cb6366d1e5",
+      "updated_at": "2026-09-21T12:39:40.530Z"
+    },
+    {
+      "id": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+      "created_at": "2026-09-21T12:40:06.743Z",
+      "uploaded_at": "2026-09-21T12:40:06.838Z",
+      "purchased_at": "2026-09-21T12:40:06.838Z",
+      "user_id": "guest-e15112d2",
+      "video_id": "6b2fdd5c-6b38-4e94-96ba-e6a09b4efb6e",
+      "artist_id": "f10047f9-ba69-4832-b4d9-f3206ddbb5bb",
+      "payment_type": "purchase",
+      "amount": 1000,
+      "currency": "RWF",
+      "provider": "mtn_momo",
+      "status": "paid",
+      "vat_amount": 50,
+      "artist_share": 665,
+      "owner_share": 285,
+      "metadata": {
+        "message": null,
+        "phoneNumber": "0788123456",
+        "live_stream_id": null,
+        "streamId": null,
+        "initiatedFrom": "curl/7.88.1",
+        "initiatedIp": "127.0.0.1"
+      },
+      "provider_reference": "6acf50ab-9f01-4f50-af08-7d76a5093c22",
+      "updated_at": "2026-09-21T12:40:10.166Z",
+      "provider_transaction_id": "SIM-APPROVE-MUB8GE9Y",
+      "completed_at": "2026-09-21T12:40:10.105Z"
+    }
+  ],
+  "payment_logs": [
+    {
+      "id": "mock-payment_logs-qmb5wq78h",
+      "created_at": "2026-09-20T02:38:23.317Z",
+      "uploaded_at": "2026-09-20T02:38:23.365Z",
+      "purchased_at": "2026-09-20T02:38:23.365Z",
+      "payment_id": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+      "event": "provider_mtn_momo_payment.initiated",
+      "payload": {
+        "request": {
+          "provider": "mtn_momo",
+          "amount": 600,
+          "currency": "RWF",
+          "paymentType": "purchase",
+          "userId": "master-admin-uuid-001",
+          "metadata": {
+            "message": null,
+            "phoneNumber": "0788123456",
+            "live_stream_id": null,
+            "streamId": null,
+            "initiatedFrom": "Web",
+            "initiatedIp": "127.0.0.1"
+          }
+        },
+        "response": {
+          "status": "pending",
+          "paymentId": "0c48cb2a-62cc-41b7-beb3-2caf5198a572"
+        },
+        "timestamp": "2026-09-20T02:38:23.317Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-qlt8nora4",
+      "created_at": "2026-09-20T02:38:23.366Z",
+      "uploaded_at": "2026-09-20T02:38:23.410Z",
+      "purchased_at": "2026-09-20T02:38:23.410Z",
+      "payment_id": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+      "event": "provider_mtn_momo_requesttopay_simulated",
+      "payload": {
+        "request": {
+          "amount": 600,
+          "currency": "RWF",
+          "phoneNumber": "250788123456",
+          "payerMessage": "PAYTUNE payment"
+        },
+        "response": {
+          "status": 202,
+          "referenceId": "b4d53027-8080-43aa-ba61-d6980fc9594b",
+          "mode": "sandbox_simulation"
+        },
+        "timestamp": "2026-09-20T02:38:23.366Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-qhz0q1y1n",
+      "created_at": "2026-09-20T02:38:24.091Z",
+      "uploaded_at": "2026-09-20T02:38:24.138Z",
+      "purchased_at": "2026-09-20T02:38:24.138Z",
+      "payment_id": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+      "event": "provider_mtn_momo_payment.completed",
+      "payload": {
+        "request": {
+          "paymentId": "0c48cb2a-62cc-41b7-beb3-2caf5198a572",
+          "providerTransactionId": "SIM-APPROVE-MU97INNX",
+          "completedAt": "2026-09-20T02:38:23.617Z",
+          "split": {
+            "vat": 30,
+            "afterVat": 570,
+            "artistShare": 399,
+            "ownerShare": 171
+          }
+        },
+        "response": {
+          "status": "paid"
+        },
+        "timestamp": "2026-09-20T02:38:24.091Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-x7r82hii6",
+      "created_at": "2026-09-20T02:38:29.803Z",
+      "uploaded_at": "2026-09-20T02:38:29.853Z",
+      "purchased_at": "2026-09-20T02:38:29.853Z",
+      "payment_id": "3705d641-6648-4a3f-bc99-c6291c24656a",
+      "event": "provider_airtel_money_payment.initiated",
+      "payload": {
+        "request": {
+          "provider": "airtel_money",
+          "amount": 600,
+          "currency": "RWF",
+          "paymentType": "purchase",
+          "userId": "google-user-demo",
+          "metadata": {
+            "message": null,
+            "phoneNumber": "0733001122",
+            "live_stream_id": null,
+            "streamId": null,
+            "initiatedFrom": "Web",
+            "initiatedIp": "127.0.0.1"
+          }
+        },
+        "response": {
+          "status": "pending",
+          "paymentId": "3705d641-6648-4a3f-bc99-c6291c24656a"
+        },
+        "timestamp": "2026-09-20T02:38:29.803Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-1j113vl03",
+      "created_at": "2026-09-20T02:38:29.854Z",
+      "uploaded_at": "2026-09-20T02:38:29.905Z",
+      "purchased_at": "2026-09-20T02:38:29.905Z",
+      "payment_id": "030b5f93-b3f9-4174-8afe-99e307cac5bc",
+      "event": "provider_airtel_money_collect_payment_simulated",
+      "payload": {
+        "request": {
+          "amount": 600,
+          "currency": "RWF",
+          "phoneNumber": "733001122",
+          "reference": "3705d641-6648-4a3f-bc99-c6291c24656a"
+        },
+        "response": {
+          "status": "pending",
+          "mode": "sandbox_simulation"
+        },
+        "timestamp": "2026-09-20T02:38:29.854Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-4j3gbloq4",
+      "created_at": "2026-09-20T02:38:30.502Z",
+      "uploaded_at": "2026-09-20T02:38:30.549Z",
+      "purchased_at": "2026-09-20T02:38:30.549Z",
+      "payment_id": "3705d641-6648-4a3f-bc99-c6291c24656a",
+      "event": "provider_airtel_money_payment.completed",
+      "payload": {
+        "request": {
+          "paymentId": "3705d641-6648-4a3f-bc99-c6291c24656a",
+          "providerTransactionId": "SIM-APPROVE-MU97ISN4",
+          "completedAt": "2026-09-20T02:38:30.062Z",
+          "split": {
+            "vat": 30,
+            "afterVat": 570,
+            "artistShare": 399,
+            "ownerShare": 171
+          }
+        },
+        "response": {
+          "status": "paid"
+        },
+        "timestamp": "2026-09-20T02:38:30.502Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-jchwbezpw",
+      "created_at": "2026-09-20T02:38:31.120Z",
+      "uploaded_at": "2026-09-20T02:38:31.174Z",
+      "purchased_at": "2026-09-20T02:38:31.174Z",
+      "payment_id": "aab70ffa-af83-4132-b305-edf90e31559c",
+      "event": "provider_stripe_payment.initiated",
+      "payload": {
+        "request": {
+          "provider": "stripe",
+          "amount": 600,
+          "currency": "RWF",
+          "paymentType": "purchase",
+          "userId": "google-user-demo",
+          "metadata": {
+            "message": null,
+            "phoneNumber": null,
+            "live_stream_id": null,
+            "streamId": null,
+            "initiatedFrom": "Web",
+            "initiatedIp": "127.0.0.1"
+          }
+        },
+        "response": {
+          "status": "pending",
+          "paymentId": "aab70ffa-af83-4132-b305-edf90e31559c"
+        },
+        "timestamp": "2026-09-20T02:38:31.120Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-zk0pia7jn",
+      "created_at": "2026-09-20T02:38:31.233Z",
+      "uploaded_at": "2026-09-20T02:38:31.280Z",
+      "purchased_at": "2026-09-20T02:38:31.280Z",
+      "payment_id": "aab70ffa-af83-4132-b305-edf90e31559c",
+      "event": "provider_stripe_create_payment_intent_fallback",
+      "payload": {
+        "request": {
+          "amount": 600,
+          "currency": "rwf",
+          "metadata": {
+            "paymentId": "aab70ffa-af83-4132-b305-edf90e31559c",
+            "userId": "google-user-demo",
+            "videoId": "c9123c49-2b9e-41c2-ba54-c2128656bedc",
+            "artistId": "c62805fe-7e6a-404e-9da9-094a0ed703b7",
+            "paymentType": "purchase"
+          }
+        },
+        "response": {
+          "error": "Invalid API Key provided: sk_test_***********_key",
+          "simulated": true
+        },
+        "timestamp": "2026-09-20T02:38:31.233Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-zz06p5heh",
+      "created_at": "2026-09-21T12:39:40.256Z",
+      "uploaded_at": "2026-09-21T12:39:40.348Z",
+      "purchased_at": "2026-09-21T12:39:40.348Z",
+      "payment_id": "b730f98f-6e5a-494d-a6e1-08ead2473dc9",
+      "event": "provider_mtn_momo_payment.initiated",
+      "payload": {
+        "request": {
+          "provider": "mtn_momo",
+          "amount": 1000,
+          "currency": "RWF",
+          "paymentType": "purchase",
+          "userId": "guest-e15112d2",
+          "metadata": {
+            "message": null,
+            "phoneNumber": "0788123456",
+            "live_stream_id": null,
+            "streamId": null,
+            "initiatedFrom": "curl/7.88.1",
+            "initiatedIp": "127.0.0.1"
+          }
+        },
+        "response": {
+          "status": "pending",
+          "paymentId": "b730f98f-6e5a-494d-a6e1-08ead2473dc9"
+        },
+        "timestamp": "2026-09-21T12:39:40.256Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-2h8s3cjvl",
+      "created_at": "2026-09-21T12:39:40.350Z",
+      "uploaded_at": "2026-09-21T12:39:40.442Z",
+      "purchased_at": "2026-09-21T12:39:40.442Z",
+      "payment_id": "b730f98f-6e5a-494d-a6e1-08ead2473dc9",
+      "event": "provider_mtn_momo_requesttopay_simulated",
+      "payload": {
+        "request": {
+          "amount": 1000,
+          "currency": "RWF",
+          "phoneNumber": "250788123456",
+          "payerMessage": "PAYTUNE payment"
+        },
+        "response": {
+          "status": 202,
+          "referenceId": "e888b5be-5a84-494c-9fec-06cb6366d1e5",
+          "mode": "sandbox_simulation"
+        },
+        "timestamp": "2026-09-21T12:39:40.350Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-5sstbgqi8",
+      "created_at": "2026-09-21T12:40:06.839Z",
+      "uploaded_at": "2026-09-21T12:40:06.900Z",
+      "purchased_at": "2026-09-21T12:40:06.900Z",
+      "payment_id": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+      "event": "provider_mtn_momo_payment.initiated",
+      "payload": {
+        "request": {
+          "provider": "mtn_momo",
+          "amount": 1000,
+          "currency": "RWF",
+          "paymentType": "purchase",
+          "userId": "guest-e15112d2",
+          "metadata": {
+            "message": null,
+            "phoneNumber": "0788123456",
+            "live_stream_id": null,
+            "streamId": null,
+            "initiatedFrom": "curl/7.88.1",
+            "initiatedIp": "127.0.0.1"
+          }
+        },
+        "response": {
+          "status": "pending",
+          "paymentId": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac"
+        },
+        "timestamp": "2026-09-21T12:40:06.839Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-xrqk0yxbu",
+      "created_at": "2026-09-21T12:40:06.901Z",
+      "uploaded_at": "2026-09-21T12:40:06.959Z",
+      "purchased_at": "2026-09-21T12:40:06.959Z",
+      "payment_id": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+      "event": "provider_mtn_momo_requesttopay_simulated",
+      "payload": {
+        "request": {
+          "amount": 1000,
+          "currency": "RWF",
+          "phoneNumber": "250788123456",
+          "payerMessage": "PAYTUNE payment"
+        },
+        "response": {
+          "status": 202,
+          "referenceId": "6acf50ab-9f01-4f50-af08-7d76a5093c22",
+          "mode": "sandbox_simulation"
+        },
+        "timestamp": "2026-09-21T12:40:06.901Z"
+      }
+    },
+    {
+      "id": "mock-payment_logs-ajtgyjm9i",
+      "created_at": "2026-09-21T12:40:10.681Z",
+      "uploaded_at": "2026-09-21T12:40:10.736Z",
+      "purchased_at": "2026-09-21T12:40:10.736Z",
+      "payment_id": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+      "event": "provider_mtn_momo_payment.completed",
+      "payload": {
+        "request": {
+          "paymentId": "5d04b326-8101-499a-b8ab-5cdd6e9b53ac",
+          "providerTransactionId": "SIM-APPROVE-MUB8GE9Y",
+          "completedAt": "2026-09-21T12:40:10.105Z",
+          "split": {
+            "vat": 50,
+            "afterVat": 950,
+            "artistShare": 665,
+            "ownerShare": 285
+          }
+        },
+        "response": {
+          "status": "paid"
+        },
+        "timestamp": "2026-09-21T12:40:10.681Z"
+      }
+    }
+  ]
+}

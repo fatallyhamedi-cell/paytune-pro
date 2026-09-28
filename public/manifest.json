@@ -1,0 +1,22 @@
+{
+  "name": "PAYTUNE — Digital Music & Video Marketplace",
+  "short_name": "PAYTUNE",
+  "description": "Monetize and enjoy high-fidelity music tracks and videos with lifetime access.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#080d19",
+  "theme_color": "#090e1c",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=PAYTUNE",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=PAYTUNE",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

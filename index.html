@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#FFB300" />
+    <meta name="description" content="PayTune is a pay-per-view music and video platform where Rwandan artists monetize their content, users pay once to watch forever, and revenue is split 70% artist / 30% owner after 5% VAT." />
+    <meta property="og:title" content="PAYTUNE" />
+    <meta property="og:description" content="PayTune is a pay-per-view music and video platform where Rwandan artists monetize their content, users pay once to watch forever, and revenue is split 70% artist / 30% owner after 5% VAT." />
+    <meta property="og:type" content="website" />
+    
+    <!-- Cross Platform Web App (PWA) & iOS Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PAYTUNE" />
+    <meta name="application-name" content="PAYTUNE" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Web Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <title>PAYTUNE — Digital Music & Video Marketplace</title>
+    <script>
+      // Browser environment polyfill for process.cwd and process.env
+      if (typeof window !== 'undefined') {
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
+        window.process.cwd = typeof window.process.cwd === 'function' ? window.process.cwd : function() { return '/'; };
+        window.process.browser = true;
+      }
+
+      // Suppress benign Vite HMR WebSocket errors in sandboxed dev environment
+      (function() {
+        function isViteWsError(err) {
+          if (!err) return false;
+          var msg = String(err.message || err.reason || err || '');
+          var stack = String(err.stack || '');
+          return (
+            msg.indexOf('WebSocket closed without opened') !== -1 ||
+            msg.indexOf('failed to connect to websocket') !== -1 ||
+            msg.indexOf('[vite]') !== -1 ||
+            stack.indexOf('vite/dist/client') !== -1 ||
+            stack.indexOf('@vite/client') !== -1
+          );
+        }
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isViteWsError(event.reason)) {
+            event.preventDefault();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        }, true);
+
+        window.addEventListener('error', function(event) {
+          if (isViteWsError(event.message) || isViteWsError(event.error)) {
+            event.preventDefault();
+            if (typeof event.stopImmediatePropagation === 'function') {
+              event.stopImmediatePropagation();
+            }
+          }
+        }, true);
+
+        var _origError = console.error;
+        console.error = function() {
+          var args = Array.prototype.slice.call(arguments);
+          var text = args.map(function(a) { return String((a && a.message) || a); }).join(' ');
+          if (
+            text.indexOf('WebSocket closed without opened') !== -1 ||
+            text.indexOf('failed to connect to websocket') !== -1
+          ) {
+            return;
+          }
+          _origError.apply(console, args);
+        };
+      })();
+    </script>
+  </head>
+  <body class="bg-white dark:bg-[#0F0F0F] text-gray-900 dark:text-gray-100 antialiased selection:bg-amber-500 selection:text-black">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

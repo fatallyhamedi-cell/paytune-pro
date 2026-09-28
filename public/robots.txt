@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /master-admin/
+Disallow: /master/
+Disallow: /api/master/
+
+Sitemap: https://paytune.com/sitemap.xml

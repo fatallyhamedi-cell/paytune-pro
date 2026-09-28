@@ -1,0 +1,6 @@
+{
+  "name": "PAYTUNE",
+  "description": "PayTune is a pay-per-view music and video platform where Rwandan artists monetize their content, users pay once to watch forever, and revenue is split 70% artist / 30% owner after 5% VAT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
