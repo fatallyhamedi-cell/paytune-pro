@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { Country, ExchangeRate } from '../types/payment';
-import { COUNTRIES, EXCHANGE_RATES, formatCurrency, convertRwfToCurrency, findCountry } from '../services/currencyService';
+import { COUNTRIES, EXCHANGE_RATES, convertRwfToCurrency, findCountry } from '../services/currencyService';
 
 interface CurrencyContextType {
   currentCountry: Country;
@@ -31,14 +31,33 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [loading, setLoading] = useState(false);
 
-  // Sync with backend on mount
+  // Sync with backend on mount using sessionStorage cache to prevent 429
   useEffect(() => {
+    const cached = sessionStorage.getItem('currency_ctx');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.rates) setExchangeRates(parsed.rates);
+        if (parsed.countries && Array.isArray(parsed.countries)) setCountries(parsed.countries);
+        return;
+      } catch {}
+    }
+
+    let cancelled = false;
     const fetchMetadata = async () => {
       try {
         const [cRes, rRes] = await Promise.all([
-          axios.get('/api/countries').catch(() => ({ data: COUNTRIES })),
-          axios.get('/api/exchange-rates').catch(() => ({ data: { rates: EXCHANGE_RATES } }))
+          axios.get('/api/countries').catch((err) => {
+            if (err.response?.status === 429) return { data: COUNTRIES };
+            return { data: COUNTRIES };
+          }),
+          axios.get('/api/exchange-rates').catch((err) => {
+            if (err.response?.status === 429) return { data: { rates: EXCHANGE_RATES } };
+            return { data: { rates: EXCHANGE_RATES } };
+          })
         ]);
+
+        if (cancelled) return;
 
         if (Array.isArray(cRes.data) && cRes.data.length > 0) {
           setCountries(cRes.data);
@@ -46,11 +65,22 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (rRes.data?.rates) {
           setExchangeRates(rRes.data.rates);
         }
+
+        try {
+          sessionStorage.setItem('currency_ctx', JSON.stringify({
+            countries: cRes.data,
+            rates: rRes.data?.rates || EXCHANGE_RATES
+          }));
+        } catch {}
       } catch (err) {
         // Silently use defaults
       }
     };
     fetchMetadata();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const setCountryByCode = (code: string) => {

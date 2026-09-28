@@ -427,7 +427,7 @@ export default function LiveWatch() {
               // Live Broadcast Video
               <div className="w-full h-full relative">
                 <video 
-                  src={stream.stream_url && !stream.stream_url.includes('commondatastorage.googleapis.com') ? stream.stream_url : "https://media.w3.org/2010/05/sintel/trailer.mp4"}
+                  src={stream.stream_url || ""}
                   className="w-full h-full object-cover"
                   autoPlay
                   controls

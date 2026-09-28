@@ -74,7 +74,7 @@ export default function Home() {
     queryKey: ["videos", "trending"],
     queryFn: async () => {
       const res = await axios.get("/api/videos/trending");
-      return Array.isArray(res.data) ? res.data : [];
+      return res.data?.videos || (Array.isArray(res.data) ? res.data : []);
     }
   });
 
@@ -88,7 +88,7 @@ export default function Home() {
     queryKey: ["videos", "new"],
     queryFn: async () => {
       const res = await axios.get("/api/videos/new");
-      return Array.isArray(res.data) ? res.data : [];
+      return res.data?.videos || (Array.isArray(res.data) ? res.data : []);
     }
   });
 
@@ -102,7 +102,7 @@ export default function Home() {
     queryKey: ["videos", "recommended"],
     queryFn: async () => {
       const res = await axios.get("/api/videos/recommended");
-      return Array.isArray(res.data) ? res.data : [];
+      return res.data?.videos || (Array.isArray(res.data) ? res.data : []);
     }
   });
 

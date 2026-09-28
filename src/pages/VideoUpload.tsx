@@ -26,6 +26,8 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import { uploadDirect } from "../services/uploadDirect";
+import api from "../services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -189,22 +191,44 @@ export default function VideoUpload() {
     }
     data.append("visibility", visibility);
 
-    const targetUrl = isShort ? "/api/artist/short/upload" : "/api/artist/video/upload";
-
     try {
-      // Simulate real progress intervals if the actual file upload is super small/fast or use real metrics
-      const response = await axios.post(targetUrl, data, {
-        onUploadProgress: (progressEvent) => {
-          const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-          setUploadProgress(progress);
-        }
+      setUploadProgress(10);
+      const bucket = isShort ? "videos" : (videoFile.type?.startsWith("audio") ? "audio" : "videos");
+      const videoUrl = await uploadDirect(bucket, videoFile, (p) => {
+        setUploadProgress(10 + Math.round(p * 0.7));
       });
+
+      let thumbnailUrl: string | null = null;
+      if (thumbnailFile) {
+        thumbnailUrl = await uploadDirect("thumbnails", thumbnailFile);
+      }
+
+      setUploadProgress(90);
+
+      const response = await api.post("/artist/video/complete", {
+        videoUrl,
+        thumbnailUrl,
+        title,
+        description,
+        category: isShort ? "Shorts" : category,
+        price_rwf: isShort || isFreeVideo ? 0 : Number(priceRwf),
+        price_usd: isShort || isFreeVideo ? 0 : Number(priceUsd),
+        is_free: isShort || isFreeVideo,
+        is_short: isShort,
+        visibility,
+        media_type: isShort ? "short" : (videoFile.type?.startsWith("audio") ? "audio" : "video"),
+        ownership_declared: true,
+        no_ai_declared: true,
+        no_copyright_declared: true,
+      });
+
+      setUploadProgress(100);
       const videoId = response.data?.video?.id || "unique_link";
       setSuccessLink(`paytune.com/v/${videoId}`);
       setSuccess(true);
-      setTimeout(() => navigate("/artist/dashboard"), 4000);
+      setTimeout(() => navigate("/artist/dashboard"), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Upload failed. Try again.");
+      setError(err.response?.data?.error || err.response?.data?.message || err.message || "Upload failed. Try again.");
     } finally {
       setLoading(false);
     }

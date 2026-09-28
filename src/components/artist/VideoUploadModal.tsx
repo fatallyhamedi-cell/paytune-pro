@@ -14,6 +14,8 @@ import {
   Monitor
 } from 'lucide-react';
 import axios from 'axios';
+import { uploadDirect } from '../../services/uploadDirect';
+import api from '../../services/api';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -136,33 +138,35 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
     setUploadProgress(15);
 
     try {
-      // Simulate progressive upload
-      const progressTimer = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressTimer);
-            return 90;
-          }
-          return prev + 25;
+      let videoUrl = '';
+      if (videoFile) {
+        setUploadProgress(25);
+        videoUrl = await uploadDirect(isShort ? 'videos' : 'videos', videoFile, (p) => {
+          setUploadProgress(20 + Math.round(p * 0.65));
         });
-      }, 300);
+      }
+
+      setUploadProgress(90);
 
       const payload = {
+        videoUrl,
+        thumbnailUrl: null,
         title,
         description,
         category: isShort ? 'Shorts' : category,
         is_free: isShort ? true : isFree,
         price_rwf: isShort ? 0 : (isFree ? 0 : priceRwf),
+        price_usd: isShort ? 0 : Math.round(priceRwf / 1400),
         visibility,
-        preview_duration: isShort ? (detectedDuration || 30) : previewDuration,
-        is_short: isShort,
         duration: detectedDuration || (isShort ? 45 : 240),
-        aspect_ratio: detectedAspectRatio || (isShort ? '9:16' : '16:9')
+        media_type: isShort ? 'short' : 'video',
+        ownership_declared: true,
+        no_ai_declared: true,
+        no_copyright_declared: true,
       };
 
-      await axios.post('/api/artist/video/upload', payload);
+      await api.post('/artist/video/complete', payload);
       
-      clearInterval(progressTimer);
       setUploadProgress(100);
       setCompleted(true);
       onSuccess();

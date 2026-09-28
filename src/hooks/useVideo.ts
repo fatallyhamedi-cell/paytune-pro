@@ -72,16 +72,29 @@ export function useVideo(videoId: string | undefined) {
 
   const [savedProgress, setSavedProgress] = useState<number>(0);
 
+  // Resilient get with retry on 429
+  const resilientGet = async (url: string) => {
+    try {
+      return await api.get(url);
+    } catch (err: any) {
+      if (err?.response?.status === 429) {
+        await new Promise((r) => setTimeout(r, 600));
+        return await api.get(url);
+      }
+      throw err;
+    }
+  };
+
   // Fetch single video
   const fetchVideo = useCallback(async () => {
     if (!videoId) return;
     try {
       setLoading(true);
       setError(null);
-      const res = await api.get(`/api/videos/${videoId}`);
+      const res = await resilientGet(`/api/videos/${videoId}`);
       setVideo(res.data);
     } catch (err: any) {
-      console.error("Failed to load video details:", err);
+      console.warn("Notice: video details query returned:", err?.response?.status || err?.message);
       setError(err.response?.data?.message || err.message || "Failed to load video");
     } finally {
       setLoading(false);
@@ -93,10 +106,10 @@ export function useVideo(videoId: string | undefined) {
     if (!videoId) return;
     try {
       setLoadingRelated(true);
-      const res = await api.get(`/api/videos/${videoId}/related`);
+      const res = await resilientGet(`/api/videos/${videoId}/related`);
       setRelatedVideos(res.data || []);
     } catch (err) {
-      console.error("Failed to load related videos:", err);
+      setRelatedVideos([]);
     } finally {
       setLoadingRelated(false);
     }
@@ -107,10 +120,10 @@ export function useVideo(videoId: string | undefined) {
     if (!videoId) return;
     try {
       setLoadingComments(true);
-      const res = await api.get(`/api/comments/${videoId}`);
+      const res = await resilientGet(`/api/comments/${videoId}`);
       setComments(res.data || []);
     } catch (err) {
-      console.error("Failed to load comments:", err);
+      setComments([]);
     } finally {
       setLoadingComments(false);
     }

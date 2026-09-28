@@ -113,8 +113,8 @@ export const getComments = async (req: Request, res: Response) => {
 
     res.json(topLevel);
   } catch (error: any) {
-    console.error("getComments error:", error);
-    res.status(500).json({ error: error.message || "Failed to fetch comments" });
+    console.warn("getComments fallback to empty list:", error?.message || error);
+    res.json([]);
   }
 };
 

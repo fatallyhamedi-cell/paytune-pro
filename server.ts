@@ -35,6 +35,7 @@ import authRouter from "./src/routes/authRoutes";
 import artistAuthRoutes from "./backend/src/routes/authArtist";
 import artistDashboardRoutes from "./backend/src/routes/artistDashboard";
 import artistUploadRoutes from "./backend/src/routes/artistUploadRoutes";
+import exchangeRoutes from "./backend/src/routes/exchangeRoutes";
 import uploadRouter from "./src/routes/uploadRoutes";
 import copyrightRouter, { dmcaRouter } from "./src/routes/copyrightRoutes";
 import adRouter from "./src/routes/adRoutes";
@@ -131,7 +132,7 @@ app.use(inputSanitizer);
 // 3. Defensive security: API Rate Limiters to safeguard from high-frequency brute-forcing or payment exhaustion
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: 300, 
+  max: 5000, 
   standardHeaders: true,
   legacyHeaders: false,
   validate: {
@@ -140,10 +141,18 @@ const apiLimiter = rateLimit({
   },
   message: {
     error: "Too Many Requests",
-    message: "Security rate limit reached. Please retry after 15 minutes."
+    message: "Security rate limit reached. Please retry after a few minutes."
   },
   skip: (req) => {
-    return req.originalUrl === "/api/health" || req.originalUrl.includes("/api/diagnostics");
+    return (
+      req.method === 'GET' ||
+      req.originalUrl === "/api/health" ||
+      req.originalUrl.includes("/api/diagnostics") ||
+      req.originalUrl.includes("/api/exchange-rates") ||
+      req.originalUrl.includes("/api/artists") ||
+      req.originalUrl.includes("/api/videos") ||
+      req.originalUrl.includes("/api/comments")
+    );
   }
 });
 
@@ -434,6 +443,8 @@ app.use("/api", globalPaymentRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/master", masterRouter);
 app.use("/api/videos", videoRouter);
+const resolvedExchangeRoutes = (exchangeRoutes as any)?.default || exchangeRoutes;
+app.use("/api/exchange-rates", resolvedExchangeRoutes);
 app.use("/api/ads", adRouter);
 app.use("/api/shorts", shortsRouter);
 app.use("/api/artists", artistRouter);

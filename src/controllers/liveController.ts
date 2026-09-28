@@ -38,8 +38,7 @@ export const createStream = async (req: Request, res: Response) => {
 
     const stream_key = `${artist.username || "artist"}_live_${Math.random().toString(36).substring(2, 11)}`;
     const ingest_url = "rtmp://live.paytune.com/app";
-    // Default reliable sample stream for preview and testing
-    const stream_url = "https://media.w3.org/2010/05/sintel/trailer.mp4";
+    const stream_url = "";
 
     const isScheduled = !!scheduled_start && new Date(scheduled_start) > new Date();
 
@@ -161,7 +160,7 @@ export const endStream = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Unauthorized to control this stream." });
     }
 
-    const vodUrl = stream.stream_url || "https://media.w3.org/2010/05/sintel/trailer.mp4";
+    const vodUrl = stream.stream_url || "";
 
     const { data: updated, error } = await supabaseAdmin
       .from("live_streams")

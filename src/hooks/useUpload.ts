@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
+import { uploadDirect } from '../services/uploadDirect';
 
 export interface VideoUploadPayload {
   title: string;
@@ -27,72 +28,55 @@ export function useUpload() {
 
   const uploadVideo = async (payload: VideoUploadPayload) => {
     setUploading(true);
-    setProgress(0);
+    setProgress(5);
     setError(null);
     setSuccess(false);
 
     try {
-      // 1. Validation
       if (!payload.title?.trim()) {
         throw new Error('Please provide a title for your release.');
       }
 
-      // 2. Shorts Validation: max 50 seconds, 9:16 aspect ratio
       if (payload.is_short) {
         if (payload.duration && payload.duration > 50) {
           throw new Error('Shorts must be 50 seconds or less in duration.');
         }
-        if (payload.aspect_ratio && payload.aspect_ratio !== '9:16' && payload.aspect_ratio !== 'vertical') {
-          throw new Error('Shorts must have a vertical 9:16 aspect ratio.');
-        }
       }
 
-      // 3. Price validation
-      if (!payload.is_free && (!payload.price_rwf || payload.price_rwf < 100)) {
-        throw new Error('Paid releases must have a minimum price of 100 RWF.');
-      }
-
-      // 4. Prepare FormData or JSON
-      const formData = new FormData();
-      formData.append('title', payload.title);
-      formData.append('description', payload.description || '');
-      formData.append('category', payload.category || 'Afrobeat');
-      formData.append('is_free', String(payload.is_free));
-      formData.append('price_rwf', String(payload.is_free ? 0 : payload.price_rwf));
-      formData.append('price_usd', String(payload.is_free ? 0 : (payload.price_usd || Math.round(payload.price_rwf / 1400))));
-      formData.append('visibility', payload.visibility || 'public');
-      formData.append('is_short', String(payload.is_short));
-      formData.append('duration', String(payload.duration || (payload.is_short ? 45 : 240)));
-      if (payload.tags && payload.tags.length > 0) {
-        formData.append('tags', payload.tags.join(','));
-      }
-
+      let videoUrl = payload.video_url || '';
       if (payload.videoFile) {
-        formData.append('video', payload.videoFile);
-      }
-      if (payload.thumbnailFile) {
-        formData.append('thumbnail', payload.thumbnailFile);
-      }
-      if (payload.video_url) {
-        formData.append('video_url', payload.video_url);
-      }
-      if (payload.thumbnail_url) {
-        formData.append('thumbnail_url', payload.thumbnail_url);
+        setProgress(15);
+        videoUrl = await uploadDirect('videos', payload.videoFile, (p) => {
+          setProgress(15 + Math.round(p * 0.65));
+        });
       }
 
-      // 5. Send with upload progress tracking
-      const res = await axios.post('/api/artist/video/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setProgress(Math.min(95, percentCompleted));
-          } else {
-            setProgress((prev) => Math.min(prev + 15, 90));
-          }
-        }
+      if (!videoUrl) {
+        throw new Error('Please select a video file to upload.');
+      }
+
+      let thumbnailUrl = payload.thumbnail_url || null;
+      if (payload.thumbnailFile) {
+        thumbnailUrl = await uploadDirect('thumbnails', payload.thumbnailFile);
+      }
+
+      setProgress(90);
+
+      const res = await api.post('/artist/video/complete', {
+        videoUrl,
+        thumbnailUrl,
+        title: payload.title.trim(),
+        description: payload.description || '',
+        category: payload.category || 'Afrobeat',
+        price_rwf: payload.is_free ? 0 : payload.price_rwf,
+        price_usd: payload.is_free ? 0 : (payload.price_usd || Math.round((payload.price_rwf || 0) / 1400)),
+        is_free: payload.is_free,
+        is_short: payload.is_short,
+        visibility: payload.visibility || 'public',
+        media_type: payload.is_short ? 'short' : 'video',
+        ownership_declared: true,
+        no_ai_declared: true,
+        no_copyright_declared: true,
       });
 
       setProgress(100);
@@ -114,12 +98,5 @@ export function useUpload() {
     setSuccess(false);
   };
 
-  return {
-    uploadVideo,
-    uploading,
-    progress,
-    error,
-    success,
-    reset
-  };
+  return { uploadVideo, uploading, progress, error, success, reset };
 }

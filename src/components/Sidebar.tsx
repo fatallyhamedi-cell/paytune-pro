@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -32,60 +33,32 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
   const { roleData, user } = useAuth();
   const [followingArtists, setFollowingArtists] = useState<any[]>([]);
 
+  const { data: artistsData } = useQuery({
+    queryKey: ['artists', 'sidebar'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/artists');
+        return res.data;
+      } catch {
+        return { artists: [] };
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnWindowFocus: false,
+    retry: 0,
+  });
+
   useEffect(() => {
-    if (user) {
-      api.get('/api/user/following/artists')
-        .then(res => {
-          if (Array.isArray(res.data) && res.data.length > 0) {
-            setFollowingArtists(res.data.map((a: any) => ({
-              id: a.id,
-              name: a.name || a.full_name,
-              avatar: a.avatar || a.avatar_url || a.profile_image || '',
-              live: !!a.live
-            })));
-          } else {
-            // Fetch public artists from real database
-            api.get('/api/artists')
-              .then(aRes => {
-                const list = Array.isArray(aRes.data) ? aRes.data : (aRes.data?.artists || []);
-                setFollowingArtists(list.slice(0, 5).map((a: any) => ({
-                  id: a.id,
-                  name: a.full_name || a.name,
-                  avatar: a.avatar_url || a.profile_image || '',
-                  live: false
-                })));
-              })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {
-          // Public artists fallback from real DB
-          api.get('/api/artists')
-            .then(aRes => {
-              const list = Array.isArray(aRes.data) ? aRes.data : (aRes.data?.artists || []);
-              setFollowingArtists(list.slice(0, 5).map((a: any) => ({
-                id: a.id,
-                name: a.full_name || a.name,
-                avatar: a.avatar_url || a.profile_image || '',
-                live: false
-              })));
-            })
-            .catch(() => {});
-        });
-    } else {
-      api.get('/api/artists')
-        .then(aRes => {
-          const list = Array.isArray(aRes.data) ? aRes.data : (aRes.data?.artists || []);
-          setFollowingArtists(list.slice(0, 5).map((a: any) => ({
-            id: a.id,
-            name: a.full_name || a.name,
-            avatar: a.avatar_url || a.profile_image || '',
-            live: false
-          })));
-        })
-        .catch(() => {});
+    const rawList = Array.isArray(artistsData) ? artistsData : (artistsData?.artists || []);
+    if (rawList.length > 0) {
+      setFollowingArtists(rawList.slice(0, 5).map((a: any) => ({
+        id: a.id,
+        name: a.full_name || a.name,
+        avatar: a.avatar_url || a.profile_image || '',
+        live: false
+      })));
     }
-  }, [user]);
+  }, [artistsData]);
 
   const isArtist = Boolean(roleData?.momo_code || roleData?.role === "artist");
 

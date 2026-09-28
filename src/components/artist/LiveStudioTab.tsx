@@ -141,13 +141,11 @@ export const LiveStudioTab: React.FC<LiveStudioTabProps> = ({ artist }) => {
           {/* Stream Monitor Preview */}
           <div className="bg-black rounded-2xl overflow-hidden border border-white/10 relative aspect-video flex items-center justify-center group shadow-2xl">
             {streamStatus === 'live' ? (
-              <video
-                src="https://media.w3.org/2010/05/sintel/trailer.mp4"
-                autoPlay
-                loop
-                muted
-                className="w-full h-full object-cover"
-              />
+              <div className="w-full h-full flex flex-col items-center justify-center bg-black text-center p-6 space-y-3">
+                <div className="w-4 h-4 rounded-full bg-red-500 animate-ping mb-2" />
+                <h4 className="text-sm font-bold text-red-400 uppercase tracking-wider">Broadcasting Live</h4>
+                <p className="text-xs text-gray-400">RTMP Signal Active • {viewers} Viewers</p>
+              </div>
             ) : (
               <div className="text-center p-6 space-y-3">
                 <div className="p-4 rounded-full bg-white/5 border border-white/10 text-gray-500 inline-block">

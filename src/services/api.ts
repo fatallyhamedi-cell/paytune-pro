@@ -22,5 +22,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    // Only clear session on authenticated route failures
+    const url = err.config?.url || '';
+    const isAuthRoute = url.includes('/auth/');
+    if (err.response?.status === 401 && !isAuthRoute) {
+      // Do NOT auto-redirect or wipe token blindly; let caller decide
+    }
+    return Promise.reject(err);
+  }
+);
+
 export { api };
 export default api;

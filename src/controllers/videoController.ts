@@ -3,10 +3,7 @@ import { supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
 import { getDbStore } from '../config/supabase_mock';
 
 const sanitizeMediaUrl = (url?: string): string => {
-  if (!url) return "https://media.w3.org/2010/05/sintel/trailer.mp4";
-  if (url.includes("commondatastorage.googleapis.com")) {
-    return "https://media.w3.org/2010/05/sintel/trailer.mp4";
-  }
+  if (!url) return "";
   return url;
 };
 
@@ -26,7 +23,7 @@ function normalizeVideo(v: any, artistsMap?: Record<string, any>) {
     full_name: v.artist_name || "PAYTUNE Artist",
     profile_image: "",
     is_verified: true,
-    subscribers_count: 14200
+    subscribers_count: 0
   };
 
   const isFree = isShort ? true : (v.is_free === true || !v.price_rwf);
@@ -35,14 +32,14 @@ function normalizeVideo(v: any, artistsMap?: Record<string, any>) {
 
   const tags = Array.isArray(v.tags) 
     ? v.tags 
-    : (typeof v.tags === 'string' ? v.tags.split(',').map((t: string) => t.trim()) : [v.category || "Afrobeat", "Kigali", "PAYTUNE", "RwandanMusic"]);
+    : (typeof v.tags === 'string' ? v.tags.split(',').map((t: string) => t.trim()) : [v.category || "Afrobeat", "PAYTUNE"]);
 
   return {
     id: String(v.id),
     title: v.title || "Untitled Music Video",
     artist_name: artist.full_name || v.artist_name || "PAYTUNE Artist",
     artist_id: String(v.artist_id || artist.id || "artist-1"),
-    thumbnail_url: v.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80",
+    thumbnail_url: v.thumbnail_url || "",
     preview_url: sanitizeMediaUrl(v.preview_url || v.video_url),
     video_url: sanitizeMediaUrl(v.video_url || v.preview_url),
     price_rwf: priceRwf,

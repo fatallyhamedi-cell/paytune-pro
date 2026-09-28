@@ -23,6 +23,7 @@ export default function ArtistUpload() {
 
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [statusInfo, setStatusInfo] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -32,6 +33,7 @@ export default function ArtistUpload() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setStatusInfo('');
 
     if (!videoFile) return setError('Please select a video file.');
     if (!title.trim()) return setError('Title is required.');
@@ -46,21 +48,21 @@ export default function ArtistUpload() {
 
     try {
       // Step 1: Upload video directly to Supabase Storage (Bypasses Cloud Run 32 MB cap)
-      setSuccess('Uploading video directly to storage...');
+      setStatusInfo('Uploading video directly to storage...');
       const videoUrl = await uploadDirect('videos', videoFile, (p) => setProgress(Math.round(p * 0.8)));
 
       // Step 2: Optional thumbnail
       let thumbnailUrl: string | null = null;
       if (thumbFile) {
-        setSuccess('Uploading thumbnail...');
+        setStatusInfo('Uploading thumbnail...');
         thumbnailUrl = await uploadDirect('thumbnails', thumbFile);
       }
 
       setProgress(90);
-      setSuccess('Finalizing release registration...');
+      setStatusInfo('Finalizing release registration...');
 
       // Step 3: Tell backend to create the video row
-      const res = await api.post('/artist/video/complete', {
+      await api.post('/artist/video/complete', {
         videoUrl,
         thumbnailUrl,
         title: title.trim(),
@@ -78,9 +80,10 @@ export default function ArtistUpload() {
       });
 
       setProgress(100);
-      setSuccess(res.data?.message || 'Video uploaded successfully! It is now being reviewed by our team.');
+      setStatusInfo('');
+      setSuccess('Video uploaded successfully! It is now being reviewed.');
 
-      // Redirect after 2.5 seconds
+      // Redirect to /artist/dashboard/videos after 2.5 seconds
       setTimeout(() => navigate('/artist/dashboard/videos'), 2500);
     } catch (err: any) {
       const msg =
@@ -89,6 +92,7 @@ export default function ArtistUpload() {
         'Upload failed. Please try again.';
       setError(msg);
       setSuccess('');
+      setStatusInfo('');
     } finally {
       setLoading(false);
     }
@@ -108,8 +112,16 @@ export default function ArtistUpload() {
         </div>
       )}
 
+      {statusInfo && !error && !success && (
+        <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 p-3 rounded-xl mb-4 text-sm flex items-center justify-between">
+          <span>{statusInfo}</span>
+          <span className="font-mono font-bold">{progress}%</span>
+        </div>
+      )}
+
       {success && !error && (
-        <div className="bg-green-500/20 border border-green-500 text-green-300 p-3 rounded-xl mb-4 text-sm font-semibold">
+        <div className="bg-green-500/20 border border-green-500 text-green-300 p-4 rounded-xl mb-4 text-sm font-semibold flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-ping mr-1" />
           {success}
         </div>
       )}
