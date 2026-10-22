@@ -11,16 +11,17 @@ interface SplitResult {
 }
 
 export function calculateSplit(amount: number): SplitResult {
+  const num = Number(amount) || 0;
   const vatRate = Number(process.env.VAT_PERCENTAGE || 5) / 100;
   const artistRate = Number(process.env.ARTIST_SHARE_PERCENTAGE || 70) / 100;
 
-  const vat = amount * vatRate;
-  const afterVat = amount - vat;
-  const artistShare = afterVat * artistRate;
-  const ownerShare = afterVat * (1 - artistRate);
+  const vat = Number((num * vatRate).toFixed(2));
+  const afterVat = Number((num - vat).toFixed(2));
+  const artistShare = Number((afterVat * artistRate).toFixed(2));
+  const ownerShare = Number((afterVat * (1 - artistRate)).toFixed(2));
 
   return {
-    total: amount,
+    total: num,
     vat,
     afterVat,
     artistShare,

@@ -1,0 +1,682 @@
+# MASTER IMPLEMENTATION PROMPT — PAYTUNE
+## Complete Full-Stack Video Marketplace | Production Engineering Task
+
+Act as a senior full-stack software architect, senior frontend and backend engineer, database engineer, payment integration specialist, security engineer, QA automation engineer, and DevOps engineer.
+
+Your task is to **inspect, implement, integrate, test, debug, and document the existing PayTune application in its actual project files**.
+
+Do not merely explain how to build the application. Work directly in the available project workspace using the tools and capabilities provided by your environment.
+
+Do not stop after producing a mockup, prototype, architecture document, database blueprint, or sample code. Continue until the implemented features have been tested, failures have been addressed, and the remaining limitations are clearly documented.
+
+# 1. PRODUCT OBJECTIVE
+
+PayTune is a professional, YouTube-inspired video marketplace with a pay-once, watch-forever business model.
+
+Users can discover videos, watch free previews, purchase individual paid videos, and stream purchased videos again without paying a recurring subscription or being charged twice for the same video.
+
+Approved creators and administrators can upload and publish video content. Creators earn a configurable percentage of successful sales. PayTune retains its platform commission.
+
+The application must have three fully integrated experiences:
+
+1. Public video discovery and viewer experience.
+2. Creator Studio and earnings dashboard.
+3. Administrator and super-administrator control panels.
+
+The application must use real database records and real backend functionality. Do not ship hardcoded dashboard statistics, fake purchases, fabricated creator earnings, simulated payment success, or default videos presented as real user uploads.
+
+Demo data may exist only in isolated development seeds, clearly identified as demo content.
+
+# 2. FIRST: AUDIT THE EXISTING PROJECT
+
+Before changing any files, inspect the complete project structure and determine:
+
+- Which frontend framework and build system are already installed.
+- Which backend framework and runtime are already installed.
+- Which database is configured and which migrations have already run.
+- Which authentication, authorization, payment, upload, streaming and dashboard features already exist.
+- Which API routes and frontend pages are connected.
+- Which environment variables and third-party services are required.
+- Which tests, scripts, deployment files and documentation already exist.
+- Which components are incomplete, duplicated, broken or disconnected.
+- Whether any existing data could be damaged by schema changes.
+
+Produce an internal implementation checklist based on this audit, then start fixing and implementing the actual files.
+
+Do not assume that a previous architecture document accurately represents the current repository.
+
+## Resolve architectural conflicts
+
+The intended architecture is:
+
+- Frontend: React + TypeScript + Tailwind CSS.
+- Backend: Node.js + Express.
+- Database: MySQL.
+- Database driver: mysql2.
+- Configuration: environment variables managed securely.
+- Media storage: private object storage with secure upload and delivery.
+- Video delivery: a suitable transcoding service or media-processing pipeline plus CDN.
+- Payments: a real Mobile Money provider supported in the launch market.
+- Background processing: a durable queue or equivalent reliable job mechanism when required.
+
+Prefer the existing compatible implementation when it is working correctly. Do not rewrite the entire project unnecessarily.
+
+If the repository uses another stack, first assess whether a safe migration is justified. Explain material conflicts in the project documentation and preserve existing working functionality wherever possible.
+
+Do not replace the existing database, authentication system or application architecture merely to match a preferred template.
+
+# 3. TECHNOLOGY AND CODE QUALITY
+
+Use TypeScript for the frontend and, where practical, the backend.
+
+Use modular, maintainable application code with clear separation between:
+
+- UI components and page layouts.
+- API clients and data-fetching logic.
+- Authentication and authorization.
+- Business logic and validation.
+- Database access and transactions.
+- Payment-provider adapters.
+- Video processing and playback authorization.
+- Financial ledger and payout services.
+- Administration and audit logging.
+
+Use the project's existing dependency manager and lockfile.
+
+Install only necessary dependencies. Avoid unmaintained packages and unnecessary architectural complexity.
+
+Create reusable components, consistent error handling, structured logging, validation schemas, database migrations and automated tests.
+
+Do not use placeholder implementations for business-critical features.
+
+# 4. PROFESSIONAL FRONTEND
+
+Build a polished, responsive, production-oriented interface inspired by the usability of YouTube and professional streaming marketplaces. Create an original PayTune identity; do not copy another platform's protected branding.
+
+Use a consistent design system with:
+
+- Professional typography and spacing.
+- Responsive layouts for desktop, tablet and mobile.
+- High-quality 16:9 video thumbnails.
+- Accessible buttons, forms, dialogs and menus.
+- Loading states, skeletons, empty states and error states.
+- Toast notifications and confirmation dialogs.
+- Clear prices, currencies and purchase status.
+- Consistent navigation and page transitions.
+- Dark and light themes if compatible with the existing design.
+- Proper keyboard navigation and accessibility.
+
+Do not use the same placeholder image or repeated fake video record across the interface.
+
+Every visible button, menu, filter, search field, form and navigation item must have its intended behavior. Remove decorative controls that appear functional but do nothing.
+
+## Required public pages
+
+Implement and connect:
+
+1. Home and personalized discovery.
+2. Explore and category browsing.
+3. Search results with filtering, sorting and pagination.
+4. Video details and free preview.
+5. Secure video watch page.
+6. Creator profile and channel.
+7. Login, registration and account recovery.
+8. Terms, privacy, refund and copyright policy pages.
+
+## Required viewer dashboard
+
+Implement:
+
+- My Library containing purchased videos.
+- Watch history and continue watching.
+- Favorites and followed creators.
+- Purchase history and receipts.
+- Payment status and refund-request history.
+- Profile and account settings.
+- Notification preferences and security settings.
+
+The purchased library must be populated from actual backend records, not hardcoded examples.
+
+# 5. CREATOR STUDIO
+
+Implement a complete creator experience.
+
+## Creator onboarding
+
+- Creator application form.
+- Application status and review history.
+- Administrator approval or rejection.
+- Account suspension and reinstatement.
+- Secure payout-account onboarding.
+- Clear permissions for approved and unapproved creators.
+
+Only approved creators can publish paid content.
+
+## Video upload
+
+Build a functional upload workflow that supports:
+
+- File selection and drag-and-drop.
+- Upload progress and retry.
+- Resumable or multipart uploads where supported.
+- Title, description, category, language and tags.
+- Thumbnail selection or upload.
+- Price and currency configuration.
+- Free preview settings.
+- Visibility and publication settings.
+- Processing and moderation status.
+- Drafts and editing.
+- Validation errors and upload cancellation.
+- Publication only after required processing and moderation succeed.
+
+Uploaded videos must appear in the actual creator dashboard and, after approval and publication, in the public video grid.
+
+Do not populate the artist or creator dashboard with default videos that the creator did not upload.
+
+Do not pretend an upload succeeded when the file has not been stored and processed.
+
+## Creator analytics and earnings
+
+Display real database-backed metrics:
+
+- Total views and unique viewers where measurable.
+- Video purchases and conversion rates.
+- Gross sales.
+- PayTune commission.
+- Creator earnings.
+- Pending and available balances.
+- Refunds and financial adjustments.
+- Payout requests, completed payouts and failed payouts.
+
+Provide date filters and video-level analytics.
+
+A view must not be counted as a completed purchase. Do not fabricate analytics.
+
+# 6. ADMINISTRATOR AND SUPER-ADMINISTRATOR DASHBOARDS
+
+Implement actual operational controls for:
+
+- User and account management.
+- Creator applications and approvals.
+- Video moderation and publication.
+- Categories and homepage curation.
+- Payment transactions and reconciliation.
+- Refunds and disputes.
+- Commission configuration.
+- Creator earnings and payouts.
+- Reports, copyright complaints and content takedowns.
+- Notifications and system settings.
+- Administrator roles and permissions.
+- Audit logs and security events.
+- System health and processing failures.
+
+All dashboard values must be calculated from real data.
+
+Administrative actions must invoke protected backend endpoints, validate permissions and create appropriate audit records.
+
+Do not rely on frontend route protection alone.
+
+Sensitive operations such as changing commission rules, approving payouts and modifying privileged accounts must require appropriate permissions and confirmation.
+
+# 7. PAYMENT INTEGRATION: MOBILE MONEY
+
+Implement real payment integration using a provider that supports the launch market, Rwandan francs where required, and the intended merchant account.
+
+Inspect the existing payment integration before selecting or replacing a provider.
+
+If no integration exists, evaluate an appropriate provider such as Flutterwave or a compatible direct Mobile Money API. Verify current API documentation and merchant requirements before implementing provider-specific requests.
+
+Create a payment adapter so the marketplace business logic does not depend on one provider's response format.
+
+## Purchase workflow
+
+1. Authenticate the viewer.
+2. Load the video and its current price from the database.
+3. Check whether the viewer already owns the video.
+4. If ownership already exists, allow playback without initiating another payment.
+5. Create a unique pending order and immutable price snapshot.
+6. Initiate checkout using the configured provider.
+7. Show a pending status and clear payment instructions.
+8. Verify payment through an authenticated webhook and/or server-side provider verification.
+9. Validate the transaction reference, order, amount, currency and payment status.
+10. Grant ownership only after successful verification.
+11. Record the purchase, entitlement and financial ledger entries transactionally.
+12. Update the viewer's library and notify the viewer and creator.
+13. Reconcile transactions and handle retries safely.
+
+Never mark a payment successful solely because the browser returns to a success URL.
+
+Never expose provider secret keys in frontend code.
+
+Never store a customer's Mobile Money PIN.
+
+Do not fabricate payment confirmations or use fake payment success in production mode.
+
+## Payment failure handling
+
+Handle pending, processing, successful, failed, cancelled, expired, refunded, partially refunded and disputed transactions.
+
+Use idempotency keys, unique provider references and deduplicated webhook events.
+
+Repeated callbacks must never create duplicate purchases, duplicate entitlements or duplicate earnings.
+
+Provide a development payment simulator only if it is strictly isolated from production credentials, production data and production payment status.
+
+If live provider credentials are unavailable, implement the provider adapter, configuration validation, safe test-mode behavior and integration tests. Clearly identify the live activation steps. Never claim a real payment was processed without evidence.
+
+# 8. PAY-ONCE, WATCH-FOREVER OWNERSHIP
+
+Implement a server-enforced entitlement system.
+
+A successful purchase grants unlimited streaming access to that video without routine expiration.
+
+The entitlement must be associated with the authenticated viewer, the purchased video and the verified purchase.
+
+Use database constraints to prevent duplicate ownership records.
+
+The same viewer must be able to access the purchased video:
+
+- After refreshing the page.
+- After logging out and logging in again.
+- On another authorized device.
+- From the My Library page.
+- Without purchasing it a second time.
+
+Creators changing a video's title, thumbnail, description or price must not remove existing buyers' access.
+
+Do not use the browser's local storage as the source of truth for ownership.
+
+Do not create an ordinary entitlement expiration for purchased videos.
+
+Document exceptional cases such as refunds, legal takedowns, copyright restrictions and permanent platform closure. Preserve purchase and financial records even when content must be removed.
+
+Do not promise that streaming availability can be guaranteed under every possible legal or technical circumstance.
+
+# 9. SECURE VIDEO DELIVERY
+
+Implement real video storage and playback.
+
+Use private object storage and a suitable transcoding pipeline. Generate adaptive streaming renditions, thumbnails, optional preview clips and subtitles where supported.
+
+Keep original uploads and paid streaming assets private.
+
+The backend must check the viewer's entitlement before issuing playback authorization.
+
+Use short-lived signed playback URLs or tokens and suitable CDN access controls. Consider DRM if the chosen media service supports it and the business requires it.
+
+Implement:
+
+- Video processing states.
+- Processing retries and failure reporting.
+- Upload validation and file-size limits.
+- Secure storage keys.
+- Playback authorization.
+- Quality selection and adaptive streaming.
+- Playback progress and resume.
+- Error recovery for network interruptions.
+- Private handling of original media files.
+
+Do not route every video byte through Express when object storage and CDN delivery are appropriate.
+
+Do not cache paid streaming segments indiscriminately in a service worker. That can create unauthorized persistence and account-sharing risks. Any offline viewing capability must be separately designed with appropriate authorization and content protection.
+
+Do not claim DRM, offline playback or copyright detection is functional unless it is actually implemented and tested.
+
+# 10. COMMISSION AND FINANCIAL ACCOUNTING
+
+Implement a configurable platform commission system.
+
+Preserve existing verified business rules when they exist in the project. If no authoritative rule exists, support an administrator-configurable commission rate with versioned effective dates.
+
+The current project documentation has also described a potential 70% creator / 30% platform split, with the platform's 30% divided into 25% operations and 5% reserves. Inspect the existing implementation and business configuration before applying this split. Do not silently overwrite a different approved policy.
+
+If that split is the confirmed business rule, represent the three shares explicitly and ensure they total 100% of the applicable sale amount.
+
+Calculate financial amounts using integer minor units or exact decimal arithmetic with a documented rounding policy. Never use floating-point arithmetic for financial calculations.
+
+Record:
+
+- Original sale amount and currency.
+- Commission rate applied at the time of sale.
+- Platform commission.
+- Creator share.
+- Processing fees and their agreed allocation.
+- Taxes or withholding where applicable.
+- Refunds and financial reversals.
+- Creator payout allocations.
+- Provider settlement references.
+
+Use an immutable double-entry ledger or an equivalent auditable accounting design.
+
+Do not update historical transactions to reflect new commission rates.
+
+Do not mark an earning as paid merely because a payout was requested or approved.
+
+Implement reconciliation, payout idempotency and safe handling of failed payouts.
+
+Do not assume the payment provider supports automatic split settlement or direct creator payouts without verifying its current capabilities and merchant configuration.
+
+# 11. DATABASE AND SAFE MIGRATIONS
+
+Use MySQL and the existing database driver when compatible with the project.
+
+Create version-controlled migrations for all required tables, constraints, indexes and necessary schema changes.
+
+The schema should cover:
+
+- Users, roles and permissions.
+- Creator profiles and applications.
+- Videos, categories and assets.
+- Upload sessions and processing jobs.
+- Orders, payments and webhook events.
+- Purchases and entitlements.
+- Commission rules and financial ledger.
+- Creator earnings and payouts.
+- Refunds and disputes.
+- Watch history and playback progress.
+- Comments, likes, favorites and follows.
+- Reports and moderation.
+- Notifications.
+- Sessions and security events.
+- Audit logs and application settings.
+
+Use foreign keys, appropriate unique constraints and indexes.
+
+## Migration safety rules
+
+Before applying any migration:
+
+1. Inspect the existing schema and migration history.
+2. Identify destructive operations and data dependencies.
+3. Preserve existing user accounts, uploads, purchases and financial records.
+4. Back up the database when the environment permits.
+5. Use additive or backward-compatible migrations whenever possible.
+6. Test migrations against a disposable development database or database snapshot.
+7. Validate data integrity before and after migration.
+8. Provide rollback or recovery instructions.
+9. Never reset, drop or recreate a production database merely to make the new schema work.
+10. Never delete real user data to accommodate a new schema.
+
+Use explicit transactions where supported. For schema operations that MySQL cannot safely roll back, use a documented expand-and-contract migration strategy.
+
+Seed only required reference data, such as predefined roles and initial categories. Do not insert fake users, paid purchases, creator earnings or successful payment records into production.
+
+# 12. BACKEND API AND BUSINESS LOGIC
+
+Implement the complete API required by the frontend.
+
+Organize routes and services for:
+
+- Authentication and sessions.
+- Users and profiles.
+- Creator applications and approval.
+- Video metadata and publishing.
+- Upload sessions and processing.
+- Search, discovery and categories.
+- Checkout and order status.
+- Payment webhooks and verification.
+- Purchase history and entitlements.
+- Playback authorization.
+- Watch history and progress.
+- Comments and engagement.
+- Creator earnings and payouts.
+- Refunds and disputes.
+- Administrator moderation and settings.
+- Notifications and audit logs.
+
+Use consistent response structures, validation, pagination, error codes and API documentation.
+
+Every endpoint must have appropriate authentication, role checks, resource ownership checks and input validation.
+
+Prevent broken object-level authorization: users must not be able to access another user's purchases, creator analytics, payout details or private media by changing an ID.
+
+Use parameterized database queries and secure transaction boundaries.
+
+Do not return database passwords, provider secrets, private storage keys or sensitive personal information in API responses or logs.
+
+# 13. SECURITY AND PRIVACY
+
+Implement appropriate controls for:
+
+- Secure password hashing.
+- Session protection and token rotation where applicable.
+- Rate limiting and abuse prevention.
+- Login and password-reset security.
+- CSRF protection where relevant.
+- CORS configuration.
+- SQL injection prevention.
+- Cross-site scripting prevention.
+- Request and file validation.
+- Authorization and privilege escalation.
+- Payment webhook authentication.
+- Secure upload and storage.
+- Secret management.
+- Sensitive logging and data minimization.
+- Account suspension and revocation.
+- Backup and restoration.
+- Audit trails for privileged actions.
+
+Do not hardcode credentials or production secrets.
+
+Create a complete `.env.example` with placeholders only. Validate required production environment variables at startup and fail clearly when critical configuration is missing.
+
+Use separate development, test, staging and production configurations.
+
+Do not claim the application is secure merely because security middleware is installed. Test the relevant protections.
+
+# 14. AUTOMATED TESTING
+
+Inspect the existing testing framework and extend it. Add missing tooling only when necessary.
+
+Write and execute tests for every major workflow.
+
+## Authentication tests
+
+- Registration and login.
+- Invalid credentials.
+- Session expiration and logout.
+- Password recovery.
+- Unauthorized API access.
+- Role escalation attempts.
+
+## Creator tests
+
+- Creator application and approval.
+- Upload authorization.
+- Upload validation and processing failures.
+- Editing and publishing owned videos.
+- Rejection of cross-creator access.
+- Earnings isolation.
+
+## Purchase tests
+
+- Successful verified payment.
+- Failed and cancelled payments.
+- Repeated webhook delivery.
+- Duplicate checkout requests.
+- Already-owned videos.
+- Amount or currency mismatch.
+- Invalid provider signatures.
+- Entitlement creation.
+- Access across sessions and devices.
+- Refund and access-policy transitions.
+
+## Financial tests
+
+- Commission calculation.
+- Rounding rules.
+- Creator share and platform share.
+- 70/30 or other approved configurable commission policy.
+- Platform reserve allocation when applicable.
+- Duplicate financial-event prevention.
+- Ledger balancing.
+- Refund reversals.
+- Payout failure and reconciliation.
+
+## Video and UI tests
+
+- Upload and processing states.
+- Published video appears in discovery.
+- Purchased video appears in My Library.
+- Unauthorized playback is denied.
+- Authorized playback works.
+- Search, filters and pagination.
+- Comments and favorites.
+- Responsive layout and key user flows.
+- Empty, loading and error states.
+
+Use unit tests, integration tests and end-to-end browser tests where available.
+
+Use a disposable test database and mocked or sandboxed payment-provider responses for automated tests. Never run payment tests against real customer funds.
+
+Run the existing build, type checking, linting, migration validation and test suites. Fix failures rather than simply reporting them.
+
+Do not hide failures by disabling tests, weakening assertions or marking incomplete tests as successful.
+
+# 15. PERFORMANCE AND RELIABILITY
+
+Implement sensible production defaults:
+
+- Paginated API responses.
+- Indexed database queries.
+- Efficient video thumbnails and responsive images.
+- CDN-based media delivery.
+- Appropriate caching for public metadata.
+- No caching of private payment data or unauthorized media.
+- Database connection pooling.
+- Durable background jobs where necessary.
+- Retry policies with backoff.
+- Health and readiness endpoints.
+- Structured logs with request IDs.
+- Error monitoring hooks.
+- Database backup and recovery instructions.
+- Graceful handling of provider outages and processing failures.
+
+Avoid unnecessary microservices at the initial stage. Prefer a well-structured modular backend until scale justifies additional services.
+
+# 16. REQUIRED PROJECT DOCUMENTATION
+
+Create or update the actual documentation files in the repository.
+
+At minimum, provide:
+
+1. `README.md` — project overview and complete setup instructions.
+2. `.env.example` — every required environment variable with safe placeholder values.
+3. `docs/ARCHITECTURE.md` — architecture, modules, data flow and major decisions.
+4. `docs/DATABASE.md` — schema, relationships, indexes and migration procedure.
+5. `docs/PAYMENTS.md` — provider configuration, verification, webhooks, refunds and reconciliation.
+6. `docs/VIDEO_PIPELINE.md` — upload, processing, storage and playback authorization.
+7. `docs/SECURITY.md` — security controls and production checklist.
+8. `docs/TESTING.md` — commands, test coverage and known limitations.
+9. `docs/DEPLOYMENT.md` — build, environment, database, domain, HTTPS, storage and deployment instructions.
+10. `docs/OPERATIONS.md` — backups, monitoring, incident recovery and troubleshooting.
+11. `docs/IMPLEMENTATION_STATUS.md` — completed features, verified tests, remaining work and external dependencies.
+
+Document the exact commands required to install dependencies, run development servers, apply migrations, execute tests, build the frontend and backend, and deploy the application.
+
+Do not document imaginary environment variables, routes, features or commands. Ensure the documentation matches the actual repository.
+
+# 17. IMPLEMENTATION EXECUTION RULES
+
+Work in the following order:
+
+**Stage A — Inspect**
+- Examine the actual repository and identify the current stack.
+- Review existing files, migrations, configuration and tests.
+- Establish a baseline of existing build and test results.
+
+**Stage B — Plan**
+- Identify missing functionality and critical risks.
+- Resolve conflicting business rules without deleting existing work.
+- Define a file-level implementation checklist.
+
+**Stage C — Implement**
+- Modify actual application files.
+- Complete database migrations and backend services.
+- Connect frontend pages to real APIs.
+- Integrate the payment adapter and secure media workflow.
+- Implement viewer, creator and admin workflows.
+
+**Stage D — Validate**
+- Apply migrations to a disposable test database.
+- Run unit and integration tests.
+- Run frontend and backend builds.
+- Run type checking and linting.
+- Run end-to-end tests for major user journeys.
+- Fix errors and rerun the affected tests.
+
+**Stage E — Harden**
+- Review authorization and financial transaction boundaries.
+- Check for exposed secrets and insecure storage.
+- Verify duplicate-payment handling.
+- Check existing-data preservation and migration recovery.
+- Test error and failure states.
+
+**Stage F — Document and deliver**
+- Update setup, architecture, migration and deployment documentation.
+- Record exact test results.
+- Identify any services that require external credentials or manual approval.
+- Provide a concise implementation summary and remaining production blockers.
+
+Do not stop after Stage B or after generating the first set of files.
+
+After each implementation stage, verify that the project remains functional before proceeding.
+
+# 18. TOOL AND ENVIRONMENT LIMITATIONS
+
+Use only capabilities actually available in the current environment.
+
+If a command, file-editing operation, database connection, browser test or deployment action is unavailable, do not pretend it was executed.
+
+Continue with the work that can be completed, create the appropriate files, and document exactly what remains blocked.
+
+Never claim that a migration ran if it was only generated.
+
+Never claim that tests passed if they were not executed.
+
+Never claim that a payment provider is live if credentials or merchant approval are missing.
+
+Never overwrite real data or production configuration to make a test pass.
+
+Do not stop simply to ask for credentials that are not yet required. Build and test the credential-independent components first, then identify the exact configuration needed for live activation.
+
+If the project is too large to complete in one operation, prioritize working vertical slices and continue from the existing implementation state rather than replacing progress with a new mockup.
+
+# 19. DEFINITION OF DONE
+
+PayTune is ready for a production-readiness review only when:
+
+- The frontend builds successfully.
+- The backend starts with valid configuration.
+- Database migrations apply safely to the intended environment.
+- Existing data and functionality are preserved.
+- Authentication and role-based access work.
+- Approved creators can upload and publish real videos.
+- Published videos appear in the public interface.
+- Payment verification is enforced server-side.
+- A successful purchase grants exactly one durable entitlement.
+- Existing owners can watch without being charged again.
+- Unauthorized viewers cannot access protected playback.
+- Creator commission and earnings are calculated correctly.
+- Refunds and payouts have auditable state transitions.
+- Admin controls operate through protected APIs.
+- Major workflows have automated test coverage.
+- Build, type-check, lint and test failures have been addressed.
+- Setup, security, migration and deployment documentation is complete.
+- Remaining external dependencies and limitations are disclosed.
+
+A passing build alone is not sufficient.
+
+A visually complete frontend alone is not sufficient.
+
+A collection of disconnected backend endpoints is not sufficient.
+
+A payment simulation is not sufficient for claiming live payment integration.
+
+## FINAL INSTRUCTION
+
+Begin by inspecting the actual PayTune repository and its current implementation. Then execute the implementation plan, edit the real project files, run safe migrations, test major workflows, fix errors, and document setup and deployment.
+
+**Do not return another architecture proposal as the final deliverable. Make measurable progress in the codebase and report the actual files changed, commands executed, test results, migrations applied, features verified, and outstanding blockers.**
+
+Deliver the strongest working implementation the available environment can support without fabricating successful operations or risking existing data.

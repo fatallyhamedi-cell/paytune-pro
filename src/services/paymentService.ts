@@ -189,6 +189,8 @@ export const verifyAmountMatches = async (paymentId: string, webhookAmount?: num
   return true;
 };
 
+const processedWebhookSet = new Set<string>();
+
 /**
  * 2.1 Idempotency on Webhooks
  * Prevents double-crediting if a webhook is retried or delivered multiple times.
@@ -199,6 +201,12 @@ export const processWebhookIdempotently = async (
 ): Promise<any> => {
   if (!providerTransactionId) {
     return await handler();
+  }
+
+  // 0. Fast-path in-memory idempotency check
+  if (processedWebhookSet.has(providerTransactionId)) {
+    console.log(`[PaymentService] Webhook already processed (cache) for transaction: ${providerTransactionId}`);
+    return { alreadyProcessed: true };
   }
 
   // 1. Check if this provider_transaction_id has already been marked processed
@@ -230,7 +238,8 @@ export const processWebhookIdempotently = async (
   // 3. Execute the handler
   const result = await handler();
 
-  // 4. Log processed marker
+  // 4. Record in idempotency cache & log processed marker
+  processedWebhookSet.add(providerTransactionId);
   try {
     const paymentId = result?.payment_id || result?.id || null;
     await supabaseAdmin.from('payment_logs').insert({
