@@ -73,13 +73,13 @@ export function useVideo(videoId: string | undefined) {
   const [savedProgress, setSavedProgress] = useState<number>(0);
 
   // Resilient get with retry on 429
-  const resilientGet = async (url: string) => {
+  const resilientGet = async (url: string, config?: any) => {
     try {
-      return await api.get(url);
+      return await api.get(url, config);
     } catch (err: any) {
       if (err?.response?.status === 429) {
         await new Promise((r) => setTimeout(r, 600));
-        return await api.get(url);
+        return await api.get(url, config);
       }
       throw err;
     }
@@ -91,7 +91,13 @@ export function useVideo(videoId: string | undefined) {
     try {
       setLoading(true);
       setError(null);
-      const res = await resilientGet(`/api/videos/${videoId}`);
+      const storedPhone = typeof window !== 'undefined' ? localStorage.getItem('paytune_viewer_phone') : null;
+      const config: any = {};
+      if (storedPhone) {
+        config.headers = { 'x-viewer-phone': storedPhone };
+        config.params = { viewer_phone: storedPhone };
+      }
+      const res = await resilientGet(`/api/videos/${videoId}`, config);
       setVideo(res.data);
     } catch (err: any) {
       console.warn("Notice: video details query returned:", err?.response?.status || err?.message);

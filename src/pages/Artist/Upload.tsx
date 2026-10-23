@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../../services/api';
-import { uploadDirect } from '../../services/uploadDirect';
 
 export default function ArtistUpload() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
@@ -17,145 +18,117 @@ export default function ArtistUpload() {
   const [priceUsd, setPriceUsd] = useState('');
   const [visibility, setVisibility] = useState('public');
 
-  const [ownershipDeclared, setOwnershipDeclared] = useState(false);
-  const [noAiDeclared, setNoAiDeclared] = useState(false);
-  const [noCopyrightDeclared, setNoCopyrightDeclared] = useState(false);
+  const [ownership, setOwnership] = useState(false);
+  const [noAi, setNoAi] = useState(false);
+  const [noCopyright, setNoCopyright] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [statusInfo, setStatusInfo] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const allDeclared = ownershipDeclared && noAiDeclared && noCopyrightDeclared;
+  const allDeclared = ownership && noAi && noCopyright;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setStatusInfo('');
 
-    if (!videoFile) return setError('Please select a video file.');
-    if (!title.trim()) return setError('Title is required.');
-    if (!allDeclared) return setError('You must confirm all three originality declarations.');
+    if (!videoFile) return setError('Select a video file');
+    if (!title.trim()) return setError('Title required');
+    if (!allDeclared) return setError('Accept all 3 declarations');
     if (!isFree && !isShort) {
-      if (!priceRwf || Number(priceRwf) < 200) return setError('Price RWF must be at least 200.');
-      if (!priceUsd || Number(priceUsd) < 1) return setError('Price USD must be at least 1.');
+      if (!priceRwf || Number(priceRwf) < 200) return setError('RWF price must be ≥ 200');
+      if (!priceUsd || Number(priceUsd) < 1) return setError('USD price must be ≥ 1');
     }
+
+    const fd = new FormData();
+    fd.append('video', videoFile);
+    if (thumbFile) fd.append('thumbnail', thumbFile);
+    fd.append('title', title.trim());
+    fd.append('description', description);
+    fd.append('category', category || 'Afrobeat');
+    fd.append('is_free', String(isFree || isShort));
+    fd.append('is_short', String(isShort));
+    fd.append('visibility', visibility);
+    fd.append('media_type', 'video');
+    fd.append('ownership_declared', String(ownership));
+    fd.append('no_ai_declared', String(noAi));
+    fd.append('no_copyright_declared', String(noCopyright));
+    if (!isFree && !isShort) {
+      fd.append('price_rwf', priceRwf);
+      fd.append('price_usd', priceUsd);
+    }
+
+    console.log('[Upload] Starting, file:', videoFile.name, videoFile.size);
 
     setLoading(true);
     setProgress(0);
 
     try {
-      // Step 1: Upload video directly to Supabase Storage (Bypasses Cloud Run 32 MB cap)
-      setStatusInfo('Uploading video directly to storage...');
-      const videoUrl = await uploadDirect('videos', videoFile, (p) => setProgress(Math.round(p * 0.8)));
-
-      // Step 2: Optional thumbnail
-      let thumbnailUrl: string | null = null;
-      if (thumbFile) {
-        setStatusInfo('Uploading thumbnail...');
-        thumbnailUrl = await uploadDirect('thumbnails', thumbFile);
-      }
-
-      setProgress(90);
-      setStatusInfo('Finalizing release registration...');
-
-      // Step 3: Tell backend to create the video row
-      await api.post('/artist/video/complete', {
-        videoUrl,
-        thumbnailUrl,
-        title: title.trim(),
-        description,
-        category,
-        price_rwf: priceRwf ? Number(priceRwf) : null,
-        price_usd: priceUsd ? Number(priceUsd) : null,
-        is_free: isFree || isShort,
-        is_short: isShort,
-        visibility,
-        media_type: 'video',
-        ownership_declared: ownershipDeclared,
-        no_ai_declared: noAiDeclared,
-        no_copyright_declared: noCopyrightDeclared,
+      const res = await api.post('/artist/video/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (ev) => {
+          if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100));
+        },
       });
 
-      setProgress(100);
-      setStatusInfo('');
-      setSuccess('Video uploaded successfully! It is now being reviewed.');
+      console.log('[Upload] ✅ Success:', res.data);
+      setSuccess(res.data.message || 'Video uploaded successfully! It is now being reviewed by our team.');
 
-      // Redirect to /artist/dashboard/videos after 2.5 seconds
-      setTimeout(() => navigate('/artist/dashboard/videos'), 2500);
+      queryClient.invalidateQueries({ queryKey: ['artist-videos'] });
+      queryClient.invalidateQueries({ queryKey: ['videos'] });
+
+      setTimeout(() => navigate('/artist/dashboard/videos'), 2000);
     } catch (err: any) {
-      const msg =
-        err.response?.data?.error ||
-        err.message ||
-        'Upload failed. Please try again.';
-      setError(msg);
-      setSuccess('');
-      setStatusInfo('');
+      console.error('[Upload] ❌ Error:', err.response?.data || err.message);
+      setError(err.response?.data?.error || 'Upload failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-white">Upload Original Video</h1>
-
-      <div className="bg-yellow-500/10 border border-yellow-500/40 text-yellow-300 p-4 rounded-xl mb-4 text-sm">
-        Only original videos created by you are allowed. AI-generated videos and copyrighted content are prohibited.
-      </div>
+    <div className="max-w-2xl p-6">
+      <h1 className="text-2xl font-bold text-white mb-6">Upload Video</h1>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-xl mb-4 text-sm">
+        <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">
           {error}
         </div>
       )}
 
-      {statusInfo && !error && !success && (
-        <div className="bg-amber-500/10 border border-amber-500/40 text-amber-300 p-3 rounded-xl mb-4 text-sm flex items-center justify-between">
-          <span>{statusInfo}</span>
-          <span className="font-mono font-bold">{progress}%</span>
-        </div>
-      )}
-
-      {success && !error && (
-        <div className="bg-green-500/20 border border-green-500 text-green-300 p-4 rounded-xl mb-4 text-sm font-semibold flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-ping mr-1" />
+      {success && (
+        <div className="bg-green-500/20 border border-green-500 text-green-300 p-3 rounded mb-4 text-sm">
           {success}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-gray-300 text-sm mb-2 font-medium">Video file (from your device)</label>
+          <label className="block text-gray-300 text-sm mb-2">Video file</label>
           <input
             type="file"
             accept="video/*"
             onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-            className="w-full text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-500 file:text-black hover:file:bg-amber-400 cursor-pointer"
+            className="w-full text-white"
             required
           />
           {videoFile && (
-            <p className="text-xs text-gray-400 mt-1 font-mono">
+            <p className="text-xs text-gray-500 mt-1">
               {videoFile.name} — {(videoFile.size / 1024 / 1024).toFixed(2)} MB
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-gray-300 text-sm mb-2 font-medium">Thumbnail (optional)</label>
+          <label className="block text-gray-300 text-sm mb-2">Thumbnail (optional)</label>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setThumbFile(e.target.files?.[0] || null)}
-            className="w-full text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-white hover:file:bg-gray-600 cursor-pointer"
+            className="w-full text-white"
           />
-          {thumbFile && (
-            <p className="text-xs text-gray-400 mt-1 font-mono">
-              {thumbFile.name} — {(thumbFile.size / 1024 / 1024).toFixed(2)} MB
-            </p>
-          )}
         </div>
 
         <input
@@ -163,7 +136,7 @@ export default function ArtistUpload() {
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
           required
         />
 
@@ -172,19 +145,19 @@ export default function ArtistUpload() {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none resize-none"
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
         />
 
         <input
           type="text"
-          placeholder="Category"
+          placeholder="Category (e.g. Afrobeat, Gospel, R&B)"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
         />
 
-        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-          <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} className="rounded" />
+        <label className="flex items-center gap-2 text-white">
+          <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
           Free
         </label>
 
@@ -195,7 +168,7 @@ export default function ArtistUpload() {
               placeholder="Price RWF (min 200)"
               value={priceRwf}
               onChange={(e) => setPriceRwf(e.target.value)}
-              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
             />
             <input
               type="number"
@@ -203,80 +176,70 @@ export default function ArtistUpload() {
               placeholder="Price USD (min 1)"
               value={priceUsd}
               onChange={(e) => setPriceUsd(e.target.value)}
-              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
             />
           </div>
         )}
 
-        <label className="flex items-center gap-2 text-white cursor-pointer select-none">
-          <input type="checkbox" checked={isShort} onChange={(e) => setIsShort(e.target.checked)} className="rounded" />
-          This is a Short (vertical 9:16, ≤50s, always free)
+        <label className="flex items-center gap-2 text-white">
+          <input type="checkbox" checked={isShort} onChange={(e) => setIsShort(e.target.checked)} />
+          Short (9:16, ≤50s, always free)
         </label>
 
         <select
           value={visibility}
           onChange={(e) => setVisibility(e.target.value)}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
         >
           <option value="public">Public</option>
           <option value="unlisted">Unlisted</option>
           <option value="private">Private</option>
         </select>
 
-        <div className="bg-[#1A1A1A] p-4 rounded-lg space-y-3 border border-gray-800">
+        <div className="bg-[#1A1A1A] p-4 rounded-lg space-y-3">
           <p className="text-white font-semibold">Original Content Declaration</p>
-
-          <label className="flex items-start gap-2 text-gray-300 text-sm cursor-pointer select-none">
+          <label className="flex items-start gap-2 text-gray-300 text-sm">
             <input
               type="checkbox"
-              checked={ownershipDeclared}
-              onChange={(e) => setOwnershipDeclared(e.target.checked)}
-              className="mt-1 rounded"
+              checked={ownership}
+              onChange={(e) => setOwnership(e.target.checked)}
+              className="mt-1"
             />
-            <span>I created this video myself and own all rights to it.</span>
+            <span>I created this video and own all rights.</span>
           </label>
-
-          <label className="flex items-start gap-2 text-gray-300 text-sm cursor-pointer select-none">
+          <label className="flex items-start gap-2 text-gray-300 text-sm">
             <input
               type="checkbox"
-              checked={noCopyrightDeclared}
-              onChange={(e) => setNoCopyrightDeclared(e.target.checked)}
-              className="mt-1 rounded"
+              checked={noCopyright}
+              onChange={(e) => setNoCopyright(e.target.checked)}
+              className="mt-1"
             />
-            <span>This video does not contain copyrighted music, movies, or stolen content.</span>
+            <span>No copyrighted content.</span>
           </label>
-
-          <label className="flex items-start gap-2 text-gray-300 text-sm cursor-pointer select-none">
+          <label className="flex items-start gap-2 text-gray-300 text-sm">
             <input
               type="checkbox"
-              checked={noAiDeclared}
-              onChange={(e) => setNoAiDeclared(e.target.checked)}
-              className="mt-1 rounded"
+              checked={noAi}
+              onChange={(e) => setNoAi(e.target.checked)}
+              className="mt-1"
             />
-            <span>This video was not created with AI video generators.</span>
+            <span>Not AI-generated.</span>
           </label>
         </div>
 
         {loading && (
           <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-amber-500 h-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="bg-amber-500 h-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading || !allDeclared}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 rounded-lg disabled:opacity-50 transition-colors cursor-pointer shadow-lg"
+          className="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg disabled:opacity-50 cursor-pointer"
         >
-          {loading ? `Uploading ${progress}%...` : 'Upload for Review'}
+          {loading ? `Uploading ${progress}%...` : 'Upload Video'}
         </button>
-
-        <p className="text-gray-500 text-xs text-center">
-          Your video will be scanned for originality before becoming public.
-        </p>
       </form>
     </div>
   );

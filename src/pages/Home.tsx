@@ -177,6 +177,8 @@ export default function Home() {
   };
 
   const isBrowsingAll = activeCategory === "All" && !q;
+  const isInitialLoading = isCatalogLoading || isTrendingLoading || isNewLoading || isRecommendedLoading;
+  const totalVideos = catalogVideos.length + trendingVideos.length + newVideos.length + recommendedVideos.length;
 
   return (
     <div
@@ -236,8 +238,21 @@ export default function Home() {
           </div>
         )}
 
-        {/* PayTune Shorts Shelf */}
-        {isBrowsingAll && (realShorts.length > 0 || catalogVideos.some(v => v.is_short)) && (
+        {!isInitialLoading && totalVideos === 0 && !q && activeCategory === 'All' ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+            <div className="text-6xl mb-4">🎬</div>
+            <h2 className="text-white text-xl font-semibold mb-2">No videos yet</h2>
+            <p className="text-gray-400 mb-6 max-w-md">
+              Artists haven't uploaded any videos yet. Be the first to share your talent.
+            </p>
+            <Link to="/artist/signup" className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-6 py-3 rounded-lg shadow-lg">
+              Become an artist
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* PayTune Shorts Shelf */}
+            {isBrowsingAll && (realShorts.length > 0 || catalogVideos.some(v => v.is_short)) && (
           <section id="shorts-shelf" className="border-b border-gray-200 dark:border-gray-800 pb-8">
             <div className="flex items-center justify-between mb-4 px-0.5">
               <div className="flex items-center gap-2">
@@ -298,7 +313,7 @@ export default function Home() {
         )}
 
         {/* SECTION 1: 🔥 Trending This Week (Top 10) */}
-        {isBrowsingAll && (
+        {isBrowsingAll && (isTrendingLoading || trendingVideos.length > 0) && (
           <section id="trending-section" className="space-y-4">
             <div className="flex items-center justify-between px-0.5">
               <div className="flex items-center gap-2">
@@ -343,7 +358,7 @@ export default function Home() {
         )}
 
         {/* SECTION 2: 🆕 New Releases (Top 10) */}
-        {isBrowsingAll && (
+        {isBrowsingAll && (isNewLoading || newVideos.length > 0) && (
           <section id="new-releases-section" className="space-y-4">
             <div className="flex items-center justify-between px-0.5">
               <div className="flex items-center gap-2">
@@ -388,7 +403,7 @@ export default function Home() {
         )}
 
         {/* SECTION 3: 🎯 Recommended For You (Top 10) */}
-        {isBrowsingAll && (
+        {isBrowsingAll && (isRecommendedLoading || recommendedVideos.length > 0) && (
           <section id="recommended-section" className="space-y-4">
             <div className="flex items-center justify-between px-0.5">
               <div className="flex items-center gap-2">
@@ -529,6 +544,8 @@ export default function Home() {
             </div>
           )}
         </section>
+          </>
+        )}
 
       </div>
     </div>

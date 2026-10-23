@@ -10,6 +10,7 @@ interface PaywallOverlayProps {
   priceUsd: number;
   onBuyNow: () => void;
   onLoginClick?: () => void;
+  onRequestPhoneAccess?: () => void;
 }
 
 export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
@@ -18,7 +19,8 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
   priceRwf,
   priceUsd,
   onBuyNow,
-  onLoginClick
+  onLoginClick,
+  onRequestPhoneAccess
 }) => {
   const { user } = useAuth();
 
@@ -62,29 +64,42 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
         </div>
       </div>
 
-      {/* CTA Button */}
-      {user ? (
-        <Button
-          id="paywall-buy-now-btn"
-          onClick={onBuyNow}
-          className="w-full max-w-sm h-12 bg-amber-500 hover:bg-amber-400 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <Play className="w-4 h-4 fill-black" />
-          Buy Now for {priceRwf.toLocaleString()} RWF
-          <ArrowRight className="w-4 h-4" />
-        </Button>
-      ) : (
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-sm">
+      {/* Action CTA Buttons */}
+      <div className="flex flex-col gap-2.5 w-full max-w-sm">
+        {user ? (
+          <Button
+            id="paywall-buy-now-btn"
+            onClick={onBuyNow}
+            className="w-full h-12 bg-amber-500 hover:bg-amber-400 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Play className="w-4 h-4 fill-black" />
+            Buy Now for {priceRwf.toLocaleString()} RWF
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        ) : (
           <Button
             id="paywall-login-btn"
             onClick={onLoginClick || onBuyNow}
-            className="flex-1 h-12 bg-amber-500 hover:bg-amber-400 text-black font-bold text-base rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer w-full"
+            className="w-full h-12 bg-amber-500 hover:bg-amber-400 text-black font-bold text-base rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <UserCheck className="w-4 h-4" />
-            Login to Purchase
+            Login or Buy as Guest ({priceRwf.toLocaleString()} RWF)
           </Button>
-        </div>
-      )}
+        )}
+
+        {/* Phone Access Request Workflow Button */}
+        {onRequestPhoneAccess && (
+          <button
+            type="button"
+            id="paywall-request-phone-access-btn"
+            onClick={onRequestPhoneAccess}
+            className="w-full py-2.5 px-4 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/60 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>Request Phone Approval to Watch</span>
+          </button>
+        )}
+      </div>
 
       {/* Trust & Guarantee Badges */}
       <div className="flex items-center justify-center gap-4 mt-6 text-xs text-gray-400">

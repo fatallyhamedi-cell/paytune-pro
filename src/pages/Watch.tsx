@@ -9,6 +9,7 @@ import { ActionButtons } from '../components/ActionButtons';
 import { CommentSection } from '../components/CommentSection';
 import { UpNextSidebar } from '../components/UpNextSidebar';
 import { PaymentModal } from '../components/PaymentModal';
+import { PhoneAccessRequestModal } from '../components/PhoneAccessRequestModal';
 
 export default function Watch() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +38,7 @@ export default function Watch() {
   } = useVideo(id);
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isPhoneRequestModalOpen, setIsPhoneRequestModalOpen] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
 
   // Autoplay next video on ended
@@ -128,6 +130,7 @@ export default function Watch() {
               video={video}
               savedProgress={savedProgress}
               onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
+              onRequestPhoneAccess={() => setIsPhoneRequestModalOpen(true)}
               onProgressUpdate={(secs) => saveProgress(secs)}
               onEnded={handleVideoEnded}
             />
@@ -189,6 +192,18 @@ export default function Watch() {
           price_usd: video.price_usd
         }}
         onSuccess={handlePurchaseSuccess}
+      />
+
+      {/* Phone Access Request Modal */}
+      <PhoneAccessRequestModal
+        isOpen={isPhoneRequestModalOpen}
+        onClose={() => setIsPhoneRequestModalOpen(false)}
+        videoId={video.id}
+        videoTitle={video.title}
+        onAccessGranted={() => {
+          setVideo(prev => prev ? { ...prev, userOwns: true } : null);
+          refetchVideo();
+        }}
       />
     </div>
   );

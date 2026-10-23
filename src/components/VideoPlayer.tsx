@@ -43,6 +43,7 @@ interface VideoPlayerProps {
   };
   savedProgress?: number;
   onOpenPaymentModal: () => void;
+  onRequestPhoneAccess?: () => void;
   onProgressUpdate?: (seconds: number) => void;
   onEnded?: () => void;
 }
@@ -51,6 +52,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   video,
   savedProgress = 0,
   onOpenPaymentModal,
+  onRequestPhoneAccess,
   onProgressUpdate,
   onEnded
 }) => {
@@ -65,11 +67,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [watermarkToken, setWatermarkToken] = useState<string>('');
   const [watermarkPosIndex, setWatermarkPosIndex] = useState(0);
 
-  // Pre-roll Ad State (CRITICAL: Paid videos and Shorts NEVER show ads)
+  // Ad State (opening pre-roll & automatic 15s mid-roll ad triggered at 50% mark)
   const [adState, setAdState] = useState<{
     active: boolean;
     ad: ActiveAd | null;
-  }>({ active: false, ad: null });
+    placement: 'preroll' | 'midroll';
+  }>({ active: false, ad: null, placement: 'preroll' });
+
+  const cachedAdRef = useRef<ActiveAd | null>(null);
+  const midRollTriggeredRef = useRef<boolean>(false);
+  const midRollActiveRef = useRef<boolean>(false);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -77,6 +84,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isDmcaBlocked = video.visibility === 'dmca_blocked' || 
                         video.visibility === 'copyright_blocked' || 
                         (video.is_active === false && Boolean(video.dmca_request_id));
+
+  // Reset mid-roll flags whenever video changes
+  useEffect(() => {
+    midRollTriggeredRef.current = false;
+    midRollActiveRef.current = false;
+  }, [video.id]);
 
   // Check for pre-roll ad on free videos
   useEffect(() => {
@@ -90,22 +103,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     );
 
     if (isPaid || isShort || !video.id || isDmcaBlocked) {
-      setAdState({ active: false, ad: null });
+      cachedAdRef.current = null;
+      setAdState({ active: false, ad: null, placement: 'preroll' });
       return;
     }
 
-    // RULE 3: FREE videos can show ads
+    // RULE 3: FREE videos can show opening pre-roll ad
     axios
       .get(`/api/ads/video/${video.id}`)
       .then((res) => {
         if (res.data?.has_ad && res.data.ad) {
-          setAdState({ active: true, ad: res.data.ad });
+          cachedAdRef.current = res.data.ad;
+          setAdState({ active: true, ad: res.data.ad, placement: 'preroll' });
         } else {
-          setAdState({ active: false, ad: null });
+          cachedAdRef.current = null;
+          setAdState({ active: false, ad: null, placement: 'preroll' });
         }
       })
       .catch(() => {
-        setAdState({ active: false, ad: null });
+        cachedAdRef.current = null;
+        setAdState({ active: false, ad: null, placement: 'preroll' });
       });
   }, [video.id, video.is_free, video.price_rwf, video.is_short, video.category, isDmcaBlocked]);
 
@@ -186,6 +203,51 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onProgressUpdate,
     onEnded
   });
+
+  // Center 50% Automatic 15-Second Mid-Roll Ad Trigger (free videos with duration >= 30s)
+  useEffect(() => {
+    const isPaid = !video.is_free && Number(video.price_rwf || 0) > 0;
+    const isShort = Boolean(
+      video.is_short || 
+      video.category === 'Shorts' || 
+      video.category === 'Reels'
+    );
+
+    if (isPaid || isShort || !video.id || isDmcaBlocked) return;
+    if (midRollTriggeredRef.current || midRollActiveRef.current) return;
+
+    const currentDur = duration || video.duration || 0;
+    const midPoint = currentDur / 2;
+
+    // Trigger when viewer reaches the center of the video (50% mark, min duration 30s)
+    if (currentDur >= 30 && currentTime >= midPoint && currentTime < currentDur - 5) {
+      midRollTriggeredRef.current = true;
+      midRollActiveRef.current = true;
+
+      // Pause the main video
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+
+      // Display the 15-second mid-roll ad
+      if (cachedAdRef.current) {
+        setAdState({ active: true, ad: cachedAdRef.current, placement: 'midroll' });
+      } else {
+        axios.get(`/api/ads/video/${video.id}`).then((res) => {
+          if (res.data?.has_ad && res.data.ad) {
+            cachedAdRef.current = res.data.ad;
+            setAdState({ active: true, ad: res.data.ad, placement: 'midroll' });
+          } else {
+            midRollActiveRef.current = false;
+            if (videoRef.current) videoRef.current.play().catch(() => {});
+          }
+        }).catch(() => {
+          midRollActiveRef.current = false;
+          if (videoRef.current) videoRef.current.play().catch(() => {});
+        });
+      }
+    }
+  }, [currentTime, duration, video.id, video.is_free, video.price_rwf, video.is_short, video.category, isDmcaBlocked]);
 
   // Auto-hide controls after inactivity
   const handleMouseMove = () => {
@@ -292,19 +354,22 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         className="w-full h-full object-contain cursor-pointer select-none"
       />
 
-      {/* Pre-roll Ad Overlay for Free Videos */}
+      {/* Pre-roll or Mid-roll Ad Overlay for Free Videos */}
       {adState.active && adState.ad && (
         <PreRollAd
           ad={adState.ad}
           videoId={video.id}
+          adPlacement={adState.placement}
           onAdEnded={() => {
-            setAdState({ active: false, ad: null });
+            setAdState(prev => ({ ...prev, active: false }));
+            midRollActiveRef.current = false;
             if (videoRef.current) {
               videoRef.current.play().catch(() => {});
             }
           }}
           onAdSkipped={() => {
-            setAdState({ active: false, ad: null });
+            setAdState(prev => ({ ...prev, active: false }));
+            midRollActiveRef.current = false;
             if (videoRef.current) {
               videoRef.current.play().catch(() => {});
             }
@@ -376,6 +441,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           priceRwf={video.price_rwf}
           priceUsd={video.price_usd}
           onBuyNow={onOpenPaymentModal}
+          onRequestPhoneAccess={onRequestPhoneAccess}
         />
       )}
 

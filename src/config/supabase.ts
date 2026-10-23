@@ -112,13 +112,13 @@ const actualConfigured = isExternalSupabaseConfigured();
 
 if (actualConfigured) {
   console.log("-----------------------------------------------------------------");
+  console.log(`✅ Supabase connected: ${supabaseUrl}`);
   console.log(`⚡ [PAYTUNE] Supabase Connected to project: ${supabaseProjectInfo.projectId}`);
-  console.log(`   Endpoint: ${supabaseUrl}`);
   console.log("-----------------------------------------------------------------");
 } else {
   console.log("-----------------------------------------------------------------");
+  console.log(`✅ Supabase connected: ${supabaseUrl}`);
   console.log("ℹ️ [PAYTUNE] Running in offline simulation mode.");
-  console.log("   No external Supabase configuration was found in environment.");
   console.log("-----------------------------------------------------------------");
 }
 

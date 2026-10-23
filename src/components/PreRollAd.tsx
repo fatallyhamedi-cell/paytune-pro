@@ -25,6 +25,7 @@ export interface ActiveAd {
 interface PreRollAdProps {
   ad: ActiveAd;
   videoId: string;
+  adPlacement?: 'preroll' | 'midroll';
   onAdEnded: () => void;
   onAdSkipped: () => void;
 }
@@ -32,6 +33,7 @@ interface PreRollAdProps {
 export const PreRollAd: React.FC<PreRollAdProps> = ({
   ad,
   videoId,
+  adPlacement = 'preroll',
   onAdEnded,
   onAdSkipped
 }) => {
@@ -190,8 +192,10 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
       {/* Top Banner: Ad identification */}
       <div className="absolute top-4 left-4 z-40 flex items-center gap-2.5">
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-md">
-          <span>Ad</span>
-          <span className="text-neutral-900 font-normal opacity-80">• 1 of 1</span>
+          <span>{adPlacement === 'midroll' ? 'Mid-Roll Ad' : 'Ad'}</span>
+          <span className="text-neutral-900 font-normal opacity-80">
+            {adPlacement === 'midroll' ? '• Mid-Video Break' : '• 1 of 1'}
+          </span>
         </div>
         <div className="bg-black/70 backdrop-blur-md px-3 py-1 rounded-md border border-neutral-700/60 text-white text-xs font-medium flex items-center gap-2 shadow-md">
           <span className="font-semibold text-amber-400">{ad.advertiser_name}</span>

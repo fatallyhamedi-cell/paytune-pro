@@ -559,6 +559,37 @@ export const getVideoDetails = async (req: Request, res: Response) => {
       }
     }
 
+    // Check Phone Access Request & Phone-based Entitlements (both authenticated and guest viewers)
+    const viewerPhone = (req.headers['x-viewer-phone'] as string) || (req.query.viewer_phone as string) || user?.phone || null;
+    const cleanPhone = viewerPhone ? String(viewerPhone).trim().replace(/\s+/g, '') : null;
+    const store = getDbStore();
+
+    if (cleanPhone) {
+      const hasApprovedPhoneRequest = (store?.access_requests || []).some(
+        (r: any) => r.phone === cleanPhone && String(r.video_id) === String(id) && r.status === 'approved'
+      );
+      const hasPhonePurchase = (store?.purchases || []).some(
+        (p: any) => p.payment_phone === cleanPhone && String(p.video_id) === String(id)
+      );
+      if (hasApprovedPhoneRequest || hasPhonePurchase) {
+        userOwns = true;
+      }
+    }
+
+    if (userId) {
+      const hasApprovedUserRequest = (store?.access_requests || []).some(
+        (r: any) => (r.user_id === userId || (user?.phone && r.phone === user.phone)) && String(r.video_id) === String(id) && r.status === 'approved'
+      );
+      if (hasApprovedUserRequest) {
+        userOwns = true;
+      }
+    }
+
+    // Strict server-side access enforcement: Unpaid users cannot access protected full video stream URL for free
+    if (!userOwns) {
+      normalized.video_url = "";
+    }
+
     res.json({ 
       ...normalized, 
       userOwns, 

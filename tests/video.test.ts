@@ -1,8 +1,61 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
-import { getDbStore } from '../src/config/supabase_mock';
+import { getDbStore, setDbStore } from '../src/config/supabase_mock';
 
 describe('Video Discovery & Playback Authorization Engine', () => {
+  beforeEach(() => {
+    const store = getDbStore();
+    if (!store.videos || store.videos.length === 0) {
+      setDbStore({
+        ...store,
+        videos: [
+          {
+            id: 'e9a8b7c6-d5e4-4f3a-2b1c-0d9e8f7a6b5c',
+            artist_id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+            title: 'Kigali Night Life',
+            thumbnail_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819',
+            video_url: 'https://storage.googleapis.com/paytune-videos/kigali-night.mp4',
+            price_rwf: 500,
+            price_usd: 0.50,
+            is_free: false,
+            is_short: false,
+            category: 'Afrobeat',
+            visibility: 'public',
+            is_active: true
+          },
+          {
+            id: 'c9123c49-2b9e-41c2-ba54-c2128656bedc',
+            artist_id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+            title: 'Inyange Live',
+            thumbnail_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4',
+            video_url: 'https://storage.googleapis.com/paytune-videos/inyange-live.mp4',
+            price_rwf: 0,
+            price_usd: 0,
+            is_free: true,
+            is_short: false,
+            category: 'RnB',
+            visibility: 'public',
+            is_active: true
+          },
+          {
+            id: 'vid-1',
+            artist_id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
+            title: 'Kigali Summer Vibes (Shorts)',
+            thumbnail_url: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a',
+            video_url: 'https://storage.googleapis.com/paytune-videos/summer-vibes.mp4',
+            price_rwf: 0,
+            price_usd: 0,
+            is_free: true,
+            is_short: true,
+            category: 'Shorts',
+            visibility: 'public',
+            is_active: true
+          }
+        ]
+      });
+    }
+  });
+
   it('loads public video catalog containing active videos with valid metadata', () => {
     const store = getDbStore();
     const activeVideos = (store.videos || []).filter((v: any) => v.is_active !== false && v.visibility === 'public');

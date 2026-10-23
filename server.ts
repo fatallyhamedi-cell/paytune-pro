@@ -39,6 +39,7 @@ import exchangeRoutes from "./backend/src/routes/exchangeRoutes";
 import uploadRouter from "./src/routes/uploadRoutes";
 import copyrightRouter, { dmcaRouter } from "./src/routes/copyrightRoutes";
 import adRouter from "./src/routes/adRoutes";
+import accessRequestRouter from "./src/routes/accessRequestRoutes";
 import edgeFunctionRoutes from "./src/routes/edgeFunctionRoutes";
 import { processAndUploadVideo } from "./src/services/videoService";
 import { processPurchase } from "./src/services/paymentSplitter";
@@ -454,6 +455,7 @@ app.use("/api/copyright", copyrightRouter);
 app.use("/api/dmca", dmcaRouter);
 app.use("/api/edge-functions", edgeFunctionRoutes);
 app.use("/functions/v1", edgeFunctionRoutes);
+app.use("/api/access-requests", accessRequestRouter);
 
 // --- User Dashboard API Endpoints ---
 app.use("/api/user/playlists", playlistRouter);

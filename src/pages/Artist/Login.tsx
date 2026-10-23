@@ -46,8 +46,25 @@ export default function ArtistLogin() {
 
       navigate('/artist/dashboard', { replace: true });
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.warn('Artist login attempt failed:', err.response?.data?.error || err.message);
       setError(err.response?.data?.error || err.message || 'Invalid email or password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async (demoEmail = 'artist@paytune.com', demoPass = 'password') => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    setError('');
+    setInfoMessage('');
+    setLoading(true);
+    try {
+      await login(demoEmail, demoPass);
+      navigate('/artist/dashboard', { replace: true });
+    } catch (err: any) {
+      console.warn('Demo login attempt failed:', err.response?.data?.error || err.message);
+      setError(err.response?.data?.error || err.message || 'Demo login failed');
     } finally {
       setLoading(false);
     }
@@ -112,6 +129,22 @@ export default function ArtistLogin() {
             className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer"
           >
             {loading ? 'Logging in...' : 'Log In to Studio'}
+          </button>
+
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-gray-800"></div>
+            <span className="flex-shrink mx-3 text-xs uppercase tracking-wider text-gray-500 font-medium">Or Quick Access</span>
+            <div className="flex-grow border-t border-gray-800"></div>
+          </div>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => handleDemoLogin('artist@paytune.com', 'password')}
+            className="w-full bg-[#2A2A2A] hover:bg-[#333333] border border-amber-500/40 hover:border-amber-500 text-amber-400 font-semibold py-2.5 px-4 rounded-lg text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+          >
+            <span>⚡ Instant Demo Studio Login</span>
+            <span className="text-xs text-gray-400 font-mono">(artist@paytune.com)</span>
           </button>
         </form>
 

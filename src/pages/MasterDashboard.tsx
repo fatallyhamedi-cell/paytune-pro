@@ -7,6 +7,7 @@ import { ArtistManagement } from "../components/ArtistManagement";
 import { UserManagement } from "../components/UserManagement";
 import { VideoManagement } from "../components/VideoManagement";
 import { MasterAdsManager } from "../components/MasterAdsManager";
+import { AccessRequestsManager } from "../components/AccessRequestsManager";
 import { PaymentManagement } from "../components/PaymentManagement";
 import { WithdrawalManagement } from "../components/WithdrawalManagement";
 import { MasterCopyrightCenter } from "../components/MasterCopyrightCenter";
@@ -66,6 +67,8 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
         "artists",
         "users",
         "videos",
+        "access_requests",
+        "ads",
         "payments",
         "withdrawals",
         "copyright",
@@ -391,6 +394,8 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
             }}
           />
         )}
+
+        {activeTab === "access_requests" && <AccessRequestsManager />}
 
         {activeTab === "ads" && <MasterAdsManager />}
 

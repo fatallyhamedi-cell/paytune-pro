@@ -20,7 +20,8 @@ import {
   ExternalLink,
   ChevronRight,
   Scale,
-  Megaphone
+  Megaphone,
+  PhoneCall
 } from "lucide-react";
 import Logo from "./Logo";
 
@@ -29,6 +30,7 @@ export type MasterTab =
   | "artists"
   | "users"
   | "videos"
+  | "access_requests"
   | "ads"
   | "payments"
   | "withdrawals"
@@ -72,6 +74,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
     },
     { id: "users" as MasterTab, label: "Users", icon: UserCheck },
     { id: "videos" as MasterTab, label: "Videos", icon: Video },
+    { id: "access_requests" as MasterTab, label: "Access Requests", icon: PhoneCall },
     { id: "ads" as MasterTab, label: "Ads & Monetization", icon: Megaphone },
     { id: "payments" as MasterTab, label: "Payments", icon: CreditCard },
     {
@@ -99,6 +102,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
       case "artists": return "Artist Management & Verification";
       case "users": return "User Management & Consumer Accounts";
       case "videos": return "Video Catalog & Visibility Control";
+      case "access_requests": return "Phone Access Requests & Viewer Approvals";
       case "ads": return "Video Ads & Monetization Center";
       case "payments": return "Revenue & Financial Transactions";
       case "withdrawals": return "Mobile Money Payout Requests";

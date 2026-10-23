@@ -127,12 +127,36 @@ export async function uploadVideo(req: ArtistRequest, res: Response) {
       console.warn('[artistVideoController] Insert warning:', error.message);
     }
 
+    console.log('[VIDEO UPLOAD] ✅ Video inserted:', videoId);
+
     return res.status(201).json({
       success: true,
+      message: 'Video uploaded successfully! It is now being reviewed by our team.',
       video: video || videoPayload
     });
   } catch (err: any) {
     console.error('[artistVideoController] uploadVideo error:', err);
     return res.status(500).json({ error: err.message || 'Media upload failed' });
+  }
+}
+
+// GET /api/artist/videos
+export async function listMyVideos(req: ArtistRequest, res: Response) {
+  try {
+    const artistId = req.artistId;
+    if (!artistId) return res.status(401).json({ error: 'Auth required' });
+
+    const { data: videos, error } = await db
+      .from('videos')
+      .select('*')
+      .eq('artist_id', artistId)
+      .order('uploaded_at', { ascending: false });
+
+    if (error) {
+      console.warn('[listMyVideos] Error:', error.message);
+    }
+    return res.json({ videos: videos || [] });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to load videos' });
   }
 }

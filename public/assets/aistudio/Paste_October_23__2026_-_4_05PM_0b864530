@@ -1,0 +1,1235 @@
+You have fake videos (old Supabase data), video upload broken, and profile upload broken. Below is the complete prompt to fix all three using Express + Supabase only.
+
+Copy everything inside the box and paste into Google AI Studio.
+
+text
+You are a senior full-stack engineer. My PAYTUNE app uses this EXACT stack:
+
+- Backend: Node.js + Express + JavaScript (.js)
+- Database: Supabase (PostgreSQL) — using @supabase/supabase-js
+- Frontend: React + TypeScript (.tsx) + Vite + Tailwind + Axios
+- File Storage: Supabase Storage (buckets)
+- Auth: JWT
+
+There are THREE critical bugs. Fix all three with complete working code.
+
+═══════════════════════════════════════════════════════════════
+BUG 1 — FAKE VIDEOS FROM SUPABASE SHOWING ON THE HOMEPAGE
+═══════════════════════════════════════════════════════════════
+
+SYMPTOMS:
+- Homepage and video grids show fake/demo videos
+- These videos came from old Supabase test data
+- When I upload a real video, it does NOT appear on the homepage
+
+FIX:
+1. Give me the SQL to run in Supabase SQL Editor to DELETE all fake videos:
+
+```sql
+DELETE FROM videos
+WHERE video_url ILIKE '%supabase%'
+   OR video_url ILIKE '%w3.org%'
+   OR video_url ILIKE '%gtv-videos-bucket%'
+   OR video_url ILIKE '%sintel%'
+   OR video_url ILIKE '%BigBuckBunny%'
+   OR video_url ILIKE '%sample%'
+   OR video_url ILIKE '%mixkit%'
+   OR video_url ILIKE '%coverr%'
+   OR video_url ILIKE '%pexels%'
+   OR video_url ILIKE '%pixabay%'
+   OR title ILIKE '%demo%'
+   OR title ILIKE '%sample%'
+   OR title ILIKE '%test video%';
+Give me the complete backend/src/config/supabase.js using @supabase/supabase-js:
+
+javascript
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+
+if (!process.env.SUPABASE_URL) throw new Error('SUPABASE_URL missing');
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY missing');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+const supabasePublic = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
+
+console.log('✅ Supabase connected:', process.env.SUPABASE_URL);
+
+module.exports = { supabase, supabasePublic };
+Give me the complete backend/src/controllers/videoController.js that fetches from Supabase:
+
+javascript
+const { supabase } = require('../config/supabase');
+
+// GET /api/videos
+async function listVideos(req, res, next) {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const offset = Number(req.query.offset) || 0;
+
+    const { data, error, count } = await supabase
+      .from('videos')
+      .select(`
+        id, title, thumbnail_url, video_url, preview_url,
+        price_rwf, price_usd, is_free, is_short, media_type,
+        duration, category, views, likes, rating_avg, uploaded_at,
+        artist_id,
+        artists:artist_id (id, full_name, avatar_url)
+      `, { count: 'exact' })
+      .eq('visibility', 'public')
+      .eq('is_active', true)
+      .eq('copyright_status', 'approved')
+      .order('uploaded_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+    return res.json({ videos: data || [], total: count || 0 });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/videos/trending
+async function getTrendingVideos(req, res, next) {
+  try {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('id, title, thumbnail_url, views, likes, artist_id, artists:artist_id (full_name, avatar_url)')
+      .eq('visibility', 'public')
+      .eq('is_active', true)
+      .eq('copyright_status', 'approved')
+      .order('views', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    return res.json({ videos: data || [] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/videos/new
+async function getNewVideos(req, res, next) {
+  try {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('id, title, thumbnail_url, views, uploaded_at, artist_id, artists:artist_id (full_name, avatar_url)')
+      .eq('visibility', 'public')
+      .eq('is_active', true)
+      .eq('copyright_status', 'approved')
+      .order('uploaded_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    return res.json({ videos: data || [] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/videos/recommended
+async function getRecommendedVideos(req, res, next) {
+  try {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('id, title, thumbnail_url, views, rating_avg, artist_id, artists:artist_id (full_name, avatar_url)')
+      .eq('visibility', 'public')
+      .eq('is_active', true)
+      .eq('copyright_status', 'approved')
+      .order('rating_avg', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    return res.json({ videos: data || [] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/videos/:id
+async function getVideoById(req, res, next) {
+  try {
+    const { id } = req.params;
+    const userId = req.userId || null;
+
+    const { data: video, error } = await supabase
+      .from('videos')
+      .select(`
+        *,
+        artists:artist_id (id, full_name, avatar_url, follower_count)
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+
+    let userOwns = false;
+    if (userId) {
+      const { data: purchase } = await supabase
+        .from('purchases')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('video_id', id)
+        .maybeSingle();
+      userOwns = !!purchase;
+    }
+
+    return res.json({ ...video, userOwns });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/videos/:id/view
+async function recordView(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { data: video } = await supabase
+      .from('videos')
+      .select('views')
+      .eq('id', id)
+      .single();
+
+    if (video) {
+      await supabase
+        .from('videos')
+        .update({ views: (video.views || 0) + 1 })
+        .eq('id', id);
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  listVideos,
+  getTrendingVideos,
+  getNewVideos,
+  getRecommendedVideos,
+  getVideoById,
+  recordView,
+};
+Give me the complete frontend/src/pages/Home.tsx that fetches ONLY from backend (Axios), never from Supabase directly:
+
+tsx
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
+
+interface Video {
+  id: string;
+  title: string;
+  thumbnail_url: string;
+  views: number;
+  artists?: { full_name: string; avatar_url: string | null };
+}
+
+export default function Home() {
+  const [trending, setTrending] = useState<Video[]>([]);
+  const [recent, setRecent] = useState<Video[]>([]);
+  const [recommended, setRecommended] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [t, n, r] = await Promise.all([
+          api.get('/videos/trending').catch(() => ({ data: { videos: [] } })),
+          api.get('/videos/new').catch(() => ({ data: { videos: [] } })),
+          api.get('/videos/recommended').catch(() => ({ data: { videos: [] } })),
+        ]);
+        setTrending(t.data.videos || []);
+        setRecent(n.data.videos || []);
+        setRecommended(r.data.videos || []);
+      } catch (err) {
+        console.error('[Home] Load error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="bg-[#1A1A1A] rounded-xl aspect-video animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  const total = trending.length + recent.length + recommended.length;
+
+  if (total === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+        <div className="text-6xl mb-4">🎬</div>
+        <h2 className="text-white text-xl font-semibold mb-2">No videos yet</h2>
+        <p className="text-gray-400 mb-6 max-w-md">
+          Artists haven't uploaded any videos yet. Be the first to share your talent.
+        </p>
+        <Link to="/artist/signup" className="bg-amber-500 text-black font-semibold px-6 py-3 rounded-lg">
+          Become an artist
+        </Link>
+      </div>
+    );
+  }
+
+  const Section = ({ title, videos }: { title: string; videos: Video[] }) => {
+    if (videos.length === 0) return null;
+    return (
+      <section className="mb-8">
+        <h2 className="text-white text-xl font-bold mb-4">{title}</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {videos.map((v) => (
+            <Link key={v.id} to={`/watch/${v.id}`} className="bg-[#1A1A1A] rounded-xl overflow-hidden hover:ring-2 hover:ring-amber-500 transition">
+              <img src={v.thumbnail_url} alt={v.title} className="w-full aspect-video object-cover" />
+              <div className="p-3">
+                <p className="text-white text-sm font-semibold truncate">{v.title}</p>
+                <p className="text-gray-400 text-xs">{v.artists?.full_name || 'Unknown'}</p>
+                <p className="text-gray-500 text-xs">{v.views || 0} views</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <div className="p-4">
+      <Section title="🔥 Trending" videos={trending} />
+      <Section title="🆕 New Releases" videos={recent} />
+      <Section title="🎯 Recommended" videos={recommended} />
+    </div>
+  );
+}
+═══════════════════════════════════════════════════════════════
+BUG 2 — VIDEO UPLOAD DOES NOT SAVE TO SUPABASE
+═══════════════════════════════════════════════════════════════
+
+SYMPTOMS:
+
+Artist selects a video
+
+Clicks Upload
+
+Nothing saves to Supabase videos table
+
+Video never appears in dashboard or homepage
+
+FIX:
+
+Give me the SQL to create the Supabase Storage buckets (run in Supabase SQL Editor):
+
+sql
+INSERT INTO storage.buckets (id, name, public)
+VALUES 
+  ('videos', 'videos', true),
+  ('thumbnails', 'thumbnails', true),
+  ('previews', 'previews', true),
+  ('avatars', 'avatars', true),
+  ('banners', 'banners', true),
+  ('audio', 'audio', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Public read storage" ON storage.objects;
+CREATE POLICY "Public read storage" ON storage.objects
+  FOR SELECT USING (bucket_id IN ('videos','thumbnails','previews','avatars','banners','audio'));
+
+DROP POLICY IF EXISTS "Auth insert storage" ON storage.objects;
+CREATE POLICY "Auth insert storage" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id IN ('videos','thumbnails','previews','avatars','banners','audio'));
+Give me the complete backend/src/services/storageService.js:
+
+javascript
+const { supabase } = require('../config/supabase');
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+
+/**
+ * Upload a buffer to Supabase Storage.
+ * Returns { url, path }
+ */
+async function uploadBuffer(buffer, opts) {
+  const { bucket, userId, originalName, contentType } = opts;
+
+  const ext = path.extname(originalName) || '.bin';
+  const filePath = `${userId}/${Date.now()}-${uuidv4().slice(0, 8)}${ext}`;
+
+  console.log(`[STORAGE] Uploading to bucket=${bucket} path=${filePath} size=${buffer.length}`);
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, buffer, {
+      contentType: contentType || 'application/octet-stream',
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error(`[STORAGE] ❌ Upload failed:`, error);
+    throw new Error(`Storage upload failed: ${error.message}`);
+  }
+
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+  console.log(`[STORAGE] ✅ Uploaded: ${urlData.publicUrl}`);
+
+  return { url: urlData.publicUrl, path: filePath };
+}
+
+module.exports = { uploadBuffer };
+Give me the complete backend/src/middleware/upload.js:
+
+javascript
+const multer = require('multer');
+
+const storage = multer.memoryStorage();
+
+const fileFilter = (req, file, cb) => {
+  console.log(`[MULTER] field="${file.fieldname}" type="${file.mimetype}"`);
+
+  if (file.fieldname === 'video' || file.fieldname === 'audio') {
+    if (file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) return cb(null, true);
+    return cb(new Error('Only video or audio allowed'), false);
+  }
+
+  if (['thumbnail', 'avatar', 'banner'].includes(file.fieldname)) {
+    if (file.mimetype.startsWith('image/')) return cb(null, true);
+    return cb(new Error('Only images allowed'), false);
+  }
+
+  return cb(new Error('Unexpected field: ' + file.fieldname), false);
+};
+
+module.exports = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 500 * 1024 * 1024, files: 3 },
+});
+Give me the complete backend/src/controllers/artistVideoController.js:
+
+javascript
+const { supabase } = require('../config/supabase');
+const { uploadBuffer } = require('../services/storageService');
+const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+
+// POST /api/artist/video/upload
+async function uploadVideo(req, res, next) {
+  try {
+    console.log('[VIDEO UPLOAD] artistId:', req.artistId);
+    console.log('[VIDEO UPLOAD] files:', req.files ? Object.keys(req.files) : 'none');
+
+    if (!req.artistId) {
+      return res.status(401).json({ error: 'Artist auth required' });
+    }
+
+    const files = req.files || {};
+    const videoFile = files.video?.[0];
+    const thumbnailFile = files.thumbnail?.[0];
+
+    if (!videoFile) {
+      return res.status(400).json({ error: 'No video file received (field must be "video")' });
+    }
+
+    // Check artist approved
+    const { data: artist } = await supabase
+      .from('artists')
+      .select('is_approved, is_blocked')
+      .eq('id', req.artistId)
+      .single();
+
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
+    if (!artist.is_approved) return res.status(403).json({ error: 'Artist not approved' });
+    if (artist.is_blocked) return res.status(403).json({ error: 'Account blocked' });
+
+    const {
+      title, description, category, price_rwf, price_usd,
+      is_free, is_short, visibility, media_type,
+      ownership_declared, no_ai_declared, no_copyright_declared,
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title required' });
+    }
+
+    if (
+      ownership_declared !== 'true' ||
+      no_ai_declared !== 'true' ||
+      no_copyright_declared !== 'true'
+    ) {
+      return res.status(400).json({ error: 'All three declarations must be accepted' });
+    }
+
+    const isFreeBool = is_free === 'true' || is_short === 'true';
+    const isShortBool = is_short === 'true';
+    const mediaType = media_type === 'audio' ? 'audio' : 'video';
+
+    // 1. Upload video to Supabase Storage
+    console.log('[VIDEO UPLOAD] Uploading video to Supabase Storage...');
+    const videoUp = await uploadBuffer(videoFile.buffer, {
+      bucket: mediaType === 'audio' ? 'audio' : 'videos',
+      userId: req.artistId,
+      originalName: videoFile.originalname,
+      contentType: videoFile.mimetype,
+    });
+
+    // 2. Upload thumbnail if provided
+    let thumbnailUrl = null;
+    if (thumbnailFile) {
+      console.log('[VIDEO UPLOAD] Uploading thumbnail...');
+      const thumbUp = await uploadBuffer(thumbnailFile.buffer, {
+        bucket: 'thumbnails',
+        userId: req.artistId,
+        originalName: thumbnailFile.originalname,
+        contentType: thumbnailFile.mimetype,
+      });
+      thumbnailUrl = thumbUp.url;
+    }
+
+    // 3. Video hash
+    const videoHash = crypto.createHash('sha256').update(videoFile.buffer).digest('hex');
+
+    // 4. Insert into Supabase
+    const videoId = uuidv4();
+    const { data: video, error } = await supabase
+      .from('videos')
+      .insert({
+        id: videoId,
+        artist_id: req.artistId,
+        title: title.trim(),
+        description: description || null,
+        video_url: videoUp.url,
+        thumbnail_url: thumbnailUrl,
+        preview_url: videoUp.url,
+        audio_url: mediaType === 'audio' ? videoUp.url : null,
+        media_type: mediaType,
+        duration: null,
+        category: category || null,
+        price_rwf: isFreeBool ? null : Number(price_rwf) || null,
+        price_usd: isFreeBool ? null : Number(price_usd) || null,
+        is_free: isFreeBool,
+        is_short: isShortBool,
+        visibility: visibility || 'public',
+        is_active: false,
+        copyright_status: 'review',
+        video_hash: videoHash,
+        ownership_declared: true,
+        file_size: videoFile.size,
+        original_filename: videoFile.originalname,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[VIDEO UPLOAD] ❌ Insert error:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('[VIDEO UPLOAD] ✅ Video inserted:', video.id);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Video uploaded successfully! It is now being reviewed by our team.',
+      video,
+    });
+  } catch (err) {
+    console.error('[VIDEO UPLOAD] ❌ Error:', err);
+    next(err);
+  }
+}
+
+// GET /api/artist/videos
+async function listMyVideos(req, res, next) {
+  try {
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('artist_id', req.artistId)
+      .order('uploaded_at', { ascending: false });
+
+    if (error) throw error;
+    return res.json({ videos: data || [] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { uploadVideo, listMyVideos };
+Give me the complete backend/src/routes/uploadRoutes.js:
+
+javascript
+const express = require('express');
+const router = express.Router();
+const upload = require('../middleware/upload');
+const { authenticateArtist } = require('../middleware/auth');
+const { uploadAvatar, uploadBanner, uploadThumbnail } = require('../controllers/uploadController');
+const { uploadVideo, listMyVideos } = require('../controllers/artistVideoController');
+
+router.post('/upload/avatar', authenticateArtist, upload.single('avatar'), uploadAvatar);
+router.post('/upload/banner', authenticateArtist, upload.single('banner'), uploadBanner);
+router.post('/upload/thumbnail', authenticateArtist, upload.single('thumbnail'), uploadThumbnail);
+
+router.post(
+  '/video/upload',
+  authenticateArtist,
+  upload.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+  ]),
+  uploadVideo
+);
+
+router.get('/videos', authenticateArtist, listMyVideos);
+
+module.exports = router;
+Give me the exact lines to add to backend/src/app.js:
+
+javascript
+app.use('/api/artist', require('./routes/uploadRoutes'));
+Give me the complete frontend/src/pages/Artist/Upload.tsx:
+
+tsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import api from '../../services/api';
+
+export default function ArtistUpload() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [isFree, setIsFree] = useState(true);
+  const [isShort, setIsShort] = useState(false);
+  const [priceRwf, setPriceRwf] = useState('');
+  const [priceUsd, setPriceUsd] = useState('');
+  const [visibility, setVisibility] = useState('public');
+
+  const [ownership, setOwnership] = useState(false);
+  const [noAi, setNoAi] = useState(false);
+  const [noCopyright, setNoCopyright] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const allDeclared = ownership && noAi && noCopyright;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); setSuccess('');
+
+    if (!videoFile) return setError('Select a video file');
+    if (!title.trim()) return setError('Title required');
+    if (!allDeclared) return setError('Accept all 3 declarations');
+    if (!isFree && !isShort) {
+      if (!priceRwf || Number(priceRwf) < 200) return setError('RWF price must be ≥ 200');
+      if (!priceUsd || Number(priceUsd) < 1) return setError('USD price must be ≥ 1');
+    }
+
+    const fd = new FormData();
+    fd.append('video', videoFile);
+    if (thumbFile) fd.append('thumbnail', thumbFile);
+    fd.append('title', title.trim());
+    fd.append('description', description);
+    fd.append('category', category);
+    fd.append('is_free', String(isFree || isShort));
+    fd.append('is_short', String(isShort));
+    fd.append('visibility', visibility);
+    fd.append('media_type', 'video');
+    fd.append('ownership_declared', String(ownership));
+    fd.append('no_ai_declared', String(noAi));
+    fd.append('no_copyright_declared', String(noCopyright));
+    if (!isFree && !isShort) {
+      fd.append('price_rwf', priceRwf);
+      fd.append('price_usd', priceUsd);
+    }
+
+    console.log('[Upload] Starting, file:', videoFile.name, videoFile.size);
+
+    setLoading(true);
+    setProgress(0);
+
+    try {
+      const res = await api.post('/artist/video/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (ev) => {
+          if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100));
+        },
+      });
+
+      console.log('[Upload] ✅ Success:', res.data);
+      setSuccess(res.data.message || 'Video uploaded successfully!');
+
+      queryClient.invalidateQueries({ queryKey: ['artist-videos'] });
+      queryClient.invalidateQueries({ queryKey: ['videos'] });
+
+      setTimeout(() => navigate('/artist/dashboard/videos'), 2000);
+    } catch (err: any) {
+      console.error('[Upload] ❌ Error:', err.response?.data || err.message);
+      setError(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl p-6">
+      <h1 className="text-2xl font-bold text-white mb-6">Upload Video</h1>
+
+      {error && (
+        <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-500/20 border border-green-500 text-green-300 p-3 rounded mb-4 text-sm">
+          {success}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-gray-300 text-sm mb-2">Video file</label>
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+            className="w-full text-white"
+            required
+          />
+          {videoFile && (
+            <p className="text-xs text-gray-500 mt-1">
+              {videoFile.name} — {(videoFile.size / 1024 / 1024).toFixed(2)} MB
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-gray-300 text-sm mb-2">Thumbnail (optional)</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setThumbFile(e.target.files?.[0] || null)}
+            className="w-full text-white"
+          />
+        </div>
+
+        <input
+          type="text"
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
+          required
+        />
+
+        <textarea
+          placeholder="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
+        />
+
+        <input
+          type="text"
+          placeholder="Category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
+        />
+
+        <label className="flex items-center gap-2 text-white">
+          <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
+          Free
+        </label>
+
+        {!isFree && !isShort && (
+          <div className="grid grid-cols-2 gap-3">
+            <input type="number" placeholder="Price RWF (min 200)" value={priceRwf}
+              onChange={(e) => setPriceRwf(e.target.value)}
+              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700" />
+            <input type="number" step="0.01" placeholder="Price USD (min 1)" value={priceUsd}
+              onChange={(e) => setPriceUsd(e.target.value)}
+              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700" />
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 text-white">
+          <input type="checkbox" checked={isShort} onChange={(e) => setIsShort(e.target.checked)} />
+          Short (9:16, ≤50s, always free)
+        </label>
+
+        <select value={visibility} onChange={(e) => setVisibility(e.target.value)}
+          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700">
+          <option value="public">Public</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="private">Private</option>
+        </select>
+
+        <div className="bg-[#1A1A1A] p-4 rounded-lg space-y-3">
+          <p className="text-white font-semibold">Original Content Declaration</p>
+          <label className="flex items-start gap-2 text-gray-300 text-sm">
+            <input type="checkbox" checked={ownership} onChange={(e) => setOwnership(e.target.checked)} className="mt-1" />
+            <span>I created this video and own all rights.</span>
+          </label>
+          <label className="flex items-start gap-2 text-gray-300 text-sm">
+            <input type="checkbox" checked={noCopyright} onChange={(e) => setNoCopyright(e.target.checked)} className="mt-1" />
+            <span>No copyrighted content.</span>
+          </label>
+          <label className="flex items-start gap-2 text-gray-300 text-sm">
+            <input type="checkbox" checked={noAi} onChange={(e) => setNoAi(e.target.checked)} className="mt-1" />
+            <span>Not AI-generated.</span>
+          </label>
+        </div>
+
+        {loading && (
+          <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+            <div className="bg-amber-500 h-full transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+
+        <button type="submit" disabled={loading || !allDeclared}
+          className="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg disabled:opacity-50">
+          {loading ? `Uploading ${progress}%...` : 'Upload Video'}
+        </button>
+      </form>
+    </div>
+  );
+}
+Give me the complete frontend/src/pages/Artist/Videos.tsx:
+
+tsx
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import api from '../../services/api';
+
+export default function ArtistVideos() {
+  const { data: videos = [], isLoading, refetch } = useQuery({
+    queryKey: ['artist-videos'],
+    queryFn: async () => {
+      const res = await api.get('/artist/videos');
+      return res.data.videos || [];
+    },
+    staleTime: 0,
+  });
+
+  if (isLoading) return <div className="text-gray-400 p-6">Loading...</div>;
+
+  if (videos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+        <div className="text-6xl mb-4">🎬</div>
+        <h2 className="text-white text-xl font-semibold mb-2">No videos yet</h2>
+        <p className="text-gray-400 mb-6">Upload your first video to get started.</p>
+        <Link to="/artist/dashboard/upload" className="bg-amber-500 text-black font-semibold px-6 py-3 rounded-lg">
+          Upload Video
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-white">Your Videos</h1>
+        <button onClick={() => refetch()} className="text-amber-500 text-sm">Refresh</button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {videos.map((v: any) => (
+          <div key={v.id} className="bg-[#1A1A1A] rounded-xl overflow-hidden">
+            {v.thumbnail_url ? (
+              <img src={v.thumbnail_url} alt={v.title} className="w-full aspect-video object-cover" />
+            ) : (
+              <div className="w-full aspect-video bg-[#2A2A2A] flex items-center justify-center text-gray-500">No thumbnail</div>
+            )}
+            <div className="p-3">
+              <p className="text-white font-semibold truncate">{v.title}</p>
+              <p className="text-xs text-amber-400">
+                {v.copyright_status === 'approved' ? 'Public' : v.copyright_status === 'rejected' ? 'Rejected' : 'Under review'}
+              </p>
+              <p className="text-xs text-gray-500">{v.views || 0} views</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+═══════════════════════════════════════════════════════════════
+BUG 3 — AVATAR / BANNER UPLOAD FAILS
+═══════════════════════════════════════════════════════════════
+
+Give me these files completely:
+
+backend/src/controllers/uploadController.js:
+
+javascript
+const { supabase } = require('../config/supabase');
+const { uploadBuffer } = require('../services/storageService');
+
+async function uploadAvatar(req, res, next) {
+  try {
+    console.log('[AVATAR] artistId:', req.artistId, 'file:', req.file?.originalname, req.file?.size);
+
+    if (!req.artistId) return res.status(401).json({ error: 'Auth required' });
+    if (!req.file) return res.status(400).json({ error: 'No file (field "avatar")' });
+    if (req.file.size > 5 * 1024 * 1024) return res.status(400).json({ error: 'Max 5 MB' });
+
+    const up = await uploadBuffer(req.file.buffer, {
+      bucket: 'avatars',
+      userId: req.artistId,
+      originalName: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
+
+    const { error } = await supabase
+      .from('artists')
+      .update({ avatar_url: up.url })
+      .eq('id', req.artistId);
+
+    if (error) throw error;
+
+    console.log('[AVATAR] ✅ Saved:', up.url);
+    return res.json({ success: true, url: up.url });
+  } catch (err) {
+    console.error('[AVATAR] ❌', err);
+    next(err);
+  }
+}
+
+async function uploadBanner(req, res, next) {
+  try {
+    console.log('[BANNER] artistId:', req.artistId, 'file:', req.file?.originalname);
+
+    if (!req.artistId) return res.status(401).json({ error: 'Auth required' });
+    if (!req.file) return res.status(400).json({ error: 'No file (field "banner")' });
+    if (req.file.size > 10 * 1024 * 1024) return res.status(400).json({ error: 'Max 10 MB' });
+
+    const up = await uploadBuffer(req.file.buffer, {
+      bucket: 'banners',
+      userId: req.artistId,
+      originalName: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
+
+    const { error } = await supabase
+      .from('artists')
+      .update({ banner_url: up.url })
+      .eq('id', req.artistId);
+
+    if (error) throw error;
+
+    console.log('[BANNER] ✅ Saved:', up.url);
+    return res.json({ success: true, url: up.url });
+  } catch (err) {
+    console.error('[BANNER] ❌', err);
+    next(err);
+  }
+}
+
+async function uploadThumbnail(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file (field "thumbnail")' });
+
+    const up = await uploadBuffer(req.file.buffer, {
+      bucket: 'thumbnails',
+      userId: req.artistId,
+      originalName: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
+
+    return res.json({ success: true, url: up.url });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { uploadAvatar, uploadBanner, uploadThumbnail };
+frontend/src/components/AvatarUpload.tsx:
+
+tsx
+import { useRef, useState } from 'react';
+import api from '../services/api';
+
+interface Props {
+  currentUrl?: string | null;
+  onUploaded: (url: string) => void;
+}
+
+export default function AvatarUpload({ currentUrl, onUploaded }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(currentUrl || null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const pick = () => inputRef.current?.click();
+
+  const handleFile = async (file: File) => {
+    console.log('[AvatarUpload] file:', file.name, file.size, file.type);
+    setError('');
+
+    if (!file.type.startsWith('image/')) return setError('Not an image');
+    if (file.size > 5 * 1024 * 1024) return setError('Max 5 MB');
+
+    const reader = new FileReader();
+    reader.onload = (e) => setPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    const fd = new FormData();
+    fd.append('avatar', file);
+
+    setLoading(true);
+    try {
+      const res = await api.post('/artist/upload/avatar', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      console.log('[AvatarUpload] ✅', res.data);
+      onUploaded(res.data.url);
+    } catch (err: any) {
+      console.error('[AvatarUpload] ❌', err.response?.data || err.message);
+      setError(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div onClick={pick} className="w-24 h-24 rounded-full bg-[#2A2A2A] border-2 border-amber-500 overflow-hidden cursor-pointer relative">
+        {preview ? <img src={preview} alt="Avatar" className="w-full h-full object-cover" /> : (
+          <div className="w-full h-full flex items-center justify-center text-2xl text-white">+</div>
+        )}
+        {loading && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+      <button type="button" onClick={pick} className="text-amber-500 text-sm">Change avatar</button>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
+        const f = e.target.files?.[0];
+        if (f) handleFile(f);
+      }} />
+    </div>
+  );
+}
+frontend/src/components/BannerUpload.tsx:
+
+tsx
+import { useRef, useState } from 'react';
+import api from '../services/api';
+
+interface Props {
+  currentUrl?: string | null;
+  onUploaded: (url: string) => void;
+}
+
+export default function BannerUpload({ currentUrl, onUploaded }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(currentUrl || null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const pick = () => inputRef.current?.click();
+
+  const handleFile = async (file: File) => {
+    console.log('[BannerUpload] file:', file.name, file.size, file.type);
+    setError('');
+
+    if (!file.type.startsWith('image/')) return setError('Not an image');
+    if (file.size > 10 * 1024 * 1024) return setError('Max 10 MB');
+
+    const reader = new FileReader();
+    reader.onload = (e) => setPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    const fd = new FormData();
+    fd.append('banner', file);
+
+    setLoading(true);
+    try {
+      const res = await api.post('/artist/upload/banner', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      console.log('[BannerUpload] ✅', res.data);
+      onUploaded(res.data.url);
+    } catch (err: any) {
+      console.error('[BannerUpload] ❌', err.response?.data || err.message);
+      setError(err.response?.data?.error || 'Upload failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="w-full">
+      <div onClick={pick} className="relative w-full h-40 bg-[#2A2A2A] rounded-xl overflow-hidden cursor-pointer">
+        {preview ? <img src={preview} alt="Banner" className="w-full h-full object-cover" /> : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400">Click to upload banner</div>
+        )}
+        {loading && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+      </div>
+      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
+        const f = e.target.files?.[0];
+        if (f) handleFile(f);
+      }} />
+    </div>
+  );
+}
+═══════════════════════════════════════════════════════════════
+ENVIRONMENT VARIABLES
+═══════════════════════════════════════════════════════════════
+
+Give me the exact backend/.env file:
+
+text
+PORT=3000
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
+SERVER_URL=http://localhost:3000
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
+SUPABASE_ANON_KEY=YOUR_ANON_KEY
+JWT_SECRET=change-this-to-a-long-random-string
+JWT_EXPIRES_IN=7d
+MASTER_EMAIL=master@paytune.com
+MASTER_PASSWORD=PaytuneMaster2025!
+And frontend/.env:
+
+text
+VITE_API_URL=http://localhost:3000
+═══════════════════════════════════════════════════════════════
+TESTING CHECKLIST
+═══════════════════════════════════════════════════════════════
+
+After generating all files, I will test:
+
+Restart backend → see "✅ Supabase connected"
+
+Visit homepage → NO fake videos (empty state or real videos only)
+
+As artist → go to /artist/dashboard/profile → click avatar → select image → NEW AVATAR APPEARS
+
+Check Supabase → artist profile avatar_url is updated
+
+As artist → go to /artist/dashboard/upload → select MP4 → fill form → click Upload → GREEN SUCCESS MESSAGE
+
+Check Supabase → videos table has new row with video_url from Supabase Storage
+
+Refresh /artist/dashboard/videos → NEW VIDEO CARD appears
+
+Approve video as master → refresh homepage → video appears
+
+═══════════════════════════════════════════════════════════════
+DELIVERABLES
+═══════════════════════════════════════════════════════════════
+
+Output every file complete, in order:
+
+SQL cleanup for fake videos
+
+SQL for Supabase Storage buckets + policies
+
+backend/src/config/supabase.js
+
+backend/src/services/storageService.js
+
+backend/src/middleware/upload.js
+
+backend/src/middleware/auth.js (with authenticateArtist)
+
+backend/src/controllers/videoController.js (public video APIs)
+
+backend/src/controllers/artistVideoController.js (upload)
+
+backend/src/controllers/uploadController.js (avatar/banner)
+
+backend/src/routes/uploadRoutes.js
+
+backend/src/routes/videoRoutes.js
+
+backend/src/app.js (route mounting section)
+
+backend/src/server.js
+
+backend/.env
+
+frontend/.env
+
+frontend/src/services/api.ts
+
+frontend/src/pages/Home.tsx
+
+frontend/src/pages/Artist/Upload.tsx
+
+frontend/src/pages/Artist/Videos.tsx
+
+frontend/src/components/AvatarUpload.tsx
+
+frontend/src/components/BannerUpload.tsx
+
+Every file must be complete with no placeholders. Include console.log for debugging. Ready to run.
+
+text
+
+---
+
+## 🎯 How to Use
+
+1. **Copy** the entire prompt above
+2. **Paste** into **Google AI Studio** (or Gemini)
+3. Tell it: *"Generate every file in order. Do not skip any file. Show complete code."*
+4. **Save** each file to the exact path shown
+5. **Run the SQL** in Supabase SQL Editor
+6. **Restart backend**: `npm run dev`
+7. **Restart frontend**: `npm run dev`
+8. **Test all three bugs**
+
+---
+
+## 📋 After Gemini Responds
+
+Reply with these 5 test results:
+
+| Test | Expected | Your Result |
+|------|----------|-------------|
+| **Test 1:** Backend starts with "✅ Supabase connected" | ✅ | ? |
+| **Test 2:** `SELECT COUNT(*) FROM videos WHERE video_url LIKE '%supabase%'` returns 0 | 0 | ? |
+| **Test 3:** Avatar upload — new image appears in profile | ✅ | ? |
+| **Test 4:** Video upload — green success message + video appears in dashboard | ✅ | ? |
+| **Test 5:** Homepage — no fake videos (empty or real only) | ✅ | ? |
+
+With those 5 results, I will pinpoint any remaining bug in one message.
+
+**You are the decision taker. I am the builder. Run the prompt and report back.** 🎯

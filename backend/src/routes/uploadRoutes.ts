@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateArtist } from '../middleware/authArtist';
 import { uploadVideo } from '../middleware/upload';
 import { uploadAvatar, uploadBanner, uploadThumbnail } from '../controllers/uploadController';
-import { uploadVideo as uploadVideoCtrl } from '../controllers/artistVideoController';
+import { uploadVideo as uploadVideoCtrl, listMyVideos } from '../controllers/artistVideoController';
 import { createSignedUploadUrl } from '../controllers/signedUploadController';
 import { completeUpload } from '../controllers/completeUploadController';
 
@@ -26,5 +26,6 @@ router.post(
 );
 
 router.post('/video/complete', completeUpload);
+router.get('/videos', listMyVideos);
 
 export default router;
