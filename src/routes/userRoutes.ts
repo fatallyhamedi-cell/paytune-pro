@@ -26,6 +26,11 @@ router.get('/payment-phones', authenticate, userController.getPaymentPhones);
 router.post('/payment-phones', authenticate, userController.addPaymentPhone);
 router.delete('/payment-phones/:id', authenticate, userController.deletePaymentPhone);
 
+// User Discovery Preferences & Recommendations
+router.get('/preferences', authenticate, userController.getUserPreferences);
+router.put('/preferences', authenticate, userController.updateUserPreferences);
+router.post('/dismiss-video', optionalAuthenticate, userController.dismissVideo);
+
 // Gifts endpoints
 router.get('/gifts', authenticate, userController.getGifts);
 

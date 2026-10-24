@@ -24,6 +24,8 @@ export interface VideoItem {
   duration?: number;
   category?: string;
   is_short?: boolean;
+  position_seconds?: number;
+  progress_percent?: number;
   artists?: {
     id?: string | number;
     full_name?: string;
@@ -34,9 +36,10 @@ export interface VideoItem {
 interface VideoCardProps {
   video: VideoItem;
   trending?: boolean;
+  onDismiss?: (id: string | number) => void;
 }
 
-export default function VideoCard({ video, trending }: VideoCardProps) {
+export default function VideoCard({ video, trending, onDismiss }: VideoCardProps) {
   const [isHovering, setIsHovering] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -124,6 +127,16 @@ export default function VideoCard({ video, trending }: VideoCardProps) {
             )}
           </AnimatePresence>
 
+          {/* Watch Progress Bar (if watched/continue watching) */}
+          {typeof video.progress_percent === 'number' && video.progress_percent > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-800 z-20">
+              <div
+                className="h-full bg-red-600 transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(0, video.progress_percent))}%` }}
+              />
+            </div>
+          )}
+
           {/* Duration Badge (Bottom Right) */}
           <div className="absolute bottom-1.5 right-1.5 z-20 flex items-center gap-1">
             <span className="bg-black/80 backdrop-blur-xs px-1.5 py-0.5 rounded text-[11px] font-bold text-white tracking-tight">
@@ -179,11 +192,27 @@ export default function VideoCard({ video, trending }: VideoCardProps) {
 
         {/* Video Title & Metadata */}
         <div className="flex-1 min-w-0">
-          <Link to={`/watch/${video.id}`} className="block">
-            <h3 className="text-sm sm:text-[13px] font-semibold text-gray-900 dark:text-white line-clamp-2 leading-snug group-hover:text-amber-500 transition-colors">
-              {video.title}
-            </h3>
-          </Link>
+          <div className="flex items-start justify-between gap-1">
+            <Link to={`/watch/${video.id}`} className="block flex-1">
+              <h3 className="text-sm sm:text-[13px] font-semibold text-gray-900 dark:text-white line-clamp-2 leading-snug group-hover:text-amber-500 transition-colors">
+                {video.title}
+              </h3>
+            </Link>
+            {onDismiss && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDismiss(video.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 rounded transition-opacity"
+                title="Don't recommend this video"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
           {/* Clickable Artist Name */}
           <Link

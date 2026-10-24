@@ -4,6 +4,7 @@ import {
   getTrendingVideos, 
   getNewVideos, 
   getRecommendedVideos, 
+  getPersonalizedFeed,
   getVideoDetails,
   getRelatedVideos,
   toggleVideoLike,
@@ -18,6 +19,8 @@ import { authenticate, optionalAuthenticate } from '../middleware/auth';
 const router = Router();
 
 // 1. Specific collection endpoints must precede :id parameter
+router.get('/feed/personalized', optionalAuthenticate, getPersonalizedFeed);
+router.get('/personalized', optionalAuthenticate, getPersonalizedFeed);
 router.get('/trending', getTrendingVideos);
 router.get('/new', getNewVideos);
 router.get('/recommended', optionalAuthenticate, getRecommendedVideos);
@@ -29,11 +32,14 @@ router.get('/', listVideos);
 router.get('/:id', optionalAuthenticate, getVideoDetails);
 router.get('/:id/related', getRelatedVideos);
 router.post('/:id/like', authenticate, toggleVideoLike);
+router.delete('/:id/like', authenticate, toggleVideoLike);
 router.post('/:id/view', optionalAuthenticate, recordVideoView);
 router.post('/:id/progress', optionalAuthenticate, saveVideoProgress);
 router.get('/:id/progress', optionalAuthenticate, getVideoProgress);
 router.post('/:id/subscribe', authenticate, toggleArtistSubscribe);
+router.delete('/:id/subscribe', authenticate, toggleArtistSubscribe);
 router.post('/:id/follow', authenticate, toggleArtistSubscribe);
+router.delete('/:id/follow', authenticate, toggleArtistSubscribe);
 
 // 4. Video-nested comments routes for compatibility
 router.get('/:id/comments', optionalAuthenticate, getComments);

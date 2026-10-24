@@ -314,6 +314,72 @@
         "full_name": "Test Artist",
         "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
       }
+    },
+    {
+      "id": "live-bk-arena-002",
+      "artist_id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+      "title": "BK Arena Music Gala 2026 — Official Live Stage",
+      "description": "Exclusive live concert streaming direct from Kigali. Don't miss the biggest Afrobeat and RnB live performance of the season.",
+      "scheduled_start": "2026-10-25T00:51:26.623Z",
+      "started_at": null,
+      "status": "scheduled",
+      "is_paid": false,
+      "price_rwf": 0,
+      "price_usd": 0,
+      "stream_url": "",
+      "thumbnail_url": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80",
+      "total_viewers": 0,
+      "peak_viewers": 0,
+      "created_at": "2026-10-24T21:51:26.623Z",
+      "artists": {
+        "id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+        "full_name": "PAYTUNE Artist",
+        "avatar_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80"
+      }
+    },
+    {
+      "id": "live-worship-003",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "title": "Intore Gospel Concert — Kigali Live Praise Session",
+      "description": "A night of uplifting worship, choir arrangements, and acoustic inspiration live from Kigali Stadium.",
+      "scheduled_start": "2026-10-25T21:51:26.623Z",
+      "started_at": null,
+      "status": "scheduled",
+      "is_paid": false,
+      "price_rwf": 0,
+      "price_usd": 0,
+      "stream_url": "",
+      "thumbnail_url": "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80",
+      "total_viewers": 0,
+      "peak_viewers": 0,
+      "created_at": "2026-10-24T21:51:26.623Z",
+      "artists": {
+        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+        "full_name": "Test Artist",
+        "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
+      }
+    },
+    {
+      "id": "live-podcast-004",
+      "artist_id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+      "title": "Kigali Creators & Tech Podcast — Live Broadcast",
+      "description": "Live talk show discussing African music distribution, creator monetisation, and future digital trends.",
+      "scheduled_start": "2026-10-26T21:51:26.623Z",
+      "started_at": null,
+      "status": "scheduled",
+      "is_paid": false,
+      "price_rwf": 0,
+      "price_usd": 0,
+      "stream_url": "",
+      "thumbnail_url": "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1200&q=80",
+      "total_viewers": 0,
+      "peak_viewers": 0,
+      "created_at": "2026-10-24T21:51:26.623Z",
+      "artists": {
+        "id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+        "full_name": "PAYTUNE Artist",
+        "avatar_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80"
+      }
     }
   ],
   "live_chat": [],
@@ -1689,5 +1755,241 @@
         "timestamp": "2026-09-21T12:40:10.681Z"
       }
     }
-  ]
+  ],
+  "categories": [
+    {
+      "id": "cat-all",
+      "name": "All",
+      "slug": "all",
+      "display_order": 0,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-trending",
+      "name": "Trending",
+      "slug": "trending",
+      "display_order": 1,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-live",
+      "name": "Live & Upcoming",
+      "slug": "live",
+      "display_order": 2,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-rwanda",
+      "name": "Rwandan Hits",
+      "slug": "rwandan-hits",
+      "display_order": 3,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-afrobeat",
+      "name": "Afrobeat",
+      "slug": "afrobeat",
+      "display_order": 4,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-gospel",
+      "name": "Gospel & Worship",
+      "slug": "gospel",
+      "display_order": 5,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-hiphop",
+      "name": "Hip Hop & Rap",
+      "slug": "hip-hop",
+      "display_order": 6,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-rnb",
+      "name": "R&B & Soul",
+      "slug": "rnb",
+      "display_order": 7,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-traditional",
+      "name": "Traditional & Folk",
+      "slug": "traditional",
+      "display_order": 8,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-podcasts",
+      "name": "Podcasts & Talk",
+      "slug": "podcasts",
+      "display_order": 9,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-comedy",
+      "name": "Comedy",
+      "slug": "comedy",
+      "display_order": 10,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-sports",
+      "name": "Sports & Football",
+      "slug": "sports",
+      "display_order": 11,
+      "is_active": true,
+      "is_featured": true
+    },
+    {
+      "id": "cat-basketball",
+      "name": "Basketball",
+      "slug": "basketball",
+      "display_order": 12,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-boxing",
+      "name": "Boxing & Combat",
+      "slug": "boxing",
+      "display_order": 13,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-gaming",
+      "name": "Gaming",
+      "slug": "gaming",
+      "display_order": 14,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-movies",
+      "name": "Movies & Cinema",
+      "slug": "movies",
+      "display_order": 15,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-tech",
+      "name": "Technology & AI",
+      "slug": "technology",
+      "display_order": 16,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-news",
+      "name": "News & Current Affairs",
+      "slug": "news",
+      "display_order": 17,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-business",
+      "name": "Business & Startups",
+      "slug": "business",
+      "display_order": 18,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-education",
+      "name": "Education & Learning",
+      "slug": "education",
+      "display_order": 19,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-documentaries",
+      "name": "Documentaries",
+      "slug": "documentaries",
+      "display_order": 20,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-travel",
+      "name": "Travel & Rwanda",
+      "slug": "travel",
+      "display_order": 21,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-food",
+      "name": "Food & Cooking",
+      "slug": "food",
+      "display_order": 22,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-fashion",
+      "name": "Fashion & Style",
+      "slug": "fashion",
+      "display_order": 23,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-fitness",
+      "name": "Fitness & Health",
+      "slug": "fitness",
+      "display_order": 24,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-kinyarwanda",
+      "name": "Kinyarwanda",
+      "slug": "kinyarwanda",
+      "display_order": 25,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-english",
+      "name": "English",
+      "slug": "english",
+      "display_order": 26,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-french",
+      "name": "French",
+      "slug": "french",
+      "display_order": 27,
+      "is_active": true,
+      "is_featured": false
+    },
+    {
+      "id": "cat-recent",
+      "name": "Recently Uploaded",
+      "slug": "recent",
+      "display_order": 28,
+      "is_active": true,
+      "is_featured": true
+    }
+  ],
+  "stream_reminders": [],
+  "user_preferences": []
 }

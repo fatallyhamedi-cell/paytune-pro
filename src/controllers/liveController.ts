@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { supabaseAdmin } from "../config/supabase";
-import { getDbStore } from "../config/supabase_mock";
+import { getDbStore, setDbStore } from "../config/supabase_mock";
 import { notifySubscribersLiveStream, notifyOnSuperThanks } from "../services/notificationService";
 
 // Helper to get socket instance
@@ -1023,4 +1023,146 @@ export const postChatMessage = async (req: Request, res: Response) => {
 export const createLiveStream = createStream;
 export const startLiveStream = startStream;
 export const endLiveStream = endStream;
+
+/**
+ * POST /api/live/:id/remind
+ * Toggles reminder subscription for upcoming stream
+ */
+export const toggleStreamReminder = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  if (!user || !user.id) {
+    return res.status(401).json({ error: "Please sign in to set a reminder." });
+  }
+
+  try {
+    const store = getDbStore();
+    store.stream_reminders = store.stream_reminders || [];
+
+    // 1. Verify stream exists
+    let stream = null;
+    try {
+      const { data } = await supabaseAdmin.from("live_streams").select("*, artists(*)").eq("id", id).maybeSingle();
+      stream = data;
+    } catch {}
+
+    if (!stream) {
+      stream = (store.live_streams || []).find((s: any) => s.id === id);
+    }
+
+    if (!stream) {
+      return res.status(404).json({ error: "Stream not found" });
+    }
+
+    // 2. Check if already reminded
+    const existingIndex = store.stream_reminders.findIndex(
+      (r: any) => r.stream_id === id && r.user_id === user.id
+    );
+
+    if (existingIndex >= 0) {
+      // Cancel reminder
+      store.stream_reminders.splice(existingIndex, 1);
+      setDbStore(store);
+
+      try {
+        await supabaseAdmin.from("stream_reminders").delete().eq("stream_id", id).eq("user_id", user.id);
+      } catch {}
+
+      return res.json({
+        success: true,
+        isReminded: false,
+        message: "Reminder cancelled."
+      });
+    }
+
+    // Subscribe
+    const reminderObj = {
+      id: "rem-" + Date.now(),
+      stream_id: id,
+      user_id: user.id,
+      notification_channel: "in_app",
+      notified: false,
+      created_at: new Date().toISOString()
+    };
+
+    store.stream_reminders.push(reminderObj);
+
+    // Also push an in-app confirmation notification
+    store.notifications = store.notifications || [];
+    store.notifications.unshift({
+      id: "notif-rem-" + Date.now(),
+      user_id: user.id,
+      type: "stream_reminder_set",
+      title: "Reminder Set",
+      message: `You'll be notified when "${stream.title}" starts streaming live.`,
+      link: `/live/${stream.id}`,
+      read: false,
+      created_at: new Date().toISOString()
+    });
+
+    setDbStore(store);
+
+    try {
+      await supabaseAdmin.from("stream_reminders").insert([reminderObj]);
+    } catch {}
+
+    return res.json({
+      success: true,
+      isReminded: true,
+      message: `Reminder set! We will notify you before "${stream.title}" goes live.`
+    });
+  } catch (err: any) {
+    console.error("toggleStreamReminder error:", err);
+    return res.status(500).json({ error: err.message || "Failed to update reminder." });
+  }
+};
+
+/**
+ * GET /api/live/:id/remind-status
+ * Checks if current user is subscribed to reminders for this stream
+ */
+export const getStreamReminderStatus = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+
+  if (!user || !user.id) {
+    return res.json({ isReminded: false });
+  }
+
+  try {
+    const store = getDbStore();
+    const found = (store?.stream_reminders || []).some(
+      (r: any) => r.stream_id === id && r.user_id === user.id
+    );
+    return res.json({ isReminded: found });
+  } catch {
+    return res.json({ isReminded: false });
+  }
+};
+
+/**
+ * GET /api/live/reminders/my
+ * Returns all stream IDs for which the authenticated user has set reminders
+ */
+export const getMyStreamReminders = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+
+  if (!user || !user.id) {
+    return res.json({ streamIds: [] });
+  }
+
+  try {
+    const store = getDbStore();
+    const myReminders = (store?.stream_reminders || []).filter((r: any) => r.user_id === user.id);
+    const streamIds = myReminders.map((r: any) => r.stream_id);
+    return res.json({
+      success: true,
+      streamIds,
+      reminders: myReminders
+    });
+  } catch {
+    return res.json({ streamIds: [] });
+  }
+};
 

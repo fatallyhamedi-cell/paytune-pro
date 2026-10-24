@@ -917,3 +917,234 @@ export const toggleArtistSubscribe = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+/**
+ * GET /api/videos/feed/personalized
+ * Multi-signal personalized video discovery feed:
+ * Considers user preferences, watch history, subscriptions, likes, freshness, and live streams
+ */
+export const getPersonalizedFeed = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const userId = user?.id;
+    const store = getDbStore() || {};
+    const artistsMap = getArtistsDictionary();
+
+    // 1. Fetch user signals if authenticated
+    let userInterests: string[] = [];
+    let dismissedIds = new Set<string>();
+    let userSubscribedArtistIds = new Set<string>();
+    let userLikedVideoIds = new Set<string>();
+    let purchasedVideoIds = new Set<string>();
+    let watchProgressMap = new Map<string, any>();
+
+    if (userId) {
+      // User Preferences (Interests & Dismissed Videos)
+      const userPrefs = (store.user_preferences || []).find((p: any) => p.user_id === userId);
+      if (userPrefs) {
+        if (Array.isArray(userPrefs.interests)) {
+          userInterests = userPrefs.interests;
+        }
+        if (Array.isArray(userPrefs.dismissed_video_ids)) {
+          userPrefs.dismissed_video_ids.forEach((id: string) => dismissedIds.add(String(id)));
+        }
+      }
+
+      // Subscriptions (Followed Artists)
+      const subscriptions = (store.subscriptions || []).filter((s: any) => s.user_id === userId);
+      subscriptions.forEach((s: any) => {
+        if (s.artist_id) userSubscribedArtistIds.add(String(s.artist_id));
+      });
+
+      // User Likes
+      const userLikes = (store.user_likes || []).filter((l: any) => l.user_id === userId);
+      userLikes.forEach((l: any) => {
+        if (l.video_id) userLikedVideoIds.add(String(l.video_id));
+      });
+
+      // User Purchases
+      const purchases = (store.purchases || []).filter((p: any) => p.user_id === userId);
+      purchases.forEach((p: any) => {
+        if (p.video_id) purchasedVideoIds.add(String(p.video_id));
+      });
+
+      // Watch Progress & History
+      const progressList = (store.watch_progress || []).filter((wp: any) => wp.user_id === userId);
+      progressList.forEach((wp: any) => {
+        if (wp.video_id) watchProgressMap.set(String(wp.video_id), wp);
+      });
+    }
+
+    // 2. Fetch all active videos
+    let allVideosRaw: any[] = [];
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('videos')
+        .select('*, artists(id, full_name, profile_image)')
+        .eq('is_active', true);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        allVideosRaw = data;
+      }
+    } catch {}
+
+    if (allVideosRaw.length === 0) {
+      allVideosRaw = (store.videos || []).filter((v: any) => v.is_active !== false);
+    }
+
+    // Filter out dismissed videos
+    const activeVideos = allVideosRaw
+      .filter((v: any) => !dismissedIds.has(String(v.id)))
+      .map((v: any) => normalizeVideo(v, artistsMap));
+
+    // 3. Continue Watching section
+    const continueWatchingList: any[] = [];
+    if (userId && watchProgressMap.size > 0) {
+      activeVideos.forEach((v) => {
+        const prog = watchProgressMap.get(v.id);
+        if (prog && prog.position_seconds > 5 && !prog.completed) {
+          const duration = v.duration || 240;
+          if (prog.position_seconds < duration - 10) {
+            continueWatchingList.push({
+              ...v,
+              position_seconds: prog.position_seconds,
+              progress_percent: Math.min(100, Math.round((prog.position_seconds / duration) * 100))
+            });
+          }
+        }
+      });
+    }
+
+    // 4. "For You" personalized scoring algorithm
+    const now = Date.now();
+    const scoredVideos = activeVideos.map((video) => {
+      let score = 0;
+
+      // Base popularity
+      score += Math.log(Math.max(1, video.views || 0)) * 5;
+      score += (video.likes || 0) * 3;
+
+      // Category / Interest Match (+50 points)
+      if (userInterests.length > 0) {
+        const catMatch = userInterests.some((int) => 
+          int.toLowerCase() === (video.category || '').toLowerCase()
+        );
+        if (catMatch) score += 50;
+      }
+
+      // Subscribed Channel Match (+40 points)
+      if (userSubscribedArtistIds.has(String(video.artist_id))) {
+        score += 40;
+      }
+
+      // Freshness boost (up to +30 points for last 7 days)
+      const uploadTime = new Date(video.uploaded_at || video.created_at || 0).getTime();
+      const ageHours = Math.max(0, (now - uploadTime) / (1000 * 60 * 60));
+      if (ageHours < 168) {
+        score += Math.max(0, 30 * (1 - ageHours / 168));
+      }
+
+      // Liked video boost (+20 points)
+      if (userLikedVideoIds.has(String(video.id))) {
+        score += 20;
+      }
+
+      return { video, score };
+    });
+
+    scoredVideos.sort((a, b) => b.score - a.score);
+    const forYouVideos = scoredVideos.map((sv) => sv.video).slice(0, 16);
+
+    // 5. From Your Channels (Followed artists' videos)
+    let fromYourChannels: any[] = [];
+    if (userSubscribedArtistIds.size > 0) {
+      fromYourChannels = activeVideos
+        .filter((v) => userSubscribedArtistIds.has(String(v.artist_id)))
+        .slice(0, 8);
+    }
+    if (fromYourChannels.length === 0) {
+      // Curated verified artists showcase
+      fromYourChannels = activeVideos
+        .filter((v) => v.artists?.is_verified)
+        .slice(0, 8);
+    }
+
+    // 6. Trending This Week (top views)
+    const trending = [...activeVideos]
+      .sort((a, b) => (b.views || 0) - (a.views || 0))
+      .slice(0, 10);
+
+    // 7. New Releases (newest upload dates)
+    const newReleases = [...activeVideos]
+      .sort((a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime())
+      .slice(0, 10);
+
+    // 8. Recommended Shorts
+    const recommendedShorts = activeVideos
+      .filter((v) => v.is_short || v.category === 'Shorts')
+      .slice(0, 8);
+
+    // 9. Purchased Videos
+    const purchasedVideos = userId && purchasedVideoIds.size > 0
+      ? activeVideos.filter((v) => purchasedVideoIds.has(String(v.id)))
+      : [];
+
+    // 10. Live Streams (Live Now & Upcoming Scheduled)
+    const allStreams = store.live_streams || [];
+    const liveNow = allStreams.filter((s: any) => s.status === 'live');
+    const upcomingLive = allStreams
+      .filter((s: any) => s.status === 'scheduled')
+      .sort((a: any, b: any) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime());
+
+    // User Reminders lookup
+    const userReminders = userId
+      ? (store.stream_reminders || [])
+          .filter((r: any) => r.user_id === userId)
+          .map((r: any) => r.stream_id)
+      : [];
+
+    const enrichedUpcomingLive = upcomingLive.map((stream: any) => {
+      const artist = artistsMap[stream.artist_id] || {
+        full_name: stream.artist_name || "PAYTUNE Creator",
+        profile_image: ""
+      };
+      return {
+        ...stream,
+        artist_name: artist.full_name || stream.artist_name || "PAYTUNE Creator",
+        artist_avatar: artist.profile_image || stream.thumbnail_url || "",
+        is_reminded: userReminders.includes(stream.id)
+      };
+    });
+
+    const enrichedLiveNow = liveNow.map((stream: any) => {
+      const artist = artistsMap[stream.artist_id] || {
+        full_name: stream.artist_name || "PAYTUNE Creator",
+        profile_image: ""
+      };
+      return {
+        ...stream,
+        artist_name: artist.full_name || stream.artist_name || "PAYTUNE Creator",
+        artist_avatar: artist.profile_image || stream.thumbnail_url || ""
+      };
+    });
+
+    return res.json({
+      success: true,
+      userInterests,
+      hasInterests: userInterests.length > 0,
+      feed: {
+        forYou: forYouVideos,
+        continueWatching: continueWatchingList,
+        fromYourChannels,
+        liveNow: enrichedLiveNow,
+        upcomingLive: enrichedUpcomingLive,
+        trending,
+        newReleases,
+        recommendedShorts,
+        purchasedVideos
+      }
+    });
+  } catch (error: any) {
+    console.error("getPersonalizedFeed error:", error);
+    res.status(500).json({ error: "Failed to generate personalized feed." });
+  }
+};

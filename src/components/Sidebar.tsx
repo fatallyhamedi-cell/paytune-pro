@@ -131,7 +131,7 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
     <aside
       id="paytune-sidebar"
       className={`${
-        mobile ? "flex w-full h-full" : `hidden md:flex ${collapsed ? "w-20" : "w-60"}`
+        mobile ? "flex w-full h-full" : `hidden md:flex ${collapsed ? "w-20" : "w-[260px]"}`
       } bg-white dark:bg-[#0F0F0F] border-r border-gray-200 dark:border-gray-800 flex-col py-3 px-2.5 overflow-y-auto no-scrollbar transition-all duration-200 select-none flex-shrink-0 text-gray-900 dark:text-white`}
     >
       {/* Mobile Header in Drawer */}

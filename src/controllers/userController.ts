@@ -504,9 +504,104 @@ export const getGifts = async (req: Request, res: Response) => {
 
   try {
     const gifts = getTableData('gifts').filter((g: any) => g.sender_id === user.id || g.recipient_email === user.email);
+    saveTableData('gifts', gifts);
     res.json(gifts);
   } catch (err: any) {
     console.error('getGifts error:', err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getUserPreferences = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const prefsList = getTableData('user_preferences');
+    let userPref = prefsList.find((p: any) => p.user_id === user.id);
+
+    if (!userPref) {
+      userPref = {
+        user_id: user.id,
+        favorite_categories: ['Afrobeat', 'Rwandan Hits', 'Gospel & Worship'],
+        preferred_languages: ['Kinyarwanda', 'English'],
+        dismissed_video_ids: [],
+        onboarding_completed: false,
+        created_at: new Date().toISOString()
+      };
+      prefsList.push(userPref);
+      saveTableData('user_preferences', prefsList);
+    }
+
+    res.json({
+      success: true,
+      preferences: userPref
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateUserPreferences = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const { favorite_categories, preferred_languages, onboarding_completed } = req.body;
+    const prefsList = getTableData('user_preferences');
+    let idx = prefsList.findIndex((p: any) => p.user_id === user.id);
+
+    const updated = {
+      user_id: user.id,
+      favorite_categories: Array.isArray(favorite_categories) ? favorite_categories : (prefsList[idx]?.favorite_categories || []),
+      preferred_languages: Array.isArray(preferred_languages) ? preferred_languages : (prefsList[idx]?.preferred_languages || ['Kinyarwanda', 'English']),
+      dismissed_video_ids: prefsList[idx]?.dismissed_video_ids || [],
+      onboarding_completed: onboarding_completed !== undefined ? Boolean(onboarding_completed) : (prefsList[idx]?.onboarding_completed ?? true),
+      updated_at: new Date().toISOString()
+    };
+
+    if (idx >= 0) {
+      prefsList[idx] = updated;
+    } else {
+      prefsList.push(updated);
+    }
+
+    saveTableData('user_preferences', prefsList);
+
+    try {
+      await supabaseAdmin.from('user_preferences').upsert(updated);
+    } catch {}
+
+    res.json({
+      success: true,
+      preferences: updated
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const dismissVideo = async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { video_id } = req.body;
+
+  if (!video_id) return res.status(400).json({ error: 'video_id is required' });
+
+  try {
+    if (user) {
+      const prefsList = getTableData('user_preferences');
+      let idx = prefsList.findIndex((p: any) => p.user_id === user.id);
+      if (idx >= 0) {
+        if (!prefsList[idx].dismissed_video_ids) prefsList[idx].dismissed_video_ids = [];
+        if (!prefsList[idx].dismissed_video_ids.includes(video_id)) {
+          prefsList[idx].dismissed_video_ids.push(video_id);
+          saveTableData('user_preferences', prefsList);
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Video dismissed from recommendations' });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 };

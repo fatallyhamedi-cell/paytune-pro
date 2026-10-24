@@ -133,7 +133,9 @@ publicArtistRouter.get('/:id/membership', getArtistMembershipTiers);
 publicArtistRouter.get('/:id/subscribe-status', optionalAuthenticate, getArtistSubscribeStatus);
 publicArtistRouter.get('/:id/follow-status', optionalAuthenticate, getArtistSubscribeStatus);
 publicArtistRouter.post('/:id/subscribe', authenticate, toggleArtistSubscribe);
+publicArtistRouter.delete('/:id/subscribe', authenticate, toggleArtistSubscribe);
 publicArtistRouter.post('/:id/follow', authenticate, toggleArtistSubscribe);
+publicArtistRouter.delete('/:id/follow', authenticate, toggleArtistSubscribe);
 publicArtistRouter.post('/:id/report', authenticate, reportArtist);
 
 export default publicArtistRouter;

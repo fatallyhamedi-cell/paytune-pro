@@ -163,6 +163,72 @@ const DEFAULT_DB = {
         "full_name": "Test Artist",
         "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
       }
+    },
+    {
+      "id": "live-bk-arena-002",
+      "artist_id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+      "title": "BK Arena Music Gala 2026 — Official Live Stage",
+      "description": "Exclusive live concert streaming direct from Kigali. Don't miss the biggest Afrobeat and RnB live performance of the season.",
+      "scheduled_start": new Date(Date.now() + 3 * 3600 * 1000).toISOString(),
+      "started_at": null,
+      "status": "scheduled",
+      "is_paid": false,
+      "price_rwf": 0,
+      "price_usd": 0,
+      "stream_url": "",
+      "thumbnail_url": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80",
+      "total_viewers": 0,
+      "peak_viewers": 0,
+      "created_at": new Date().toISOString(),
+      "artists": {
+        "id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+        "full_name": "PAYTUNE Artist",
+        "avatar_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80"
+      }
+    },
+    {
+      "id": "live-worship-003",
+      "artist_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+      "title": "Intore Gospel Concert — Kigali Live Praise Session",
+      "description": "A night of uplifting worship, choir arrangements, and acoustic inspiration live from Kigali Stadium.",
+      "scheduled_start": new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      "started_at": null,
+      "status": "scheduled",
+      "is_paid": false,
+      "price_rwf": 0,
+      "price_usd": 0,
+      "stream_url": "",
+      "thumbnail_url": "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80",
+      "total_viewers": 0,
+      "peak_viewers": 0,
+      "created_at": new Date().toISOString(),
+      "artists": {
+        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+        "full_name": "Test Artist",
+        "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
+      }
+    },
+    {
+      "id": "live-podcast-004",
+      "artist_id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+      "title": "Kigali Creators & Tech Podcast — Live Broadcast",
+      "description": "Live talk show discussing African music distribution, creator monetisation, and future digital trends.",
+      "scheduled_start": new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+      "started_at": null,
+      "status": "scheduled",
+      "is_paid": false,
+      "price_rwf": 0,
+      "price_usd": 0,
+      "stream_url": "",
+      "thumbnail_url": "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1200&q=80",
+      "total_viewers": 0,
+      "peak_viewers": 0,
+      "created_at": new Date().toISOString(),
+      "artists": {
+        "id": "bc7b87ed-6033-477c-861f-6fe869c1f3f7",
+        "full_name": "PAYTUNE Artist",
+        "avatar_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80"
+      }
     }
   ],
   "live_chat": [],

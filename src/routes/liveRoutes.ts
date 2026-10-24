@@ -18,7 +18,10 @@ import {
   unblockUser,
   deleteChatMessage,
   getChatMessages,
-  postChatMessage
+  postChatMessage,
+  toggleStreamReminder,
+  getStreamReminderStatus,
+  getMyStreamReminders
 } from "../controllers/liveController";
 
 // Artist Live Router
@@ -38,6 +41,9 @@ export const liveRouter = Router();
 
 liveRouter.get("/now", getLiveNow);
 liveRouter.get("/upcoming", getLiveUpcoming);
+liveRouter.get("/reminders/my", authenticate, getMyStreamReminders);
+liveRouter.post("/:id/remind", authenticate, toggleStreamReminder);
+liveRouter.get("/:id/remind-status", optionalAuthenticate, getStreamReminderStatus);
 liveRouter.get("/:id", optionalAuthenticate, getStreamViewer);
 liveRouter.post("/:id/purchase", authenticate, purchaseTicket);
 liveRouter.post("/:streamId/buy-ticket", authenticate, purchaseTicket);
