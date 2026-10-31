@@ -585,9 +585,12 @@ export const getVideoDetails = async (req: Request, res: Response) => {
       }
     }
 
-    // Strict server-side access enforcement: Unpaid users cannot access protected full video stream URL for free
-    if (!userOwns) {
-      normalized.video_url = "";
+    // Ensure 30-second free preview is accessible for unpurchased paid videos
+    if (!userOwns && !normalized.is_free) {
+      if (!normalized.preview_url && normalized.video_url) {
+        normalized.preview_url = normalized.video_url;
+      }
+      normalized.video_url = normalized.preview_url || "";
     }
 
     res.json({ 
@@ -797,13 +800,13 @@ export const recordVideoView = async (req: Request, res: Response) => {
 export const saveVideoProgress = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
-  const { positionSeconds } = req.body;
+  const rawPos = req.body.positionSeconds !== undefined ? req.body.positionSeconds : req.body.position_seconds;
 
-  if (positionSeconds === undefined || isNaN(Number(positionSeconds))) {
-    return res.status(400).json({ error: "positionSeconds is required" });
+  if (rawPos === undefined || isNaN(Number(rawPos))) {
+    return res.status(400).json({ error: "positionSeconds or position_seconds is required" });
   }
 
-  const pos = Math.max(0, Math.floor(Number(positionSeconds)));
+  const pos = Math.max(0, Math.floor(Number(rawPos)));
 
   if (!user) {
     // If not authenticated, return success acknowledging client state

@@ -91,12 +91,16 @@ export default function Watch() {
   // Payment Modal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
+  // Watch Progress Resilience (saves every 5s, resumes position)
+  const [savedProgress, setSavedProgress] = useState(0);
+  const lastProgressRef = React.useRef(0);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // 1. Fetch Video Details
+  // 1. Fetch Video Details & Saved Progress
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -123,7 +127,30 @@ export default function Watch() {
       .finally(() => {
         setLoading(false);
       });
+
+    // Fetch saved watch progress
+    axios
+      .get(`/api/videos/${id}/progress`)
+      .then((res) => {
+        const pos = Number(res.data?.positionSeconds || res.data?.position_seconds || 0);
+        if (pos > 5) {
+          console.log(`[Watch.tsx] Loaded saved progress: ${pos}s`);
+          setSavedProgress(pos);
+        }
+      })
+      .catch(() => {});
   }, [id]);
+
+  // Throttled progress update (saves position every 5s)
+  const handleProgressUpdate = (seconds: number) => {
+    const sec = Math.floor(seconds);
+    if (Math.abs(sec - lastProgressRef.current) >= 5 && id) {
+      lastProgressRef.current = sec;
+      axios
+        .post(`/api/videos/${id}/progress`, { positionSeconds: sec })
+        .catch(() => {});
+    }
+  };
 
   // 2. Fetch Related Videos
   useEffect(() => {
@@ -356,6 +383,9 @@ export default function Watch() {
               videoId={video.id}
               video={video}
               poster={video.thumbnail_url}
+              savedProgress={savedProgress}
+              onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
+              onProgressUpdate={handleProgressUpdate}
               onEnded={() => {
                 if (autoplay && relatedVideos.length > 0) {
                   navigate(`/watch/${relatedVideos[0].id}`);

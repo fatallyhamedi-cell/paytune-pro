@@ -118,6 +118,9 @@ router.get(['/dashboard', '/'], async (req: ArtistRequest, res: Response) => {
         current_balance: wallet?.balance || 0,
         pending_balance: wallet?.pending_balance || 0,
       },
+      balance: wallet?.balance || 0,
+      totalVideos: videos.length,
+      totalViews: totalViews,
       videos,
       recent_purchases: purchases.slice(0, 5),
     });

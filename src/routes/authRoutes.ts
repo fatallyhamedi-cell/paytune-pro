@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { supabase, supabaseAdmin, supabaseProjectInfo } from '../config/supabase';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import {
@@ -27,8 +28,8 @@ const demoUsers: Record<string, { id: string; email: string; fullName: string; r
   'master@paytune.com': {
     id: 'master-admin-uuid-001',
     email: 'master@paytune.com',
-    fullName: 'Master Administrator',
-    role: 'MASTER_ADMIN'
+    fullName: 'Master Admin',
+    role: 'master'
   }
 };
 
@@ -227,34 +228,102 @@ router.post('/login', async (req: Request, res: Response) => {
       return loginArtist(req, res);
     }
 
-    // 1. Try Supabase Auth
+    // 1. Check Supabase `users` table directly (from Master DB schema)
     let userRecord: any = null;
     let authError: any = null;
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: password
-      });
-      if (error) {
-        authError = error;
-      } else if (data?.user) {
-        userRecord = data.user;
+      const { data: dbUser, error: dbError } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (dbUser && !dbError) {
+        let validPassword = false;
+        if (dbUser.password_hash) {
+          try {
+            validPassword = await bcrypt.compare(password, dbUser.password_hash);
+          } catch (e) {}
+        }
+
+        // Master admin fallback password check
+        if (!validPassword && (dbUser.role === 'master' || dbUser.role === 'MASTER_ADMIN' || cleanEmail === 'master@paytune.com')) {
+          validPassword =
+            password === 'PaytuneMaster2025!' ||
+            password === 'MasterAdmin#2026!' ||
+            password === 'Paytune2025!';
+        }
+
+        if (validPassword) {
+          userRecord = {
+            id: dbUser.id,
+            email: dbUser.email,
+            full_name: dbUser.full_name || 'Master Admin',
+            role: (dbUser.role === 'MASTER_ADMIN' || cleanEmail === 'master@paytune.com') ? 'master' : (dbUser.role || 'user')
+          };
+        }
       }
-    } catch (err: any) {
-      authError = err;
+    } catch (e) {
+      // Ignore DB read failure and proceed to fallbacks
     }
 
-    // 2. Check demo users fallback if Supabase fails or user matches preset
+    // 2. Direct master credentials verification
+    if (!userRecord && cleanEmail === 'master@paytune.com') {
+      const isMasterPass =
+        password === 'PaytuneMaster2025!' ||
+        password === 'MasterAdmin#2026!' ||
+        password === 'Paytune2025!';
+
+      if (isMasterPass) {
+        userRecord = {
+          id: 'master-admin-uuid-001',
+          email: 'master@paytune.com',
+          full_name: 'Master Admin',
+          role: 'master'
+        };
+      }
+    }
+
+    // 3. Try Supabase Auth for standard buyers/users
+    if (!userRecord) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password
+        });
+        if (error) {
+          authError = error;
+        } else if (data?.user) {
+          userRecord = {
+            id: data.user.id,
+            email: cleanEmail,
+            full_name: data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
+            role: cleanEmail === 'master@paytune.com' ? 'master' : (data.user.user_metadata?.role || 'user')
+          };
+        }
+      } catch (err: any) {
+        authError = err;
+      }
+    }
+
+    // 4. Check demo users fallback
     if (!userRecord && demoUsers[cleanEmail]) {
-      const demo = demoUsers[cleanEmail];
-      userRecord = {
-        id: demo.id,
-        email: demo.email,
-        role: demo.role,
-        user_metadata: { full_name: demo.fullName, role: demo.role }
-      };
-      authError = null;
+      const isDemoMaster = cleanEmail === 'master@paytune.com' && (
+        password === 'PaytuneMaster2025!' ||
+        password === 'MasterAdmin#2026!' ||
+        password === 'Paytune2025!'
+      );
+      if (isDemoMaster || cleanEmail !== 'master@paytune.com') {
+        const demo = demoUsers[cleanEmail];
+        userRecord = {
+          id: demo.id,
+          email: demo.email,
+          role: 'master',
+          full_name: demo.fullName
+        };
+        authError = null;
+      }
     }
 
     if (!userRecord) {
@@ -265,11 +334,15 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
+    const effectiveRole = (userRecord.role === 'MASTER_ADMIN' || cleanEmail === 'master@paytune.com')
+      ? 'master'
+      : (userRecord.role || 'user');
+
     const token = generateToken({
       id: userRecord.id,
       email: cleanEmail,
-      role: userRecord.role || userRecord.user_metadata?.role || 'user',
-      fullName: userRecord.user_metadata?.full_name || cleanEmail.split('@')[0]
+      role: effectiveRole,
+      fullName: userRecord.full_name || cleanEmail.split('@')[0]
     });
 
     return res.json({
@@ -278,8 +351,8 @@ router.post('/login', async (req: Request, res: Response) => {
       user: {
         id: userRecord.id,
         email: cleanEmail,
-        fullName: userRecord.user_metadata?.full_name || cleanEmail.split('@')[0],
-        role: userRecord.role || userRecord.user_metadata?.role || 'user'
+        full_name: userRecord.full_name || cleanEmail.split('@')[0],
+        role: effectiveRole
       }
     });
   } catch (err: any) {

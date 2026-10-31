@@ -8,8 +8,9 @@ const router = Router();
 // In dev preview mode, we provide high resilience
 const masterAuth = [authenticate, checkRole('master')];
 
-// 1. Overview & Stats
+// 1. Overview & Stats & Video Analytics
 router.get("/stats", masterAuth, masterController.getMasterStats);
+router.get("/analytics", masterAuth, masterController.getMasterAnalytics);
 router.get("/revenue", masterAuth, masterController.getMasterRevenue);
 router.get("/activity", masterAuth, masterController.getMasterActivity);
 router.get("/top-content", masterAuth, masterController.getMasterTopContent);

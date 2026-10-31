@@ -12,7 +12,9 @@ import {
   AlertTriangle,
   Zap,
   ArrowUpRight,
-  Sparkles
+  Sparkles,
+  Eye,
+  Film
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -52,6 +54,26 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
   onBatchProcessWithdrawals,
   onToggleAutoApprove
 }) => {
+  const [analytics, setAnalytics] = React.useState<{ totalPlatformViews: number; totalVideos: number; videos: any[] } | null>(null);
+
+  React.useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const token = localStorage.getItem("master_token") || localStorage.getItem("paytune_token");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch("/api/master/analytics", { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setAnalytics(data);
+        }
+      } catch (e) {
+        console.warn("Analytics fetch error:", e);
+      }
+    };
+    fetchAnalytics();
+  }, []);
+
   // Format graph data for Recharts
   const chartData = (revenue?.labels || []).map((label, idx) => ({
     name: label,
@@ -115,27 +137,48 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         </div>
       </div>
 
-      {/* 8 Platform Stats Cards (4-column grid) */}
+      {/* Platform Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Total Platform Revenue (Owner Share) */}
-        <div className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-amber-500/30 transition-all">
+        {/* Total Platform Views (Video Analytics) */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-amber-500/30 hover:border-amber-500 transition-all shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400">Net Platform Revenue</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              Total Platform Views
+            </span>
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+              <Eye className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="mt-2 text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+            {analytics
+              ? analytics.totalPlatformViews.toLocaleString()
+              : ((stats as any)?.total_views || 0).toLocaleString()}
+          </p>
+          <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-neutral-400">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-500 mr-1" />
+            Across all {analytics ? analytics.totalVideos : (stats?.total_videos || 0)} published videos
+          </div>
+        </div>
+
+        {/* 1. Total Platform Revenue (Owner Share) */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-neutral-800/80 hover:border-amber-500/30 transition-all shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-500 dark:text-neutral-400">Net Platform Revenue</span>
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-white">
+          <p className="mt-2 text-2xl font-black tracking-tight text-gray-900 dark:text-white">
             {stats ? Number(stats.total_revenue).toLocaleString() : "0"}{" "}
-            <span className="text-xs font-bold text-amber-400">RWF</span>
+            <span className="text-xs font-bold text-amber-500">RWF</span>
           </p>
-          <div className="mt-2 flex items-center text-xs text-neutral-400">
-            <span className="text-emerald-400 font-bold mr-1">30%</span> owner net commission
+          <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-neutral-400">
+            <span className="text-emerald-500 font-bold mr-1">30%</span> owner net commission
           </div>
         </div>
 
         {/* 2. Total Gross Volume (GMV) */}
-        <div className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-neutral-700 transition-all">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-neutral-800/80 hover:border-neutral-700 transition-all shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-neutral-400">Gross Sales Volume (GMV)</span>
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
@@ -506,6 +549,89 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Video Analytics Section: Views per Video Table */}
+      <div className="p-6 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-neutral-800 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Eye className="w-4 h-4 text-amber-500" />
+              Platform Video Analytics (Views per Video)
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-neutral-400">
+              Ranked list of published Rwandan tracks by total audience reach and stream views
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigateTab("videos")}
+            className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+          >
+            Manage Videos <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-gray-50 dark:bg-neutral-800/60 text-gray-500 dark:text-neutral-400 font-semibold uppercase tracking-wider border-b border-gray-200 dark:border-neutral-800">
+              <tr>
+                <th className="py-2.5 px-3 w-12 text-center">#</th>
+                <th className="py-2.5 px-3">Video Title</th>
+                <th className="py-2.5 px-3">Artist</th>
+                <th className="py-2.5 px-3 text-right">Views</th>
+                <th className="py-2.5 px-3">Price</th>
+                <th className="py-2.5 px-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-neutral-800/70">
+              {analytics && analytics.videos.length > 0 ? (
+                analytics.videos.slice(0, 10).map((v, i) => (
+                  <tr key={v.id} className="hover:bg-gray-50 dark:hover:bg-neutral-800/30 transition-colors">
+                    <td className="py-2.5 px-3 text-center font-bold text-gray-500 dark:text-neutral-400">
+                      #{i + 1}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <div className="flex items-center space-x-2.5">
+                        <img
+                          src={v.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120"}
+                          alt={v.title}
+                          className="w-10 h-7 object-cover rounded bg-neutral-800"
+                        />
+                        <span className="font-semibold text-gray-900 dark:text-white truncate max-w-xs">
+                          {v.title}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-3 text-gray-700 dark:text-neutral-300 font-medium">
+                      {v.artist_name}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-black text-gray-900 dark:text-white">
+                      {v.views.toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-gray-700 dark:text-neutral-300">
+                      {v.is_free ? 'FREE' : `${Number(v.price_rwf || 0).toLocaleString()} RWF`}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        v.is_free
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400'
+                      }`}>
+                        {v.is_free ? 'Free' : 'Pay-Per-View'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-gray-400">
+                    No videos available for analytics
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

@@ -6,6 +6,17 @@ import { User, Session } from '@supabase/supabase-js';
 // Since server can have its state, we initialize from default dataset.
 
 const DEFAULT_DB = {
+  "users": [
+    {
+      "id": "master-admin-uuid-001",
+      "email": "master@paytune.com",
+      "password_hash": "$2a$10$7YQZpVn.p3g9HnOaVJ2QOeW2qJZO5nY8cF9sG6hKjL0pR1tU2vW3x",
+      "full_name": "Master Admin",
+      "role": "master",
+      "is_blocked": false,
+      "created_at": "2026-01-01T00:00:00.000Z"
+    }
+  ],
   "profiles": [
     {
       "id": "master-admin-uuid-001",

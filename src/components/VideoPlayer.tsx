@@ -42,6 +42,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasRecordedView, setHasRecordedView] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
+  const [paywallTriggered, setPaywallTriggered] = useState(false);
+  const isPaidNotOwned = Boolean(video && !video.is_free && !video.userOwns);
+
   // Determine effective media source URL
   const effectiveSrc =
     src ||
@@ -53,11 +56,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const effectiveId = videoId || video?.id || '';
   const effectivePoster = poster || video?.thumbnail_url || '';
 
-  console.log('[VideoPlayer] Initializing VideoPlayer. Video ID:', effectiveId, 'Source:', effectiveSrc);
+  console.log('[VideoPlayer] Initializing VideoPlayer. Video ID:', effectiveId, 'Source:', effectiveSrc, 'isPaidNotOwned:', isPaidNotOwned);
+
+  // Reset paywall state if user owns the video now
+  useEffect(() => {
+    if (video?.userOwns) {
+      setPaywallTriggered(false);
+    }
+  }, [video?.userOwns]);
 
   // Restore saved progress on loadedmetadata
   const handleLoadedMetadata = () => {
-    if (videoRef.current && savedProgress > 0) {
+    if (videoRef.current && savedProgress > 0 && !isPaidNotOwned) {
       console.log(`[VideoPlayer] Restoring saved progress to ${savedProgress}s`);
       videoRef.current.currentTime = savedProgress;
     }
@@ -84,8 +94,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const handleTimeUpdate = () => {
-    if (videoRef.current && onProgressUpdate) {
-      onProgressUpdate(videoRef.current.currentTime);
+    if (!videoRef.current) return;
+    const current = videoRef.current.currentTime;
+
+    // FEATURE: 30-Second Free Preview Paywall Enforcement
+    if (isPaidNotOwned && current >= 30) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 30;
+      setPaywallTriggered(true);
+      if (onOpenPaymentModal) {
+        onOpenPaymentModal();
+      }
+      return;
+    }
+
+    if (onProgressUpdate) {
+      onProgressUpdate(current);
+    }
+  };
+
+  const handleReplayPreview = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      setPaywallTriggered(false);
+      videoRef.current.play().catch(() => {});
     }
   };
 
@@ -118,7 +150,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onClick={onOpenPaymentModal}
             className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-md transition-all cursor-pointer"
           >
-            Unlock Full Video ({video.price_rwf ? `${video.price_rwf} RWF` : 'Buy Now'})
+            Unlock Full Video ({video.price_rwf ? `${video.price_rwf.toLocaleString()} RWF` : 'Buy Now'})
           </button>
         )}
       </div>
@@ -150,6 +182,43 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <source src={effectiveSrc} type="video/webm" />
         Your browser does not support the HTML5 video tag.
       </video>
+
+      {/* 30-SECOND PAYWALL PREVIEW OVERLAY */}
+      {paywallTriggered && isPaidNotOwned && (
+        <div className="absolute inset-0 z-30 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-500 flex items-center justify-center mb-3 shadow-lg shadow-amber-500/10">
+            <span className="text-2xl">🔒</span>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[11px] font-black uppercase tracking-wider mb-2">
+            30-Second Preview Ended
+          </span>
+          <h3 className="text-lg sm:text-xl font-black text-white max-w-md leading-tight">
+            Unlock Full Video Access
+          </h3>
+          <p className="text-xs text-neutral-300 max-w-sm mt-1.5 mb-5 leading-relaxed">
+            Pay once, watch forever. Direct artist support with zero monthly subscriptions.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              id="paywall-overlay-unlock-btn"
+              onClick={() => {
+                if (onOpenPaymentModal) onOpenPaymentModal();
+              }}
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center gap-2 transform hover:scale-105 active:scale-95"
+            >
+              <span>Unlock for {video?.price_rwf ? `${video.price_rwf.toLocaleString()} RWF` : '$0.50'}</span>
+            </button>
+            <button
+              onClick={handleReplayPreview}
+              className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold transition-all cursor-pointer border border-neutral-700 flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Replay 30s Preview</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Playback Error Toast Overlay (if CORS / 403 / Network Issue Occurs) */}
       {playbackError && (

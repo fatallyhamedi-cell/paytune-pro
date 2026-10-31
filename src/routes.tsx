@@ -11,9 +11,35 @@ import ArtistFollowers from './pages/Artist/Followers';
 import ArtistProfile from './pages/Artist/Profile';
 import ArtistUpload from './pages/Artist/Upload';
 
+import MasterLogin from './pages/Master/MasterLogin';
+import MasterDashboard from './pages/MasterDashboard';
+import MasterProtectedRoute from './components/MasterProtectedRoute';
+
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Master Admin Routes */}
+      <Route path="/master/login" element={<MasterLogin />} />
+      <Route 
+        path="/master" 
+        element={
+          <MasterProtectedRoute>
+            <MasterDashboard />
+          </MasterProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/master/dashboard" 
+        element={
+          <MasterProtectedRoute>
+            <MasterDashboard />
+          </MasterProtectedRoute>
+        } 
+      />
+      <Route path="/master-admin/login" element={<Navigate to="/master/login" replace />} />
+      <Route path="/master-admin" element={<Navigate to="/master/login" replace />} />
+
+      {/* Artist Routes */}
       <Route path="/artist/signup" element={<ArtistRegister />} />
       <Route path="/artist/register" element={<ArtistRegister />} />
       <Route path="/artist/login" element={<ArtistLogin />} />
@@ -48,4 +74,7 @@ export {
   ArtistEarnings,
   ArtistFollowers,
   ArtistProfile,
+  MasterLogin,
+  MasterDashboard,
+  MasterProtectedRoute
 };

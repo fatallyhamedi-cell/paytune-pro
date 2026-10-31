@@ -13,7 +13,11 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  let token = localStorage.getItem('artist_token') || localStorage.getItem('token') || localStorage.getItem('paytune_artist_token');
+  const isMasterPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/master');
+  let token = isMasterPath
+    ? (localStorage.getItem('master_token') || localStorage.getItem('token') || localStorage.getItem('paytune_master_token'))
+    : (localStorage.getItem('master_token') || localStorage.getItem('token') || localStorage.getItem('artist_token') || localStorage.getItem('paytune_artist_token'));
+
   if (token) {
     token = String(token).replace(/^"|"$/g, '').replace(/\s/g, '');
     if (token.startsWith('Bearer ')) token = token.substring(7);

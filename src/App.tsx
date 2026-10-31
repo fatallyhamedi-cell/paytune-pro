@@ -15,6 +15,8 @@ import ArtistProtectedRoute from "./components/ArtistProtectedRoute";
 import ArtistDashboardLayout from "./components/ArtistDashboardLayout";
 import { ConfigBanner } from "./components/ConfigBanner";
 
+import MasterProtectedRoute from "./components/MasterProtectedRoute";
+
 // Lazy-loaded routes for code splitting and instant initial page load
 const Auth = lazy(() => import("./pages/Auth"));
 const ArtistRegister = lazy(() => import("./pages/Artist/Register"));
@@ -31,6 +33,7 @@ const ArtistProfile = lazy(() => import("./pages/Artist/Profile"));
 const VideoUpload = lazy(() => import("./pages/VideoUpload"));
 const Earnings = lazy(() => import("./pages/Earnings"));
 const MasterDashboard = lazy(() => import("./pages/MasterDashboard"));
+const MasterLogin = lazy(() => import("./pages/Master/MasterLogin"));
 const MasterAdminLogin = lazy(() => import("./pages/MasterAdminLogin"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const LiveStreams = lazy(() => import("./pages/live/LiveStreams"));
@@ -90,16 +93,37 @@ function App() {
                     </Route>
 
                     {/* Protected Master Administrator Routes */}
-                    <Route element={<ProtectedRoute role="master" redirectTo="/master-admin/login" />}>
-                       <Route path="/master/dashboard" element={<MasterDashboard />} />
-                       <Route path="/master/settings" element={<MasterDashboard defaultTab="settings" />} />
-                       <Route path="/master-admin/dashboard" element={<Navigate to="/master/dashboard" replace />} />
-                    </Route>
+                    <Route 
+                      path="/master" 
+                      element={
+                        <MasterProtectedRoute>
+                          <MasterDashboard />
+                        </MasterProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/master/dashboard" 
+                      element={
+                        <MasterProtectedRoute>
+                          <MasterDashboard />
+                        </MasterProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/master/settings" 
+                      element={
+                        <MasterProtectedRoute>
+                          <MasterDashboard defaultTab="settings" />
+                        </MasterProtectedRoute>
+                      } 
+                    />
+                    <Route path="/master-admin/dashboard" element={<Navigate to="/master" replace />} />
                   </Route>
 
-                  {/* Hidden Master Admin Login Terminal */}
-                  <Route path="/master-admin/login" element={<MasterAdminLogin />} />
-                  <Route path="/master-admin" element={<Navigate to="/master-admin/login" replace />} />
+                  {/* Master Admin Login Terminal */}
+                  <Route path="/master/login" element={<MasterLogin />} />
+                  <Route path="/master-admin/login" element={<Navigate to="/master/login" replace />} />
+                  <Route path="/master-admin" element={<Navigate to="/master/login" replace />} />
 
                   {/* Independent Auth Pages */}
                   <Route path="/login" element={<Navigate to="/auth" replace />} />

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useArtistAuth } from '../../contexts/ArtistAuthContext';
 import api from '../../services/api';
+import { Eye, Video, DollarSign, TrendingUp, Plus, RefreshCw, Film } from 'lucide-react';
 
 export default function ArtistDashboard() {
   const { artist, refreshArtist } = useArtistAuth();
@@ -13,21 +14,21 @@ export default function ArtistDashboard() {
     refreshArtist();
   }, []);
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await api.get('/artist/dashboard');
-        setData(res.data);
-      } catch (err: any) {
-        console.error('Failed to load dashboard:', err);
-        setError(err.response?.data?.error || err.message || 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/artist/dashboard');
+      setData(res.data);
+    } catch (err: any) {
+      console.error('Failed to load dashboard:', err);
+      setError(err.response?.data?.error || err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (artist) {
       loadDashboardData();
     }
@@ -35,7 +36,8 @@ export default function ArtistDashboard() {
 
   if (!artist) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh] text-gray-400">
+      <div className="flex items-center justify-center min-h-[50vh] text-gray-500 dark:text-gray-400">
+        <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
         Loading artist profile...
       </div>
     );
@@ -43,33 +45,38 @@ export default function ArtistDashboard() {
 
   const isApproved = artist.is_approved || data?.artist?.is_approved;
   const approvalStatus = data?.artist?.approval_status || artist.approval_status || 'pending';
+  const totalViews = data?.totalViews ?? data?.stats?.total_views ?? 0;
+  const totalVideos = data?.totalVideos ?? data?.stats?.total_videos ?? data?.videos?.length ?? 0;
+  const balance = data?.balance ?? data?.stats?.current_balance ?? 0;
+  const currency = artist.currency_code || data?.artist?.currency_code || 'RWF';
+  const videos = data?.videos || [];
 
   return (
     <div className="space-y-6">
       {/* Artist Profile Banner Header */}
-      <div className="bg-[#161616] rounded-2xl p-6 border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white dark:bg-[#161616] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black font-black text-2xl shadow-lg">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black font-black text-2xl shadow-md">
             {artist.full_name?.[0]?.toUpperCase() || 'A'}
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white">{artist.full_name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{artist.full_name}</h1>
               <span
                 className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                   isApproved
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30'
                     : approvalStatus === 'rejected'
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    ? 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/30'
+                    : 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30'
                 }`}
               >
                 {isApproved ? '✓ Verified & Approved' : `Status: ${approvalStatus.toUpperCase()}`}
               </span>
             </div>
-            <p className="text-sm text-gray-400 mt-0.5">{artist.email}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              MoMo Account: {artist.momo_code || 'Not set'} ({artist.momo_provider || 'MTN'}) • Currency: {artist.currency_code || 'RWF'}
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{artist.email}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              MoMo: {artist.momo_code || 'Not set'} ({artist.momo_provider || 'MTN'}) • Currency: {currency} • Payout: 70% Creator Net
             </p>
           </div>
         </div>
@@ -79,11 +86,11 @@ export default function ArtistDashboard() {
             to="/artist/dashboard/upload"
             className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2"
           >
-            <span>+</span> Upload Video
+            <Plus className="w-4 h-4" /> Upload Video
           </Link>
           <Link
             to="/artist/dashboard/earnings"
-            className="bg-[#262626] hover:bg-[#333] text-white px-4 py-2.5 rounded-xl font-semibold text-sm border border-gray-700 transition-all"
+            className="bg-gray-100 hover:bg-gray-200 dark:bg-[#262626] dark:hover:bg-[#333] text-gray-800 dark:text-white px-4 py-2.5 rounded-xl font-semibold text-sm border border-gray-300 dark:border-gray-700 transition-all"
           >
             Withdraw MoMo
           </Link>
@@ -91,7 +98,7 @@ export default function ArtistDashboard() {
       </div>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500 text-red-400 p-4 rounded-xl text-sm">
+        <div className="bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm">
           {error}
         </div>
       )}
@@ -99,73 +106,98 @@ export default function ArtistDashboard() {
       {loading ? (
         <div className="flex items-center justify-center py-12 text-gray-400">
           <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
-          Loading your artist dashboard...
+          Loading your artist video analytics...
         </div>
       ) : data ? (
         <>
-          {/* Revenue & Balance Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard
-              label="TOTAL REVENUE EARNED"
-              value={`${Number(data.stats.total_earnings || 0).toLocaleString()} ${artist.currency_code || 'RWF'}`}
-              sub="Direct pay-per-view video purchases"
-              highlight
-            />
-            <StatCard
-              label="AVAILABLE BALANCE"
-              value={`${Number(data.stats.current_balance || 0).toLocaleString()} ${artist.currency_code || 'RWF'}`}
-              sub="Ready for instant MoMo withdrawal"
-            />
-            <StatCard
-              label="PENDING WITHDRAWALS"
-              value={`${Number(data.stats.pending_balance || 0).toLocaleString()} ${artist.currency_code || 'RWF'}`}
-              sub="Currently processing to telecom network"
-            />
+          {/* Video Analytics KPI Cards: Total Video Views, Uploaded Videos, Available Balance */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* 1. Total Video Views */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161616] border border-amber-500/30 dark:border-amber-500/30 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Total Video Views
+                </span>
+                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+                  <Eye className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-gray-900 dark:text-white">
+                {Number(totalViews).toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-500 mr-1.5" />
+                <span>Across all your published tracks</span>
+              </div>
+            </div>
+
+            {/* 2. Uploaded Videos */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  Uploaded Videos
+                </span>
+                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
+                  <Video className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-gray-900 dark:text-white">
+                {Number(totalVideos).toLocaleString()}
+              </p>
+              <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                <Film className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
+                <span>Live tracks in your PayTune catalog</span>
+              </div>
+            </div>
+
+            {/* 3. Available Balance */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  Available Balance
+                </span>
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+              </div>
+              <p className="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-gray-900 dark:text-white">
+                {`${Number(balance).toLocaleString()} ${currency}`}
+              </p>
+              <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-gray-400">
+                <Link to="/artist/dashboard/earnings" className="text-amber-500 hover:underline font-semibold">
+                  Ready for instant MoMo payout →
+                </Link>
+              </div>
+            </div>
           </div>
 
-          {/* Performance Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              label="Total Videos"
-              value={data.stats.total_videos || 0}
-              sub="Published on PAYTUNE"
-            />
-            <StatCard
-              label="Total Views"
-              value={(data.stats.total_views || 0).toLocaleString()}
-              sub="Across all tracks"
-            />
-            <StatCard
-              label="Followers"
-              value={(data.stats.total_followers || 0).toLocaleString()}
-              sub="Subscribed fans"
-            />
-            <StatCard
-              label="Paid Purchases"
-              value={(data.stats.total_purchases || 0).toLocaleString()}
-              sub="Completed unlock orders"
-            />
-          </div>
-
-          {/* Video Catalog */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Your Uploaded Tracks & Videos</h2>
+          {/* Your Video Performance Table Section */}
+          <div className="bg-white dark:bg-[#161616] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden transition-colors">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-amber-500" />
+                  Your Video Performance
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Breakdown of audience views and pay-per-view status per uploaded track
+                </p>
+              </div>
               <Link
                 to="/artist/dashboard/videos"
-                className="text-xs text-amber-500 hover:underline font-semibold"
+                className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-bold"
               >
-                View all ({data.videos.length}) →
+                View all ({videos.length}) →
               </Link>
             </div>
 
-            {data.videos.length === 0 ? (
-              <div className="bg-[#161616] rounded-2xl p-12 text-center border border-gray-800">
+            {videos.length === 0 ? (
+              <div className="p-12 text-center">
                 <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500 text-2xl mx-auto mb-3">
                   🎬
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">No videos uploaded yet</h3>
-                <p className="text-sm text-gray-400 max-w-md mx-auto mb-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No videos uploaded yet</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6">
                   Start monetizing your music! Upload your music videos, set your own pay-per-view price in RWF/USD, and earn from every view.
                 </p>
                 <Link
@@ -176,72 +208,76 @@ export default function ArtistDashboard() {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {data.videos.map((v: any) => (
-                  <div
-                    key={v.id}
-                    className="bg-[#161616] border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all group"
-                  >
-                    <div className="relative aspect-video bg-[#242424] overflow-hidden">
-                      {v.thumbnail_url ? (
-                        <img
-                          src={v.thumbnail_url}
-                          alt={v.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-600">
-                          No Thumbnail
-                        </div>
-                      )}
-                      <div className="absolute top-2 right-2 bg-black/80 px-2 py-0.5 rounded text-[11px] font-semibold text-amber-400 border border-amber-500/20">
-                        {v.is_free ? 'FREE' : `${Number(v.price_rwf || 0).toLocaleString()} RWF`}
-                      </div>
-                    </div>
-                    <div className="p-3.5 space-y-1">
-                      <p className="font-semibold text-white truncate text-sm" title={v.title}>
-                        {v.title}
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-gray-400">
-                        <span>👁️ {(v.views || 0).toLocaleString()} views</span>
-                        <span>{v.uploaded_at ? new Date(v.uploaded_at).toLocaleDateString() : 'Recent'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 dark:bg-neutral-800/50 text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-800">
+                    <tr>
+                      <th className="py-3 px-4 w-12 text-center">Rank</th>
+                      <th className="py-3 px-4">Video Track</th>
+                      <th className="py-3 px-4 text-right">Views</th>
+                      <th className="py-3 px-4">Price</th>
+                      <th className="py-3 px-4">Access Mode</th>
+                      <th className="py-3 px-4">Uploaded</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                    {videos.map((v: any, idx: number) => (
+                      <tr key={v.id} className="hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors">
+                        <td className="py-3 px-4 text-center font-bold text-gray-500 dark:text-gray-400">
+                          #{idx + 1}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-16 h-10 rounded-lg overflow-hidden bg-gray-200 dark:bg-neutral-800 flex-shrink-0">
+                              {v.thumbnail_url ? (
+                                <img
+                                  src={v.thumbnail_url}
+                                  alt={v.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <Film className="w-4 h-4" />
+                                </div>
+                              )}
+                            </div>
+                            <span className="font-bold text-gray-900 dark:text-white truncate max-w-xs">
+                              {v.title}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-black text-sm text-gray-900 dark:text-white">
+                            {(Number(v.views) || 0).toLocaleString()}
+                          </span>
+                          <span className="block text-[10px] text-gray-400">views</span>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-gray-700 dark:text-gray-300">
+                          {v.is_free ? '0 RWF' : `${Number(v.price_rwf || 0).toLocaleString()} RWF`}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-semibold text-[10px] ${
+                              v.is_free
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400'
+                            }`}
+                          >
+                            {v.is_free ? 'Free' : 'Pay-Per-View'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          {v.uploaded_at ? new Date(v.uploaded_at).toLocaleDateString() : 'Recent'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         </>
       ) : null}
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  sub,
-  highlight,
-}: {
-  label: string;
-  value: any;
-  sub?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl p-5 border transition-all ${
-        highlight
-          ? 'bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-transparent border-amber-500/40 shadow-lg'
-          : 'bg-[#161616] border-gray-800'
-      }`}
-    >
-      <p className="text-gray-400 text-xs font-semibold tracking-wider uppercase">{label}</p>
-      <p className={`text-2xl md:text-3xl font-black mt-2 ${highlight ? 'text-amber-400' : 'text-white'}`}>
-        {value}
-      </p>
-      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
     </div>
   );
 }

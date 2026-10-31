@@ -1754,3 +1754,55 @@ export const updateMasterProfile = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /api/master/analytics
+ * Returns total platform views, total videos count, and videos sorted by views descending
+ */
+export const getMasterAnalytics = async (req: Request, res: Response) => {
+  try {
+    const store = getDbStore();
+    const rawVideos = store.videos || [];
+    const artists = store.artists || [];
+
+    const artistMap: Record<string, string> = {};
+    for (const a of artists) {
+      if (a.id) artistMap[a.id] = a.full_name || a.username || 'Artist';
+      if (a.user_id) artistMap[a.user_id] = a.full_name || a.username || 'Artist';
+    }
+
+    const videos = rawVideos.map((v: any) => {
+      const artistName =
+        v.artist_name ||
+        v.artists?.full_name ||
+        v.artist_profiles?.full_name ||
+        artistMap[v.artist_id] ||
+        'PAYTUNE Creator';
+
+      return {
+        id: v.id,
+        title: v.title || 'Untitled Track',
+        artist_id: v.artist_id,
+        artist_name: artistName,
+        views: Number(v.views || 0),
+        price_rwf: Number(v.price_rwf || 0),
+        price_usd: Number(v.price_usd || 0),
+        is_free: !!v.is_free,
+        thumbnail_url: v.thumbnail_url || '',
+        uploaded_at: v.uploaded_at || v.created_at || new Date().toISOString()
+      };
+    }).sort((a: any, b: any) => b.views - a.views);
+
+    const totalPlatformViews = videos.reduce((acc: number, v: any) => acc + (v.views || 0), 0);
+    const totalVideos = videos.length;
+
+    return res.json({
+      totalPlatformViews,
+      totalVideos,
+      videos
+    });
+  } catch (err: any) {
+    console.error("getMasterAnalytics error:", err);
+    return res.status(500).json({ error: err.message || "Failed to fetch master analytics" });
+  }
+};
+

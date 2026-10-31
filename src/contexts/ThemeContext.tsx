@@ -16,9 +16,9 @@ export const ThemeContext = createContext<ThemeContextType | undefined>(undefine
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return "light";
     const saved = localStorage.getItem("paytune_theme");
-    return (saved as Theme) || "dark";
+    return (saved as Theme) || "light";
   });
 
   useEffect(() => {
