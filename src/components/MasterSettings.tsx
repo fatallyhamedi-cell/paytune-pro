@@ -169,7 +169,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
           onClick={() => setActiveSettingsTab("profile")}
           className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
             activeSettingsTab === "profile"
-              ? "bg-amber-500 text-neutral-950 shadow"
+              ? "bg-purple-600 text-neutral-950 shadow"
               : "text-neutral-400 hover:text-white"
           }`}
         >
@@ -181,7 +181,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
           onClick={() => setActiveSettingsTab("general")}
           className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer ${
             activeSettingsTab === "general"
-              ? "bg-amber-500 text-neutral-950 shadow"
+              ? "bg-purple-600 text-neutral-950 shadow"
               : "text-neutral-400 hover:text-white"
           }`}
         >
@@ -192,7 +192,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
           onClick={() => setActiveSettingsTab("financial")}
           className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer ${
             activeSettingsTab === "financial"
-              ? "bg-amber-500 text-neutral-950 shadow"
+              ? "bg-purple-600 text-neutral-950 shadow"
               : "text-neutral-400 hover:text-white"
           }`}
         >
@@ -203,7 +203,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
           onClick={() => setActiveSettingsTab("templates")}
           className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer ${
             activeSettingsTab === "templates"
-              ? "bg-amber-500 text-neutral-950 shadow"
+              ? "bg-purple-600 text-neutral-950 shadow"
               : "text-neutral-400 hover:text-white"
           }`}
         >
@@ -237,26 +237,26 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
       {activeSettingsTab === "profile" && (
         <form onSubmit={handleSaveProfile} className="p-6 rounded-2xl bg-[#161616] border border-neutral-800 space-y-6 text-xs">
           <h3 className="text-sm font-bold text-white border-b border-neutral-800 pb-3 flex items-center gap-2">
-            <User className="w-4 h-4 text-amber-400" />
+            <User className="w-4 h-4 text-purple-400" />
             Master Administrator Profile
           </h3>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800">
             <div 
               onClick={() => avatarInputRef.current?.click()}
-              className="relative w-24 h-24 rounded-full border-2 border-amber-500 shadow-xl overflow-hidden cursor-pointer group bg-neutral-950 flex items-center justify-center shrink-0"
+              className="relative w-24 h-24 rounded-full border-2 border-purple-600 shadow-xl overflow-hidden cursor-pointer group bg-neutral-950 flex items-center justify-center shrink-0"
               title="Click to upload profile photo from your device"
             >
               {masterAvatar ? (
                 <img src={masterAvatar} alt="Master Admin" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-black text-amber-400">
+                <span className="text-2xl font-black text-purple-400">
                   {masterName.charAt(0).toUpperCase()}
                 </span>
               )}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                 {uploadingAvatar ? (
-                  <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
                 ) : (
                   <Camera className="w-6 h-6 text-white" />
                 )}
@@ -269,7 +269,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold border border-amber-500/30 flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 font-bold border border-purple-600/30 flex items-center gap-2 cursor-pointer"
                 >
                   {uploadingAvatar ? (
                     <>
@@ -307,7 +307,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                 value={masterName}
                 onChange={(e) => setMasterName(e.target.value)}
                 required
-                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 placeholder="PAYTUNE Master Administrator"
               />
             </div>
@@ -317,7 +317,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
             <button
               type="submit"
               disabled={savingProfile}
-              className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-lg shadow-amber-500/10 transition-all cursor-pointer disabled:opacity-50"
+              className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-lg shadow-purple-600/10 transition-all cursor-pointer disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>{savingProfile ? "Saving Profile..." : "Save Master Profile"}</span>
@@ -344,7 +344,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
         {activeSettingsTab === "general" && (
           <div className="p-6 rounded-2xl bg-[#161616] border border-neutral-800 space-y-5">
             <h3 className="text-sm font-bold text-white border-b border-neutral-800 pb-3 flex items-center gap-2">
-              <Settings className="w-4 h-4 text-amber-400" />
+              <Settings className="w-4 h-4 text-purple-400" />
               General Platform Settings
             </h3>
 
@@ -355,7 +355,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="text"
                   value={form.platform_name}
                   onChange={e => setForm({ ...form, platform_name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -365,7 +365,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="text"
                   value={form.tagline || ""}
                   onChange={e => setForm({ ...form, tagline: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
             </div>
@@ -374,7 +374,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
             <div className="p-4 rounded-xl bg-neutral-900/80 border border-neutral-800 flex items-center justify-between">
               <div>
                 <div className="flex items-center space-x-2 text-white font-bold">
-                  <Zap className="w-4 h-4 text-amber-400" />
+                  <Zap className="w-4 h-4 text-purple-400" />
                   <span>Automatic Artist Approval</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                     form.auto_approve_artists ? "bg-emerald-500/20 text-emerald-400 font-bold" : "bg-neutral-800 text-neutral-400"
@@ -393,7 +393,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   onChange={e => setForm({ ...form, auto_approve_artists: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                <div className="w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
 
@@ -406,7 +406,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                 type="number"
                 value={form.trending_days}
                 onChange={e => setForm({ ...form, trending_days: Number(e.target.value) })}
-                className="w-full max-w-xs px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full max-w-xs px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
               />
               <p className="text-[11px] text-neutral-500 mt-1">
                 Number of days considered to compute velocity of views and sales for the Trending tab.
@@ -429,7 +429,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                     onChange={e => setForm({ ...form, maintenance_mode: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  <div className="w-11 h-6 bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
               </div>
 
@@ -440,7 +440,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                     type="text"
                     value={form.maintenance_message || ""}
                     onChange={e => setForm({ ...form, maintenance_message: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                   />
                 </div>
               )}
@@ -451,7 +451,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
         {activeSettingsTab === "financial" && (
           <div className="p-6 rounded-2xl bg-[#161616] border border-neutral-800 space-y-5">
             <h3 className="text-sm font-bold text-white border-b border-neutral-800 pb-3 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-amber-400" />
+              <DollarSign className="w-4 h-4 text-purple-400" />
               Financial & Revenue Split Parameters
             </h3>
 
@@ -464,7 +464,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="number"
                   value={form.commission_percentage}
                   onChange={e => setForm({ ...form, commission_percentage: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
                 <p className="text-[11px] text-neutral-500 mt-1">
                   Platform owner retained share (default: 30%). Artists receive remaining amount minus VAT.
@@ -479,7 +479,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="number"
                   value={form.vat_percentage}
                   onChange={e => setForm({ ...form, vat_percentage: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
                 <p className="text-[11px] text-neutral-500 mt-1">
                   Tax automatically deducted from gross sales (default: 5%).
@@ -494,7 +494,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="number"
                   value={form.min_withdrawal}
                   onChange={e => setForm({ ...form, min_withdrawal: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
                 <p className="text-[11px] text-neutral-500 mt-1">
                   Minimum creator threshold for initiating a payout request (default: 5,000 RWF).
@@ -509,7 +509,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                   type="text"
                   value={form.momo_number}
                   onChange={e => setForm({ ...form, momo_number: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
                 <p className="text-[11px] text-neutral-500 mt-1">
                   Destination wallet where the 30% platform fee is deposited.
@@ -522,7 +522,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
         {activeSettingsTab === "templates" && (
           <div className="p-6 rounded-2xl bg-[#161616] border border-neutral-800 space-y-5">
             <h3 className="text-sm font-bold text-white border-b border-neutral-800 pb-3 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-amber-400" />
+              <Mail className="w-4 h-4 text-purple-400" />
               Automated Messaging & Email Templates
             </h3>
 
@@ -532,7 +532,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                 rows={3}
                 value={form.welcome_template}
                 onChange={e => setForm({ ...form, welcome_template: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500 font-mono text-xs"
               />
             </div>
 
@@ -542,7 +542,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                 rows={3}
                 value={form.receipt_template}
                 onChange={e => setForm({ ...form, receipt_template: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500 font-mono text-xs"
               />
               <span className="text-[11px] text-neutral-500">Available variables: {"{{video_title}}"}, {"{{amount}}"}, {"{{artist_name}}"}</span>
             </div>
@@ -553,7 +553,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
                 rows={2}
                 value={form.withdrawal_template || ""}
                 onChange={e => setForm({ ...form, withdrawal_template: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500 font-mono text-xs"
+                className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500 font-mono text-xs"
               />
             </div>
           </div>
@@ -564,7 +564,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
             id="btn-save-master-settings"
             type="submit"
             disabled={saving}
-            className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-lg shadow-amber-500/10 transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-lg shadow-purple-600/10 transition-all cursor-pointer disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? "Saving Changes..." : "Save Platform Settings"}</span>

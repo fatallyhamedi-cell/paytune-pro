@@ -79,8 +79,8 @@ export const Library: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-              Purchased Library
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#FFB300]/10 text-[#FFB300] border border-[#FFB300]/20 font-semibold">
+              Purchased Profile Media
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-600/10 text-purple-400 border border-purple-600/20 font-semibold">
                 {total} {total === 1 ? 'Video' : 'Videos'}
               </span>
             </h2>

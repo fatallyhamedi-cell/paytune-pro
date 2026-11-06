@@ -25,7 +25,7 @@ export const SectionTitle: React.FC<SectionTitleProps> = ({
     <div className={`flex items-end justify-between mb-4 ${className}`}>
       <div className="flex items-center gap-2.5">
         {Icon && (
-          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+          <div className="p-2 rounded-xl bg-purple-600/10 text-purple-600">
             <Icon className="w-5 h-5" />
           </div>
         )}
@@ -46,7 +46,7 @@ export const SectionTitle: React.FC<SectionTitleProps> = ({
         {linkHref && linkText && (
           <Link
             to={linkHref}
-            className="text-xs font-semibold text-amber-500 hover:text-amber-400 transition-colors"
+            className="text-xs font-semibold text-purple-600 hover:text-purple-400 transition-colors"
           >
             {linkText} &rarr;
           </Link>

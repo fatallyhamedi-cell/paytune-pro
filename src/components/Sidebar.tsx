@@ -1,25 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
-  Home,
-  TrendingUp,
-  Users,
-  Library,
-  History,
-  ListMusic,
-  LayoutDashboard,
+  Globe,
+  Compass,
+  Flame,
+  PlaySquare,
+  Star,
+  BarChart3,
+  Settings,
+  UserCircle2,
+  CheckCircle2,
   X,
-  Radio,
-  Film,
-  CheckCircle,
-  Clock,
-  ThumbsUp,
-  Music
-} from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
-import Logo from "./Logo";
+} from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
 
 interface SidebarProps {
   mobile?: boolean;
@@ -30,11 +25,11 @@ interface SidebarProps {
 
 export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
   const location = useLocation();
-  const { roleData, user } = useAuth();
-  const [followingArtists, setFollowingArtists] = useState<any[]>([]);
+  const { user, roleData } = useAuth();
 
+  // Fetch artists or fallback to default sample list
   const { data: artistsData } = useQuery({
-    queryKey: ['artists', 'sidebar'],
+    queryKey: ['artists', 'sidebar-follows'],
     queryFn: async () => {
       try {
         const res = await api.get('/artists');
@@ -43,104 +38,111 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
         return { artists: [] };
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     retry: 0,
   });
 
+  const [followedArtists, setFollowedArtists] = useState([
+    {
+      id: '1',
+      name: 'MyFrenchFilmFestival',
+      verified: true,
+      avatar: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100&auto=format&fit=crop&q=80',
+    },
+  ]);
+
   useEffect(() => {
-    const rawList = Array.isArray(artistsData) ? artistsData : (artistsData?.artists || []);
+    const rawList = Array.isArray(artistsData)
+      ? artistsData
+      : artistsData?.artists || [];
     if (rawList.length > 0) {
-      setFollowingArtists(rawList.slice(0, 5).map((a: any) => ({
-        id: a.id,
-        name: a.full_name || a.name,
-        avatar: a.avatar_url || a.profile_image || '',
-        live: false
-      })));
+      setFollowedArtists(
+        rawList.slice(0, 3).map((a: any) => ({
+          id: String(a.id),
+          name: a.full_name || a.name || 'Artist',
+          verified: true,
+          avatar:
+            a.avatar_url ||
+            a.profile_image ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(
+              a.full_name || a.name || 'A'
+            )}&background=111&color=fff&size=64`,
+        }))
+      );
     }
   }, [artistsData]);
 
-  const isArtist = Boolean(roleData?.momo_code || roleData?.role === "artist");
+  const isActive = (path: string) => {
+    if (path === '/') {
+      return (
+        location.pathname === '/' &&
+        !location.search.includes('sort=') &&
+        !location.pathname.startsWith('/trending') &&
+        !location.pathname.startsWith('/shorts') &&
+        !location.pathname.startsWith('/follows')
+      );
+    }
+    if (path === '/follows') {
+      return (
+        location.pathname === '/follows' ||
+        location.pathname === '/feed' ||
+        location.pathname.startsWith('/dashboard/following')
+      );
+    }
+    if (path === '/artist/dashboard') {
+      return location.pathname.startsWith('/artist');
+    }
+    if (path === '/dashboard/settings') {
+      return (
+        location.pathname === '/dashboard/settings' ||
+        location.pathname === '/settings'
+      );
+    }
+    if (path === '/dashboard') {
+      return (
+        location.pathname === '/dashboard' ||
+        location.pathname.startsWith('/dashboard/purchased') ||
+        location.pathname.startsWith('/dashboard/history')
+      );
+    }
+    return location.pathname === path || location.pathname.startsWith(path);
+  };
 
-  const mainLinks = [
-    { icon: Home, label: "Home", path: "/" },
-    { icon: TrendingUp, label: "Trending", path: "/?sort=most_purchased" },
-    { icon: Film, label: "Shorts", path: "/shorts" },
-    { icon: Users, label: "Following", path: "/dashboard/following", protected: true },
-    { icon: Library, label: "Library", path: "/dashboard", protected: true },
-    { icon: History, label: "History", path: "/dashboard/history", protected: true },
-    { icon: ListMusic, label: "Playlists", path: "/dashboard/purchased", protected: true },
+  const profileLabel =
+    (user as any)?.full_name ||
+    user?.user_metadata?.full_name ||
+    roleData?.full_name ||
+    (user?.email ? user.email.split('@')[0] : 'Profile');
+
+  const navItems = [
+    { label: 'Explore', path: '/', icon: Globe },
+    { label: 'Trending', path: '/trending', icon: Flame },
+    { label: 'Shorts', path: '/shorts', icon: PlaySquare },
+    { label: 'Following', path: '/follows', icon: Star, hasFollowedList: true },
+    { label: 'Studio', path: '/artist/dashboard', icon: BarChart3 },
+    { label: 'Settings', path: '/dashboard/settings', icon: Settings },
+    { label: profileLabel, path: '/dashboard', icon: UserCircle2, isProfile: true },
   ];
-
-  if (isArtist) {
-    mainLinks.push({
-      icon: LayoutDashboard,
-      label: "Artist Dashboard",
-      path: "/artist/dashboard",
-      protected: true
-    });
-  }
-
-  const isLinkActive = (path: string) => {
-    if (path === "/") {
-      return location.pathname === "/" && !location.search.includes("sort=");
-    }
-    if (path.includes("?sort=")) {
-      return location.search.includes("sort=most_purchased");
-    }
-    return location.pathname.startsWith(path);
-  };
-
-  const NavItem = ({ item }: { item: any }) => {
-    const active = isLinkActive(item.path);
-    const isShorts = item.label === "Shorts";
-
-    return (
-      <Link
-        id={`sidebar-link-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-        to={item.path}
-        onClick={onClose}
-        className={`flex items-center gap-3.5 px-3 py-2.5 rounded-xl transition-all duration-150 group border-l-[3px] ${
-          active
-            ? "bg-amber-500/10 text-amber-500 border-amber-500 font-bold"
-            : isShorts
-            ? "border-transparent text-red-500 hover:bg-red-500/10 font-semibold"
-            : "border-transparent hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white"
-        }`}
-        title={item.label}
-      >
-        <item.icon
-          className={`w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-105 ${
-            active 
-              ? "text-amber-500" 
-              : isShorts 
-              ? "text-red-500" 
-              : "text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-200"
-          }`}
-        />
-        {!collapsed && (
-          <span className="text-[13px] tracking-tight truncate font-medium">
-            {item.label}
-          </span>
-        )}
-      </Link>
-    );
-  };
 
   return (
     <aside
       id="paytune-sidebar"
       className={`${
-        mobile ? "flex w-full h-full" : `hidden md:flex ${collapsed ? "w-20" : "w-[260px]"}`
-      } bg-white dark:bg-[#0F0F0F] border-r border-gray-200 dark:border-gray-800 flex-col py-3 px-2.5 overflow-y-auto no-scrollbar transition-all duration-200 select-none flex-shrink-0 text-gray-900 dark:text-white`}
+        mobile
+          ? 'flex w-full h-full'
+          : `hidden md:flex ${collapsed ? 'w-20' : 'w-64'}`
+      } bg-white border-r border-gray-200 flex-col py-4 px-3 overflow-y-auto no-scrollbar transition-all duration-200 select-none flex-shrink-0 text-gray-900`}
     >
-      {/* Mobile Header in Drawer */}
+      {/* Mobile Drawer Close Header */}
       {mobile && (
-        <div className="flex items-center justify-between px-2 mb-4">
-          <Logo />
+        <div className="flex items-center justify-between px-2 pb-4 mb-2 border-b border-gray-100">
+          <span className="font-bold text-sm tracking-tight text-gray-900 uppercase">
+            PayTune
+          </span>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full text-gray-500 hover:text-black dark:hover:text-white"
+            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-900 transition-colors"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -148,90 +150,141 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
         </div>
       )}
 
-      {/* Primary Links */}
+      {/* Main Navigation Stack */}
       <nav className="space-y-1">
-        {mainLinks.map((item) => (
-          <NavItem key={item.label} item={item} />
-        ))}
+        {navItems.map((item) => {
+          const active = isActive(item.path);
+          const Icon = item.icon;
+
+          return (
+            <div key={item.label + item.path}>
+              <Link
+                id={`sidebar-link-${item.label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                to={item.path}
+                onClick={onClose}
+                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl transition-all duration-150 ${
+                  active
+                    ? 'bg-[#F3E8FF] text-[#8B5CF6] font-semibold'
+                    : 'text-gray-900 font-semibold hover:bg-gray-100'
+                }`}
+              >
+                <Icon
+                  className={`w-5 h-5 flex-shrink-0 ${
+                    active ? 'text-[#8B5CF6]' : 'text-gray-900'
+                  }`}
+                />
+                {!collapsed && (
+                  <span className="text-[14px] truncate">{item.label}</span>
+                )}
+              </Link>
+
+              {/* Sub-section for Follows (followed artists list) */}
+              {item.hasFollowedList && !collapsed && (
+                <div className="ml-6 pl-4 border-l border-gray-200 my-1.5 space-y-2">
+                  {followedArtists.map((artist) => (
+                    <Link
+                      key={artist.id}
+                      to={`/artist/${artist.id}`}
+                      onClick={onClose}
+                      className="flex items-center gap-2 py-1 px-1 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="relative flex-shrink-0">
+                        <img
+                          src={artist.avatar}
+                          alt={artist.name}
+                          className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://ui-avatars.com/api/?name=FR&background=111&color=fff';
+                          }}
+                        />
+                        {artist.verified && (
+                          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-black text-white rounded-full flex items-center justify-center ring-1 ring-white">
+                            <CheckCircle2 className="w-2.5 h-2.5 fill-black text-white" />
+                          </span>
+                        )}
+                      </div>
+                      <span className="truncate text-xs font-medium text-gray-700 group-hover:text-[#8B5CF6]">
+                        {artist.name}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
-      <div className="h-px bg-gray-200 dark:bg-gray-800 my-3 mx-2" />
-
-      {/* Following List (Followed Artists Avatars) */}
+      {/* Footer Navigation Links */}
       {!collapsed && (
-        <div className="space-y-1 mb-4">
-          <div className="flex items-center justify-between px-3 py-1">
-            <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-              Following
-            </h4>
+        <div className="mt-8 pt-4 border-t border-gray-100 space-y-3 px-3 text-[13px]">
+          <div className="space-y-2 font-bold text-gray-900">
+            <div>
+              <Link
+                to="/guides"
+                onClick={onClose}
+                className="hover:text-[#8B5CF6] transition-colors"
+              >
+                Company
+              </Link>
+            </div>
+            <div>
+              <Link
+                to="/guides"
+                onClick={onClose}
+                className="hover:text-[#8B5CF6] transition-colors"
+              >
+                Support
+              </Link>
+            </div>
+            <div>
+              <span className="text-gray-900">Legal</span>
+            </div>
           </div>
 
-          {followingArtists.map((artist) => (
-            <Link
-              key={artist.id}
-              to={`/artist/${artist.id}`}
-              onClick={onClose}
-              className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors group"
-            >
-              <div className="flex items-center gap-3 truncate">
-                <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-gray-300 dark:ring-gray-700 bg-gray-200 dark:bg-neutral-800 flex items-center justify-center">
-                  {artist.avatar ? (
-                    <img
-                      src={artist.avatar}
-                      className="w-full h-full object-cover"
-                      alt={artist.name}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-500">
-                      {artist.name ? artist.name.charAt(0).toUpperCase() : 'A'}
-                    </span>
-                  )}
-                  {artist.live && (
-                    <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-red-500 ring-1 ring-white dark:ring-[#0F0F0F]" />
-                  )}
-                </div>
-                <span className="text-[13px] text-gray-700 dark:text-gray-300 group-hover:text-black dark:group-hover:text-white truncate font-medium">
-                  {artist.name}
-                </span>
-              </div>
-              {artist.live && (
-                <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse flex-shrink-0" />
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Support Card */}
-      {!collapsed && (
-        <div className="mt-auto p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-left relative overflow-hidden">
-          <p className="text-[11px] font-black uppercase text-amber-500 tracking-wider">
-            Direct Creator Support
-          </p>
-          <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mt-1 leading-relaxed">
-            One-time instant Mobile Money support directly to artists. 70/30 split.
-          </p>
-          <Link
-            to="/guides"
-            className="mt-2.5 inline-block text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline uppercase tracking-wide"
-          >
-            How it works →
-          </Link>
-        </div>
-      )}
-
-      {/* Footer info */}
-      {!collapsed && (
-        <div className="mt-4 px-2 text-[10px] text-gray-400 space-y-1">
-          <div className="flex flex-wrap gap-2">
-            <Link to="/guides?category=user" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Guide</Link>
-            <Link to="/legal?tab=terms" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Terms</Link>
-            <Link to="/legal?tab=privacy" className="hover:underline hover:text-gray-600 dark:hover:text-gray-300">Privacy</Link>
-            <Link to="/dmca" className="hover:underline text-amber-500 font-semibold">DMCA</Link>
-            <Link to="/copyright-portal" className="hover:underline text-amber-500 font-semibold">Rights Hub</Link>
+          <div className="space-y-1.5 text-xs text-gray-500 font-normal">
+            <div>
+              <Link
+                to="/legal?tab=privacy"
+                onClick={onClose}
+                className="hover:text-[#8B5CF6] transition-colors"
+              >
+                Privacy and Cookie Policy
+              </Link>
+            </div>
+            <div>
+              <Link
+                to="/legal?tab=notices"
+                onClick={onClose}
+                className="hover:text-[#8B5CF6] transition-colors"
+              >
+                Legal notices
+              </Link>
+            </div>
+            <div>
+              <Link
+                to="/legal?tab=terms"
+                onClick={onClose}
+                className="hover:text-[#8B5CF6] transition-colors"
+              >
+                Terms
+              </Link>
+            </div>
+            <div>
+              <Link
+                to="/"
+                onClick={onClose}
+                className="hover:text-[#8B5CF6] transition-colors"
+              >
+                All videos
+              </Link>
+            </div>
           </div>
-          <p className="pt-1">© 2026 PAYTUNE Inc.</p>
+
+          <p className="pt-4 text-xs text-gray-400 font-normal">
+            © 2026 PayTune
+          </p>
         </div>
       )}
     </aside>

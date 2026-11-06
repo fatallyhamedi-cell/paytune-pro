@@ -93,7 +93,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
       {/* Top Header & Search / Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white">Content Library</h2>
+          <h2 className="text-xl font-black text-white">Videos & Content</h2>
           <p className="text-xs text-gray-400">
             Manage, price, and monitor all your music videos, singles, and live concert replays
           </p>
@@ -101,7 +101,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
 
         <button
           onClick={onOpenUpload}
-          className="px-5 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center gap-2 self-start md:self-auto shadow-lg shadow-amber-500/20 active:scale-95"
+          className="px-5 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center gap-2 self-start md:self-auto shadow-lg shadow-purple-600/20 active:scale-95"
         >
           <Upload className="w-4 h-4" />
           <span>Upload Release</span>
@@ -214,7 +214,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <span className="text-amber-400 text-xs font-bold">▶</span>
+                            <span className="text-purple-400 text-xs font-bold">▶</span>
                           )}
                           <span className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-[9px] font-mono text-white">
                             {video.duration ? `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}` : '3:45'}
@@ -282,7 +282,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
                         <button
                           onClick={() => setAnalyticsVideo(video)}
                           title="View Release Analytics"
-                          className="p-2 rounded-lg bg-white/5 hover:bg-amber-500/20 text-gray-300 hover:text-[#FFB300] transition-colors"
+                          className="p-2 rounded-lg bg-white/5 hover:bg-purple-600/20 text-gray-300 hover:text-[#FFB300] transition-colors"
                         >
                           <BarChart2 className="w-4 h-4" />
                         </button>

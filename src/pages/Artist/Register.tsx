@@ -110,7 +110,7 @@ export default function ArtistRegister() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0F0F0F] px-4">
         <div className="bg-[#1A1A1A] p-8 rounded-2xl w-full max-w-md border border-gray-700 shadow-2xl">
-          <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-center mx-auto mb-4 text-amber-500 text-xl">
+          <div className="w-12 h-12 bg-purple-600/10 border border-purple-600/30 rounded-xl flex items-center justify-center mx-auto mb-4 text-purple-600 text-xl">
             📱
           </div>
           <h1 className="text-2xl font-bold text-white text-center mb-2">Verify Your Phone</h1>
@@ -125,12 +125,12 @@ export default function ArtistRegister() {
           )}
 
           {devCode && (
-            <div className="bg-amber-500/20 border border-amber-500/40 text-amber-300 p-3 rounded-lg mb-4 text-sm flex items-center justify-between">
+            <div className="bg-purple-600/20 border border-purple-600/40 text-purple-300 p-3 rounded-lg mb-4 text-sm flex items-center justify-between">
               <span>Dev / Sandbox OTP: <b>{devCode}</b></span>
               <button
                 type="button"
                 onClick={() => setOtp(devCode)}
-                className="text-xs bg-amber-500 text-black px-2 py-1 rounded font-semibold hover:bg-amber-400"
+                className="text-xs bg-purple-600 text-black px-2 py-1 rounded font-semibold hover:bg-purple-400"
               >
                 Use Code
               </button>
@@ -154,14 +154,14 @@ export default function ArtistRegister() {
                 placeholder="000000"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                className="w-full p-4 text-center text-2xl tracking-widest rounded-lg bg-[#2A2A2A] text-white border border-gray-700 font-mono focus:border-amber-500 focus:outline-none"
+                className="w-full p-4 text-center text-2xl tracking-widest rounded-lg bg-[#2A2A2A] text-white border border-gray-700 font-mono focus:border-purple-500 focus:outline-none"
                 autoFocus
               />
             </div>
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer"
+              className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer"
             >
               {loading ? 'Verifying...' : 'Verify Phone & Continue'}
             </button>
@@ -171,7 +171,7 @@ export default function ArtistRegister() {
             <button
               type="button"
               onClick={handleResend}
-              className="text-amber-500 hover:text-amber-400 font-medium cursor-pointer"
+              className="text-purple-600 hover:text-purple-400 font-medium cursor-pointer"
             >
               Resend code
             </button>
@@ -192,8 +192,8 @@ export default function ArtistRegister() {
     <div className="min-h-screen flex items-center justify-center bg-[#0F0F0F] py-8 px-4">
       <div className="bg-[#1A1A1A] p-8 rounded-2xl w-full max-w-md border border-gray-700 shadow-2xl">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-amber-500 font-black text-2xl tracking-wider">PAYTUNE</span>
-          <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-mono">
+          <span className="text-purple-600 font-black text-2xl tracking-wider">PAYTUNE</span>
+          <span className="text-xs bg-purple-600/20 text-purple-400 border border-purple-600/40 px-2 py-0.5 rounded font-mono">
             ARTIST
           </span>
         </div>
@@ -216,7 +216,7 @@ export default function ArtistRegister() {
               placeholder="e.g. Bruce Melodie"
               value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               required
             />
           </div>
@@ -228,7 +228,7 @@ export default function ArtistRegister() {
               placeholder="artist@paytune.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               required
             />
           </div>
@@ -241,7 +241,7 @@ export default function ArtistRegister() {
                 placeholder="Min 6 chars"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none text-sm"
+                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none text-sm"
                 required
               />
             </div>
@@ -252,7 +252,7 @@ export default function ArtistRegister() {
                 placeholder="Re-type password"
                 value={form.confirmPassword}
                 onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none text-sm"
+                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none text-sm"
                 required
               />
             </div>
@@ -265,7 +265,7 @@ export default function ArtistRegister() {
               placeholder="+250788123456"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none font-mono"
+              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none font-mono"
               required
             />
           </div>
@@ -276,7 +276,7 @@ export default function ArtistRegister() {
               <select
                 value={form.momo_provider}
                 onChange={(e) => setForm({ ...form, momo_provider: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               >
                 <option value="MTN">MTN MoMo</option>
                 <option value="Airtel">Airtel Money</option>
@@ -289,7 +289,7 @@ export default function ArtistRegister() {
                 placeholder="0788123456"
                 value={form.momo_code}
                 onChange={(e) => setForm({ ...form, momo_code: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none font-mono"
+                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none font-mono"
                 required
               />
             </div>
@@ -298,7 +298,7 @@ export default function ArtistRegister() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer mt-2"
+            className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3.5 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer mt-2"
           >
             {loading ? 'Creating Artist Account...' : 'Create Artist Account'}
           </button>
@@ -306,7 +306,7 @@ export default function ArtistRegister() {
 
         <p className="text-gray-400 text-sm mt-6 text-center">
           Already registered as an artist?{' '}
-          <Link to="/artist/login" className="text-amber-500 hover:underline font-semibold">
+          <Link to="/artist/login" className="text-purple-600 hover:underline font-semibold">
             Log in
           </Link>
         </p>

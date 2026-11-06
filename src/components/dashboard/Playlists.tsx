@@ -138,7 +138,7 @@ export const Playlists: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-tr from-amber-950/70 via-neutral-900 to-black flex items-center justify-center">
+                  <div className="w-full h-full bg-gradient-to-tr from-purple-950/70 via-neutral-900 to-black flex items-center justify-center">
                     <Music2 className="w-8 h-8 text-[#FFB300] opacity-60" />
                   </div>
                 )}

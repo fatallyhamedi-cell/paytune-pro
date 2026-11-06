@@ -37,7 +37,7 @@ export default function ArtistDashboard() {
   if (!artist) {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-gray-500 dark:text-gray-400">
-        <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
+        <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-3" />
         Loading artist profile...
       </div>
     );
@@ -56,7 +56,7 @@ export default function ArtistDashboard() {
       {/* Artist Profile Banner Header */}
       <div className="bg-white dark:bg-[#161616] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black font-black text-2xl shadow-md">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-400 to-purple-700 flex items-center justify-center text-black font-black text-2xl shadow-md">
             {artist.full_name?.[0]?.toUpperCase() || 'A'}
           </div>
           <div>
@@ -68,7 +68,7 @@ export default function ArtistDashboard() {
                     ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/30'
                     : approvalStatus === 'rejected'
                     ? 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/30'
-                    : 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/30'
+                    : 'bg-purple-600/10 text-purple-700 dark:bg-purple-600/20 dark:text-purple-400 border border-purple-600/30'
                 }`}
               >
                 {isApproved ? '✓ Verified & Approved' : `Status: ${approvalStatus.toUpperCase()}`}
@@ -84,7 +84,7 @@ export default function ArtistDashboard() {
         <div className="flex items-center gap-3">
           <Link
             to="/artist/dashboard/upload"
-            className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2"
+            className="bg-purple-600 hover:bg-purple-400 text-black px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Upload Video
           </Link>
@@ -105,7 +105,7 @@ export default function ArtistDashboard() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-gray-400">
-          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
+          <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-3" />
           Loading your artist video analytics...
         </div>
       ) : data ? (
@@ -113,12 +113,12 @@ export default function ArtistDashboard() {
           {/* Video Analytics KPI Cards: Total Video Views, Uploaded Videos, Available Balance */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* 1. Total Video Views */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-[#161616] border border-amber-500/30 dark:border-amber-500/30 shadow-sm hover:shadow-md transition-shadow">
+            <div className="p-6 rounded-2xl bg-white dark:bg-[#161616] border border-purple-600/30 dark:border-purple-600/30 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">
                   Total Video Views
                 </span>
-                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+                <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-600/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-600/20">
                   <Eye className="w-5 h-5" />
                 </div>
               </div>
@@ -164,7 +164,7 @@ export default function ArtistDashboard() {
                 {`${Number(balance).toLocaleString()} ${currency}`}
               </p>
               <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-gray-400">
-                <Link to="/artist/dashboard/earnings" className="text-amber-500 hover:underline font-semibold">
+                <Link to="/artist/dashboard/earnings" className="text-purple-600 hover:underline font-semibold">
                   Ready for instant MoMo payout →
                 </Link>
               </div>
@@ -176,7 +176,7 @@ export default function ArtistDashboard() {
             <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-amber-500" />
+                  <Eye className="w-5 h-5 text-purple-600" />
                   Your Video Performance
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -185,7 +185,7 @@ export default function ArtistDashboard() {
               </div>
               <Link
                 to="/artist/dashboard/videos"
-                className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-bold"
+                className="text-xs text-purple-700 dark:text-purple-400 hover:underline font-bold"
               >
                 View all ({videos.length}) →
               </Link>
@@ -193,7 +193,7 @@ export default function ArtistDashboard() {
 
             {videos.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500 text-2xl mx-auto mb-3">
+                <div className="w-16 h-16 bg-purple-600/10 rounded-full flex items-center justify-center text-purple-600 text-2xl mx-auto mb-3">
                   🎬
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">No videos uploaded yet</h3>
@@ -202,7 +202,7 @@ export default function ArtistDashboard() {
                 </p>
                 <Link
                   to="/artist/dashboard/upload"
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold px-6 py-2.5 rounded-xl text-sm inline-block shadow-md transition-all"
+                  className="bg-purple-600 hover:bg-purple-400 text-black font-bold px-6 py-2.5 rounded-xl text-sm inline-block shadow-md transition-all"
                 >
                   Upload Your First Video
                 </Link>
@@ -260,7 +260,7 @@ export default function ArtistDashboard() {
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-semibold text-[10px] ${
                               v.is_free
                                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400'
+                                : 'bg-purple-100 text-purple-800 dark:bg-purple-600/20 dark:text-purple-400'
                             }`}
                           >
                             {v.is_free ? 'Free' : 'Pay-Per-View'}

@@ -74,7 +74,7 @@ export default function ChannelHeader({
             className="w-full h-full object-cover object-center transform scale-100 hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-r from-neutral-950 via-[#1a1a1a] to-amber-950/30" />
+          <div className="w-full h-full bg-gradient-to-r from-neutral-950 via-[#1a1a1a] to-purple-950/30" />
         )}
         {/* Cinematic dark overlay gradient to guarantee text contrast */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-black/40 to-transparent pointer-events-none" />
@@ -96,7 +96,7 @@ export default function ChannelHeader({
                   className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-[#FFB300] shadow-2xl bg-neutral-800"
                 />
               ) : (
-                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full border-4 border-[#FFB300] shadow-2xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-black font-black text-3xl">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full border-4 border-[#FFB300] shadow-2xl bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center text-black font-black text-3xl">
                   {artist.full_name ? artist.full_name.charAt(0).toUpperCase() : 'A'}
                 </div>
               )}

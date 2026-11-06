@@ -790,7 +790,26 @@
   "notification_preferences": [],
   "gifts": [],
   "reports": [],
-  "admin_logs": [],
+  "admin_logs": [
+    {
+      "id": "log-1793566315723-8cm8k",
+      "admin": "master@paytune.com",
+      "action": "RESUME_AD_CAMPAIGN",
+      "target": "Campaign: MTN MoMoPay – Pay Anyone, Anywhere in Rwanda",
+      "ip": "127.0.0.1",
+      "timestamp": "2026-11-01T20:51:55.723Z",
+      "details": "Resumed campaign \"MTN MoMoPay – Pay Anyone, Anywhere in Rwanda\""
+    },
+    {
+      "id": "log-1793566315715-lq7ac",
+      "admin": "master@paytune.com",
+      "action": "PAUSE_AD_CAMPAIGN",
+      "target": "Campaign: MTN MoMoPay – Pay Anyone, Anywhere in Rwanda",
+      "ip": "127.0.0.1",
+      "timestamp": "2026-11-01T20:51:55.715Z",
+      "details": "Paused campaign \"MTN MoMoPay – Pay Anyone, Anywhere in Rwanda\""
+    }
+  ],
   "ads": [
     {
       "id": "ad-mtn-momo-001",
@@ -806,7 +825,7 @@
       "status": "active",
       "created_by": "master-admin-uuid-001",
       "created_at": "2026-09-01T10:00:00.000Z",
-      "updated_at": "2026-09-17T12:00:00.000Z"
+      "updated_at": "2026-11-01T20:51:55.723Z"
     },
     {
       "id": "ad-kigali-fest-002",

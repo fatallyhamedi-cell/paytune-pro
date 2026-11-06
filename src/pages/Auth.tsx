@@ -255,7 +255,7 @@ export default function Auth() {
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-10">
-          <div className="inline-flex bg-amber-500 p-3 rounded-2xl shadow-xl shadow-amber-100 mb-6 border border-amber-400/20">
+          <div className="inline-flex bg-purple-600 p-3 rounded-2xl shadow-xl shadow-purple-100 mb-6 border border-purple-400/20">
             <Music className="w-8 h-8 text-white fill-white" />
           </div>
           <h1 className="text-4xl font-black text-gray-900 tracking-tighter mb-2 italic">PAYTUNE</h1>
@@ -264,14 +264,14 @@ export default function Auth() {
 
         <div className="bg-white border border-gray-100 rounded-[32px] p-8 shadow-xl relative overflow-hidden">
           {/* Creator Studio Switch Banner */}
-          <div className="mb-6 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 flex items-center justify-between">
+          <div className="mb-6 p-2.5 rounded-2xl bg-purple-600/10 border border-purple-600/20 text-xs text-purple-900 flex items-center justify-between">
             <span className="font-bold flex items-center gap-1.5 text-gray-800">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <Sparkles className="w-3.5 h-3.5 text-purple-700" />
               Are you an Artist?
             </span>
             <Link
               to="/artist/login"
-              className="px-2.5 py-1 rounded-lg bg-amber-500 text-black font-bold text-[11px] hover:bg-amber-400 transition"
+              className="px-2.5 py-1 rounded-lg bg-purple-600 text-black font-bold text-[11px] hover:bg-purple-400 transition"
             >
               Creator Studio Login →
             </Link>
@@ -305,7 +305,7 @@ export default function Auth() {
                     className={`bg-gray-50 h-12 pl-12 rounded-xl text-gray-900 text-sm transition-colors ${
                       fieldErrors.fullName 
                         ? 'border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-200' 
-                        : 'border-gray-200 focus:border-amber-500/50'
+                        : 'border-gray-200 focus:border-purple-500/50'
                     }`}
                     value={formData.fullName}
                     onChange={(e) => {
@@ -330,7 +330,7 @@ export default function Auth() {
                   className={`bg-gray-50 h-12 pl-12 rounded-xl text-gray-900 text-sm transition-colors ${
                     fieldErrors.email 
                       ? 'border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-200' 
-                      : 'border-gray-200 focus:border-amber-500/50'
+                      : 'border-gray-200 focus:border-purple-500/50'
                   }`}
                   value={formData.email}
                   onChange={(e) => {
@@ -354,7 +354,7 @@ export default function Auth() {
                   className={`bg-gray-50 h-12 pl-12 rounded-xl text-gray-900 text-sm transition-colors ${
                     fieldErrors.password 
                       ? 'border-rose-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-200' 
-                      : 'border-gray-200 focus:border-amber-500/50'
+                      : 'border-gray-200 focus:border-purple-500/50'
                   }`}
                   value={formData.password}
                   onChange={(e) => {
@@ -384,7 +384,7 @@ export default function Auth() {
 
             <Button 
               disabled={loading}
-              className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-amber-200 border-none cursor-pointer"
+              className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-purple-200 border-none cursor-pointer"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -413,12 +413,12 @@ export default function Auth() {
           >
             {googleLoading ? (
               <>
-                <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+                <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
                 Connecting Google...
               </>
             ) : (
               <>
-                <Chrome className="w-4 h-4 text-amber-500" />
+                <Chrome className="w-4 h-4 text-purple-600" />
                 Google
               </>
             )}
@@ -431,7 +431,7 @@ export default function Auth() {
         </div>
         
         <div className="mt-8 text-center">
-           <Link to="/signup/artist" className="text-xs font-black text-amber-600 uppercase tracking-widest hover:underline decoration-2 underline-offset-8">
+           <Link to="/signup/artist" className="text-xs font-black text-purple-700 uppercase tracking-widest hover:underline decoration-2 underline-offset-8">
               Are you an artist? Join the Stage here &rarr;
            </Link>
         </div>
@@ -454,30 +454,30 @@ export default function Auth() {
 
             {/* Header */}
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
+              <div className="w-12 h-12 rounded-2xl bg-purple-600/10 border border-purple-600/20 flex items-center justify-center text-purple-700">
                 <Chrome className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-lg font-black text-gray-900 tracking-tight">Google Sign-In Setup</h3>
-                <p className="text-xs text-gray-500">Supabase Project: <code className="text-amber-600 font-mono font-bold">{supabaseProjectInfo.projectId}</code></p>
+                <p className="text-xs text-gray-500">Supabase Project: <code className="text-purple-700 font-mono font-bold">{supabaseProjectInfo.projectId}</code></p>
               </div>
             </div>
 
             {/* Root Cause Banner */}
-            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/80 mb-6">
+            <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200/80 mb-6">
               <div className="flex items-start gap-2.5">
-                <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-900 leading-relaxed">
-                  <strong>Why this happened:</strong> The message <code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono text-[11px]">Unsupported provider: provider is not enabled</code> means Google OAuth has not yet been enabled in your Supabase backend dashboard.
+                <ShieldAlert className="w-5 h-5 text-purple-700 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-purple-900 leading-relaxed">
+                  <strong>Why this happened:</strong> The message <code className="bg-purple-100 text-purple-900 px-1 py-0.5 rounded font-mono text-[11px]">Unsupported provider: provider is not enabled</code> means Google OAuth has not yet been enabled in your Supabase backend dashboard.
                 </div>
               </div>
             </div>
 
             {/* Instant Solution Section */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/5 via-amber-500/10 to-transparent border border-amber-500/20 mb-6">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-600/5 via-purple-600/10 to-transparent border border-purple-600/20 mb-6">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-black uppercase tracking-wider text-amber-800">Instant Access (Dev / Testing)</span>
+                <Sparkles className="w-4 h-4 text-purple-700" />
+                <span className="text-xs font-black uppercase tracking-wider text-purple-800">Instant Access (Dev / Testing)</span>
               </div>
               <p className="text-xs text-gray-600 mb-3 leading-relaxed">
                 Sign in immediately with your Google account right now without waiting for dashboard setup:
@@ -496,7 +496,7 @@ export default function Auth() {
               <Button
                 onClick={handleInstantGoogleSignIn}
                 disabled={instantSigningIn || !googleDemoEmail.trim()}
-                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer border-none"
+                className="w-full h-11 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer border-none"
               >
                 {instantSigningIn ? (
                   <>
@@ -519,7 +519,7 @@ export default function Auth() {
                   href={supabaseProvidersUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-amber-600 hover:text-amber-700 flex items-center gap-1 font-bold lowercase tracking-normal text-xs"
+                  className="text-purple-700 hover:text-purple-700 flex items-center gap-1 font-bold lowercase tracking-normal text-xs"
                 >
                   open dashboard <ExternalLink className="w-3 h-3" />
                 </a>
@@ -527,7 +527,7 @@ export default function Auth() {
 
               <ol className="space-y-3 text-xs text-gray-600 list-decimal list-inside leading-relaxed">
                 <li className="pl-1">
-                  Go to <a href={supabaseProvidersUrl} target="_blank" rel="noopener noreferrer" className="text-amber-600 font-bold underline">Supabase Dashboard &gt; Auth &gt; Providers</a>.
+                  Go to <a href={supabaseProvidersUrl} target="_blank" rel="noopener noreferrer" className="text-purple-700 font-bold underline">Supabase Dashboard &gt; Auth &gt; Providers</a>.
                 </li>
                 <li className="pl-1">
                   Find <strong>Google</strong> and toggle <strong>Enable Google provider</strong> to ON.

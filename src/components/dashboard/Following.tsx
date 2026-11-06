@@ -125,7 +125,7 @@ export const Following: React.FC = () => {
                         className="w-16 h-16 rounded-full object-cover border-2 border-white/10"
                       />
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-black font-black text-xl border-2 border-white/10">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center text-black font-black text-xl border-2 border-white/10">
                         {artist.full_name ? artist.full_name.charAt(0).toUpperCase() : 'A'}
                       </div>
                     )}

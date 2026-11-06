@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import Trending from './pages/Trending';
+import Shorts from './pages/Shorts';
 import ArtistRegister from './pages/Artist/Register';
 import ArtistLogin from './pages/Artist/Login';
 import ArtistProtectedRoute from './components/ArtistProtectedRoute';
@@ -18,6 +20,11 @@ import MasterProtectedRoute from './components/MasterProtectedRoute';
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Media Discovery Routes */}
+      <Route path="/trending" element={<Trending />} />
+      <Route path="/shorts" element={<Shorts />} />
+      <Route path="/follows" element={<Navigate to="/feed" replace />} />
+
       {/* Master Admin Routes */}
       <Route path="/master/login" element={<MasterLogin />} />
       <Route 
@@ -65,6 +72,8 @@ export default function AppRoutes() {
 }
 
 export {
+  Trending,
+  Shorts,
   ArtistRegister,
   ArtistLogin,
   ArtistDashboard,

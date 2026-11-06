@@ -168,10 +168,10 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
             </div>
           ) : paymentStatus === 'awaiting_prompt' ? (
             <div className="py-8 text-center space-y-4">
-              <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto" />
+              <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto" />
               <h4 className="text-base font-black text-gray-900 dark:text-white">Awaiting PIN Approval</h4>
               <p className="text-xs text-gray-500 max-w-xs mx-auto">{statusMessage}</p>
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs text-amber-900 dark:text-amber-300 font-medium">
+              <div className="p-3 bg-purple-600/10 border border-purple-600/30 rounded-2xl text-xs text-purple-900 dark:text-purple-300 font-medium">
                 Check your mobile phone ({phoneNumber}) and authorize the transaction with your Mobile Money PIN.
               </div>
             </div>
@@ -197,7 +197,7 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
                       onClick={() => handlePresetClick(val)}
                       className={`py-2 px-1 rounded-xl text-xs font-black transition-all ${
                         !isCustom && amount === val
-                          ? 'bg-[#FFB300] text-black shadow-md shadow-amber-500/20'
+                          ? 'bg-[#FFB300] text-black shadow-md shadow-purple-600/20'
                           : 'bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700'
                       }`}
                     >
@@ -305,7 +305,7 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-2xl font-black text-xs text-black uppercase tracking-wider transition-all shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-2xl font-black text-xs text-black uppercase tracking-wider transition-all shadow-md shadow-purple-600/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                 style={{ background: 'linear-gradient(135deg, #FFB300 0%, #FF8F00 100%)' }}
               >
                 {loading ? (

@@ -249,7 +249,7 @@ export default function VideoUpload() {
             <Bell className="w-5 h-5" />
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#ec4899] rounded-full"></span>
           </div>
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 border border-[#18233c] flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-purple-600 to-purple-700 border border-[#18233c] flex items-center justify-center">
             <span className="text-black text-xs font-black">A</span>
           </div>
         </div>
@@ -414,7 +414,7 @@ export default function VideoUpload() {
                         type="button"
                         onClick={handleGenerateAiDescription}
                         disabled={aiGenerating}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-400 hover:text-purple-300 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-600/30 px-2 py-0.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
                       >
                         {aiGenerating ? (
                           <>
@@ -457,7 +457,7 @@ export default function VideoUpload() {
                             <img src={URL.createObjectURL(thumbnailFile)} className="w-full h-full object-cover rounded-xl" alt="" />
                           ) : (
                             <div className="flex flex-col items-center">
-                              <ImageIcon className="w-4 h-4 text-slate-500 group-hover:text-amber-500" />
+                              <ImageIcon className="w-4 h-4 text-slate-500 group-hover:text-purple-600" />
                               <span className="text-[7px] text-slate-500 font-black tracking-tighter mt-1 uppercase">PICK ARTWORK</span>
                             </div>
                           )}
@@ -538,7 +538,7 @@ export default function VideoUpload() {
                           </div>
                           <div>
                             <h4 className="text-xs font-black text-white">Paid Video</h4>
-                            <p className="text-[9px] text-amber-400 font-bold mt-0.5">Pay-per-view • Ad-Free</p>
+                            <p className="text-[9px] text-purple-400 font-bold mt-0.5">Pay-per-view • Ad-Free</p>
                           </div>
                         </div>
 

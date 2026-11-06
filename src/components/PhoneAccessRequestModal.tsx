@@ -108,7 +108,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-lg bg-[#141414] border border-amber-500/30 rounded-2xl p-6 md:p-8 text-white shadow-2xl space-y-5">
+      <div className="relative w-full max-w-lg bg-[#141414] border border-purple-600/30 rounded-2xl p-6 md:p-8 text-white shadow-2xl space-y-5">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -119,13 +119,13 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
 
         {/* Modal Header */}
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-600/10 border border-purple-600/30 text-purple-400 text-xs font-semibold uppercase tracking-wider">
             <ShieldCheck className="w-3.5 h-3.5" />
             Special Access Request
           </div>
           <h2 className="text-xl md:text-2xl font-black text-white">Request Phone Approval to Watch</h2>
           <p className="text-sm text-gray-400 line-clamp-1">
-            Release: <span className="text-amber-400 font-semibold">{videoTitle}</span>
+            Release: <span className="text-purple-400 font-semibold">{videoTitle}</span>
           </p>
         </div>
 
@@ -152,7 +152,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                Phone Number <span className="text-amber-500">*</span>
+                Phone Number <span className="text-purple-600">*</span>
               </label>
               <div className="relative">
                 <input
@@ -160,12 +160,12 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
                   placeholder="e.g. 0780000000 or +250 788 123 456"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-[#1e1e1e] border border-gray-800 focus:border-amber-500 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 outline-none transition-colors pl-11"
+                  className="w-full bg-[#1e1e1e] border border-gray-800 focus:border-purple-500 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 outline-none transition-colors pl-11"
                   required
                 />
                 <Phone className="w-4 h-4 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 {checkingStatus && (
-                  <Loader2 className="w-4 h-4 text-amber-500 animate-spin absolute right-4 top-1/2 -translate-y-1/2" />
+                  <Loader2 className="w-4 h-4 text-purple-600 animate-spin absolute right-4 top-1/2 -translate-y-1/2" />
                 )}
               </div>
               <p className="text-[11px] text-gray-400 mt-1">
@@ -182,7 +182,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
                 placeholder="Full name or alias"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#1e1e1e] border border-gray-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 outline-none transition-colors"
+                className="w-full bg-[#1e1e1e] border border-gray-800 focus:border-purple-500 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 outline-none transition-colors"
               />
             </div>
 
@@ -195,7 +195,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="w-full bg-[#1e1e1e] border border-gray-800 focus:border-amber-500 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 outline-none transition-colors resize-none"
+                className="w-full bg-[#1e1e1e] border border-gray-800 focus:border-purple-500 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-500 outline-none transition-colors resize-none"
               />
             </div>
 
@@ -210,7 +210,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
               <button
                 type="submit"
                 disabled={loading || !phone.trim()}
-                className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-sm shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-black font-extrabold text-sm shadow-lg shadow-purple-600/20 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

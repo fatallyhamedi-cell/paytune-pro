@@ -110,7 +110,7 @@ export function CopyrightTab() {
         <div className="md:col-span-2 p-6 rounded-3xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Scale className="w-5 h-5 text-amber-500" />
+              <Scale className="w-5 h-5 text-purple-600" />
               <h3 className="text-base font-black text-gray-900 dark:text-white">
                 Copyright Strikes & Account Standing
               </h3>
@@ -119,7 +119,7 @@ export function CopyrightTab() {
               currentStrikeCount === 0 
                 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
                 : currentStrikeCount < 3 
-                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' 
+                ? 'bg-purple-600/10 text-purple-600 border border-purple-600/20' 
                 : 'bg-red-500/10 text-red-500 border border-red-500/20 animate-pulse'
             }`}>
               {currentStrikeCount === 0 ? 'Good Standing' : currentStrikeCount < 3 ? 'Warning Active' : 'Channel Suspended'}
@@ -132,7 +132,7 @@ export function CopyrightTab() {
               <span className="text-gray-400">3 strikes results in channel termination</span>
             </div>
             <div className="h-3 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex gap-1 p-0.5">
-              <div className={`h-full flex-1 rounded-full transition-all ${currentStrikeCount >= 1 ? 'bg-amber-500' : 'bg-transparent'}`} />
+              <div className={`h-full flex-1 rounded-full transition-all ${currentStrikeCount >= 1 ? 'bg-purple-600' : 'bg-transparent'}`} />
               <div className={`h-full flex-1 rounded-full transition-all ${currentStrikeCount >= 2 ? 'bg-orange-500' : 'bg-transparent'}`} />
               <div className={`h-full flex-1 rounded-full transition-all ${currentStrikeCount >= 3 ? 'bg-red-500' : 'bg-transparent'}`} />
             </div>
@@ -144,8 +144,8 @@ export function CopyrightTab() {
         </div>
 
         {/* Quick Guidelines Card */}
-        <div className="p-6 rounded-3xl bg-amber-500/5 border border-amber-500/20 space-y-3">
-          <h4 className="text-xs font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+        <div className="p-6 rounded-3xl bg-purple-600/5 border border-purple-600/20 space-y-3">
+          <h4 className="text-xs font-black uppercase text-purple-700 dark:text-purple-400 tracking-wider">
             Dispute Rights
           </h4>
           <p className="text-xs text-gray-650 dark:text-gray-300 leading-relaxed">
@@ -153,7 +153,7 @@ export function CopyrightTab() {
           </p>
           <a
             href="/dmca"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-400 hover:underline"
           >
             Read DMCA Policy →
           </a>
@@ -182,7 +182,7 @@ export function CopyrightTab() {
               Review affected tracks, current revenue routing policies, and dispute status.
             </p>
           </div>
-          <span className="text-xs font-mono font-bold text-amber-500">
+          <span className="text-xs font-mono font-bold text-purple-600">
             {claims.length} {claims.length === 1 ? 'Claim' : 'Claims'}
           </span>
         </div>
@@ -208,7 +208,7 @@ export function CopyrightTab() {
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                       claim.status === 'active' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                      claim.status === 'disputed' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                      claim.status === 'disputed' ? 'bg-purple-600/10 text-purple-400 border border-purple-600/20' :
                       'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     }`}>
                       Status: {claim.status}
@@ -219,7 +219,7 @@ export function CopyrightTab() {
                   </div>
 
                   <p className="text-xs text-gray-600 dark:text-gray-300">
-                    Matched Track: <strong>"{claim.detected_track_title}"</strong> by {claim.detected_artist_name} • Match Confidence: <span className="font-mono text-amber-500 font-bold">{claim.match_confidence}%</span>
+                    Matched Track: <strong>"{claim.detected_track_title}"</strong> by {claim.detected_artist_name} • Match Confidence: <span className="font-mono text-purple-600 font-bold">{claim.match_confidence}%</span>
                   </p>
 
                   <div className="flex items-center gap-3 text-[11px] text-gray-400">
@@ -229,7 +229,7 @@ export function CopyrightTab() {
                   </div>
 
                   {claim.status === 'disputed' && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold mt-1">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-600/10 border border-purple-600/20 text-purple-600 text-xs font-bold mt-1">
                       <Clock className="w-3.5 h-3.5" />
                       <span>7-Day Response Window Active (Claimant reviewing dispute)</span>
                     </div>
@@ -248,7 +248,7 @@ export function CopyrightTab() {
                       </button>
                       <button
                         onClick={() => handleOpenDispute(claim)}
-                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-black text-xs font-bold transition-all shadow-sm cursor-pointer"
                       >
                         Dispute Claim
                       </button>
@@ -256,7 +256,7 @@ export function CopyrightTab() {
                   )}
 
                   {claim.status === 'disputed' && (
-                    <span className="text-xs font-bold text-amber-500 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                    <span className="text-xs font-bold text-purple-600 px-3 py-1 rounded-xl bg-purple-600/10 border border-purple-600/20">
                       Dispute Pending
                     </span>
                   )}
@@ -274,7 +274,7 @@ export function CopyrightTab() {
             
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
               <div className="space-y-0.5">
-                <span className="text-xs font-mono font-bold text-amber-500">YOUTUBE-STYLE DISPUTE FLOW</span>
+                <span className="text-xs font-mono font-bold text-purple-600">YOUTUBE-STYLE DISPUTE FLOW</span>
                 <h3 className="text-lg font-black text-gray-950 dark:text-white">
                   Dispute Copyright Claim
                 </h3>
@@ -290,7 +290,7 @@ export function CopyrightTab() {
             <div className="p-3 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-xs space-y-1">
               <p className="text-gray-400">Video: <strong className="text-gray-900 dark:text-white">{selectedClaimForDispute.video_title}</strong></p>
               <p className="text-gray-400">Claimant: <strong className="text-gray-900 dark:text-white">{selectedClaimForDispute.claimant_name}</strong></p>
-              <p className="text-gray-400">Claimed Track: <strong className="text-amber-500">{selectedClaimForDispute.detected_track_title}</strong></p>
+              <p className="text-gray-400">Claimed Track: <strong className="text-purple-600">{selectedClaimForDispute.detected_track_title}</strong></p>
             </div>
 
             <form onSubmit={handleDisputeSubmit} className="space-y-4">
@@ -309,7 +309,7 @@ export function CopyrightTab() {
                       key={opt.id}
                       className={`flex items-start gap-3 p-3 rounded-2xl border cursor-pointer transition-all ${
                         disputeReason === opt.id
-                          ? 'border-amber-500 bg-amber-500/10 text-gray-900 dark:text-white'
+                          ? 'border-purple-600 bg-purple-600/10 text-gray-900 dark:text-white'
                           : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'
                       }`}
                     >
@@ -318,7 +318,7 @@ export function CopyrightTab() {
                         name="disputeReason"
                         checked={disputeReason === opt.id}
                         onChange={() => setDisputeReason(opt.id as DisputeReason)}
-                        className="mt-1 text-amber-500 focus:ring-amber-500"
+                        className="mt-1 text-purple-600 focus:ring-purple-600"
                       />
                       <div className="space-y-0.5">
                         <span className="text-xs font-bold block">{opt.id}</span>
@@ -339,11 +339,11 @@ export function CopyrightTab() {
                   value={disputeEvidence}
                   onChange={(e) => setDisputeEvidence(e.target.value)}
                   placeholder="Provide contract references, license numbers, stem details, or clear legal rationale..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-amber-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 text-[11px] text-gray-650 dark:text-gray-300 leading-relaxed">
+              <div className="p-3.5 rounded-2xl bg-purple-600/5 border border-purple-600/20 text-[11px] text-gray-650 dark:text-gray-300 leading-relaxed">
                 <strong>7-Day Clock Rule:</strong> The claimant will be given 7 days to review and either release the claim or uphold it. If they do not respond within 7 days, the claim will automatically be released in your favor.
               </div>
 
@@ -358,7 +358,7 @@ export function CopyrightTab() {
                 <button
                   type="submit"
                   disabled={submittingDispute}
-                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-black text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   {submittingDispute ? 'Transmitting...' : 'Submit Dispute'}

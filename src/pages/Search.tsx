@@ -54,7 +54,7 @@ export default function SearchPage() {
             onClick={() => setFilter('all')}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
               filter === 'all'
-                ? 'bg-amber-500 text-black'
+                ? 'bg-purple-600 text-black'
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200'
             }`}
           >
@@ -64,7 +64,7 @@ export default function SearchPage() {
             onClick={() => setFilter('music')}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
               filter === 'music'
-                ? 'bg-amber-500 text-black'
+                ? 'bg-purple-600 text-black'
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200'
             }`}
           >
@@ -75,7 +75,7 @@ export default function SearchPage() {
             onClick={() => setFilter('video')}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
               filter === 'video'
-                ? 'bg-amber-500 text-black'
+                ? 'bg-purple-600 text-black'
                 : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200'
             }`}
           >

@@ -22,7 +22,7 @@ export default function Guides() {
         
         {/* Header section styled with ambient border */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-black uppercase tracking-wider mb-4 border border-amber-500/10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-600/10 text-purple-600 text-xs font-black uppercase tracking-wider mb-4 border border-purple-600/10">
             <Sparkles className="w-3.5 h-3.5" /> Direct Support Manuals
           </div>
           <h1 className="text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">
@@ -43,7 +43,7 @@ export default function Guides() {
                 onClick={() => handleCategoryChange(cat.id)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
                   isActive
-                    ? "bg-amber-500 text-white shadow-sm"
+                    ? "bg-purple-600 text-white shadow-sm"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#181818]"
                 }`}
               >
@@ -62,7 +62,7 @@ export default function Guides() {
             <div className="space-y-8 text-sm text-gray-650 dark:text-gray-300">
               <div className="border-b border-gray-100 dark:border-[#222] pb-4">
                 <span className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                  <User className="text-amber-500 w-5 h-5" /> Fan User Manual
+                  <User className="text-purple-600 w-5 h-5" /> Fan User Manual
                 </span>
                 <p className="text-xs text-gray-400 mt-1">Everything a fan needs to purchase, stream, and support local artists.</p>
               </div>
@@ -85,9 +85,9 @@ export default function Guides() {
                 </div>
 
                 <div className="p-5 bg-gray-50 dark:bg-black/30 border border-gray-200/55 dark:border-[#222] rounded-2xl">
-                  <h4 className="font-extrabold text-gray-900 dark:text-white uppercase tracking-wider text-xs mb-2">3. Library, Playlist & History</h4>
+                  <h4 className="font-extrabold text-gray-900 dark:text-white uppercase tracking-wider text-xs mb-2">3. Profile, Playlist & History</h4>
                   <p className="text-xs leading-relaxed">
-                    Every purchased video is synced permanently to your secure Library. Organize releases using the custom Playlist creator, 
+                    Every purchased video is synced permanently to your secure Profile. Organize releases using the custom Playlist creator, 
                     like favorite songs, or access your History tab to continue watching exactly where you left off.
                   </p>
                 </div>
@@ -107,7 +107,7 @@ export default function Guides() {
             <div className="space-y-8 text-sm text-gray-650 dark:text-gray-300">
               <div className="border-b border-gray-100 dark:border-[#222] pb-4">
                 <span className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                  <Music className="text-amber-500 w-5 h-5" /> Creator Studio Guide
+                  <Music className="text-purple-600 w-5 h-5" /> Creator Studio Guide
                 </span>
                 <p className="text-xs text-gray-400 mt-1">Unlock monetization, upload configurations, analytics, and live broadcasts.</p>
               </div>
@@ -175,8 +175,8 @@ export default function Guides() {
                   </ul>
                 </div>
 
-                <div className="p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
-                  <h4 className="font-black text-amber-500 uppercase tracking-widest text-[10px] mb-2 flex items-center gap-1.5">
+                <div className="p-5 bg-purple-600/5 border border-purple-600/10 rounded-2xl">
+                  <h4 className="font-black text-purple-600 uppercase tracking-widest text-[10px] mb-2 flex items-center gap-1.5">
                     <BookOpen className="w-3.5 h-3.5" /> System Diagnostics Console Manual
                   </h4>
                   <p className="text-xs leading-relaxed mb-3">
@@ -185,11 +185,11 @@ export default function Guides() {
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] leading-relaxed">
                     <div>
-                      <p className="font-extrabold text-gray-900 dark:text-white flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin text-amber-500" /> E2E Automated Verification Test</p>
+                      <p className="font-extrabold text-gray-900 dark:text-white flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin text-purple-600" /> E2E Automated Verification Test</p>
                       <p className="text-gray-400 mt-0.5">Launches programmatical sandbox scenarios verifying credentials, transcoding media, ledger calculus splits, and websocket chat handshakes with visual log stream outputs.</p>
                     </div>
                     <div>
-                      <p className="font-extrabold text-gray-900 dark:text-white flex items-center gap-1"><Key className="w-3 h-3 text-amber-500" /> Database Backup & Restorer</p>
+                      <p className="font-extrabold text-gray-900 dark:text-white flex items-center gap-1"><Key className="w-3 h-3 text-purple-600" /> Database Backup & Restorer</p>
                       <p className="text-gray-400 mt-0.5">Allows manual downloading of the mock JSON database layer, syncing state updates, or drag-and-dropping json files to restore historical registries safely.</p>
                     </div>
                   </div>
@@ -202,7 +202,7 @@ export default function Guides() {
 
         {/* Back navigation */}
         <div className="mt-8 text-center flex items-center justify-center gap-4 text-xs font-black uppercase tracking-wider">
-          <Link to="/" className="text-gray-400 hover:text-amber-500 flex items-center gap-1">
+          <Link to="/" className="text-gray-400 hover:text-purple-600 flex items-center gap-1">
             Home Core
           </Link>
         </div>

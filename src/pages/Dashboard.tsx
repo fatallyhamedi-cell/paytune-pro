@@ -15,10 +15,10 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Read tab from query or default to 'library'
-  const tabFromQuery = (searchParams.get('tab') as DashboardTab) || 'library';
+  // Read tab from query or default to 'profile'
+  const tabFromQuery = (searchParams.get('tab') as DashboardTab) || 'profile';
   const validTabs: DashboardTab[] = [
-    'library',
+    'profile',
     'history',
     'playlists',
     'following',
@@ -27,7 +27,7 @@ export default function Dashboard() {
     'settings'
   ];
 
-  const initialTab = validTabs.includes(tabFromQuery) ? tabFromQuery : 'library';
+  const initialTab = validTabs.includes(tabFromQuery) ? tabFromQuery : 'profile';
   const [currentTab, setCurrentTab] = useState<DashboardTab>(initialTab);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function Dashboard() {
 
   const renderContent = () => {
     switch (currentTab) {
-      case 'library':
+      case 'profile':
         return <Library />;
       case 'history':
         return <History />;

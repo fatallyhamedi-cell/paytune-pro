@@ -199,7 +199,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1A1A1A]">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-[#FFB300]">
+              <div className="p-2.5 rounded-xl bg-purple-600/10 text-[#FFB300]">
                 <UploadCloud className="w-5 h-5" />
               </div>
               <div>
@@ -227,7 +227,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
               <div className="pt-4 flex justify-center gap-3">
                 <button
                   onClick={handleClose}
-                  className="px-6 py-3 bg-[#FFB300] text-black font-extrabold rounded-xl hover:bg-[#ffc107] transition-all shadow-lg shadow-amber-500/20"
+                  className="px-6 py-3 bg-[#FFB300] text-black font-extrabold rounded-xl hover:bg-[#ffc107] transition-all shadow-lg shadow-purple-600/20"
                 >
                   View in Content Manager
                 </button>
@@ -246,7 +246,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                     onClick={() => handleFormatChange(false)}
                     className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
                       !isShort
-                        ? 'border-[#FFB300] bg-amber-500/10 text-white'
+                        ? 'border-[#FFB300] bg-purple-600/10 text-white'
                         : 'border-white/10 bg-[#1A1A1A] text-gray-400 hover:text-white'
                     }`}
                   >
@@ -264,7 +264,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                     onClick={() => handleFormatChange(true)}
                     className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
                       isShort
-                        ? 'border-[#FFB300] bg-amber-500/10 text-white'
+                        ? 'border-[#FFB300] bg-purple-600/10 text-white'
                         : 'border-white/10 bg-[#1A1A1A] text-gray-400 hover:text-white'
                     }`}
                   >
@@ -274,7 +274,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-black">PAYTUNE Short</span>
-                        <span className="px-1.5 py-0.2 text-[9px] font-black bg-amber-500/20 text-[#FFB300] rounded">≤50s</span>
+                        <span className="px-1.5 py-0.2 text-[9px] font-black bg-purple-600/20 text-[#FFB300] rounded">≤50s</span>
                       </div>
                       <span className="text-[11px] text-gray-400">9:16 Vertical • Max 50s • Shorts Feed</span>
                     </div>
@@ -283,7 +283,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
               </div>
 
               {/* File Dropzone / Select */}
-              <div className="border-2 border-dashed border-white/15 rounded-2xl p-6 text-center hover:border-amber-500/50 transition-colors bg-[#1A1A1A]/40 relative group">
+              <div className="border-2 border-dashed border-white/15 rounded-2xl p-6 text-center hover:border-purple-600/50 transition-colors bg-[#1A1A1A]/40 relative group">
                 <input
                   type="file"
                   accept="video/*"
@@ -291,7 +291,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
                 <div className="flex flex-col items-center">
-                  <div className="p-3.5 rounded-full bg-amber-500/10 text-[#FFB300] mb-3 group-hover:scale-110 transition-transform">
+                  <div className="p-3.5 rounded-full bg-purple-600/10 text-[#FFB300] mb-3 group-hover:scale-110 transition-transform">
                     {isShort ? <Smartphone className="w-6 h-6" /> : <Film className="w-6 h-6" />}
                   </div>
                   <h4 className="font-bold text-sm text-white mb-1">
@@ -337,7 +337,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
 
               {/* Aspect Ratio Warning */}
               {aspectRatioWarning && (
-                <div className="flex items-center gap-2 p-3 bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs rounded-xl">
+                <div className="flex items-center gap-2 p-3 bg-purple-600/15 border border-purple-600/30 text-purple-300 text-xs rounded-xl">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{aspectRatioWarning}</span>
                 </div>
@@ -445,7 +445,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                       onClick={() => setIsFree(false)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         !isFree
-                          ? 'bg-[#FFB300] text-black shadow-md shadow-amber-500/20'
+                          ? 'bg-[#FFB300] text-black shadow-md shadow-purple-600/20'
                           : 'bg-[#161616] text-gray-400 hover:text-white border border-white/10'
                       }`}
                     >
@@ -531,7 +531,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                       onClick={() => setVisibility(v.val)}
                       className={`p-2.5 rounded-xl border text-left transition-all ${
                         visibility === v.val
-                          ? 'border-[#FFB300] bg-amber-500/10 text-[#FFB300]'
+                          ? 'border-[#FFB300] bg-purple-600/10 text-[#FFB300]'
                           : 'border-white/10 bg-[#1A1A1A] text-gray-400 hover:text-white'
                       }`}
                     >
@@ -551,7 +551,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                   </div>
                   <div className="w-full h-2 bg-black/50 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300 rounded-full"
+                      className="h-full bg-gradient-to-r from-purple-600 to-purple-300 transition-all duration-300 rounded-full"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
@@ -578,7 +578,7 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="px-6 py-2.5 rounded-xl bg-[#FFB300] text-black text-xs font-black hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95"
+                  className="px-6 py-2.5 rounded-xl bg-[#FFB300] text-black text-xs font-black hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95"
                 >
                   <Sparkles className="w-4 h-4" />
                   {uploading ? `Publishing (${uploadProgress}%)` : 'Publish Release'}

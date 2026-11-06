@@ -111,7 +111,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlist, onBack
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-tr from-amber-950 via-neutral-900 to-black flex items-center justify-center">
+              <div className="w-full h-full bg-gradient-to-tr from-purple-950 via-neutral-900 to-black flex items-center justify-center">
                 <Music2 className="w-12 h-12 text-[#FFB300] opacity-60" />
               </div>
             )}
@@ -205,7 +205,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlist, onBack
             <Music className="w-8 h-8 mx-auto text-gray-600" />
             <p className="text-xs text-gray-400">This playlist is currently empty.</p>
             <p className="text-[11px] text-gray-500">
-              Browse videos in your Library or across PAYTUNE and select "Add to Playlist".
+              Browse videos in your Profile or across PAYTUNE and select "Add to Playlist".
             </p>
           </div>
         ) : (

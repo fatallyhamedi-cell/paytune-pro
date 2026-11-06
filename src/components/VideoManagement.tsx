@@ -108,7 +108,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search title, artist..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500"
               />
             </div>
 
@@ -121,7 +121,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                   onClick={() => setVisibilityFilter(vis)}
                   className={`px-3 py-1 rounded-lg capitalize font-medium transition-all cursor-pointer ${
                     visibilityFilter === vis
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow"
+                      ? "bg-purple-600 text-neutral-950 font-bold shadow"
                       : "text-neutral-400 hover:text-white"
                   }`}
                 >
@@ -139,7 +139,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                   onClick={() => setTypeFilter(tp)}
                   className={`px-3 py-1 rounded-lg capitalize font-medium transition-all cursor-pointer ${
                     typeFilter === tp
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow"
+                      ? "bg-purple-600 text-neutral-950 font-bold shadow"
                       : "text-neutral-400 hover:text-white"
                   }`}
                 >
@@ -213,7 +213,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                             <span>{video.title}</span>
                             {video.is_featured && (
                               <span title="Featured Video" className="inline-flex">
-                                <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
+                                <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
                               </span>
                             )}
                           </div>
@@ -233,7 +233,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                       {Number(video.views).toLocaleString()}
                     </td>
                     <td className="p-3.5">
-                      <span className="font-bold text-amber-400">
+                      <span className="font-bold text-purple-400">
                         {Number(video.earnings || video.views * 300).toLocaleString()} RWF
                       </span>
                     </td>
@@ -243,7 +243,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                           video.visibility === "public"
                             ? "bg-emerald-500/20 text-emerald-400"
                             : video.visibility === "unlisted"
-                            ? "bg-amber-500/20 text-amber-400"
+                            ? "bg-purple-600/20 text-purple-400"
                             : "bg-neutral-700/60 text-neutral-400"
                         }`}
                       >
@@ -312,7 +312,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                   type="text"
                   value={editForm.title}
                   onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -323,7 +323,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                     type="number"
                     value={editForm.price_rwf}
                     onChange={e => setEditForm({ ...editForm, price_rwf: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                   />
                 </div>
 
@@ -332,7 +332,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                   <select
                     value={editForm.visibility}
                     onChange={e => setEditForm({ ...editForm, visibility: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:border-purple-500 cursor-pointer"
                   >
                     <option value="public">Public</option>
                     <option value="unlisted">Unlisted</option>
@@ -347,7 +347,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                     type="checkbox"
                     checked={editForm.is_featured}
                     onChange={e => setEditForm({ ...editForm, is_featured: e.target.checked })}
-                    className="rounded accent-amber-500"
+                    className="rounded accent-purple-600"
                   />
                   <span className="text-white font-medium">Pin to Homepage Featured Banner</span>
                 </label>
@@ -364,7 +364,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
               <button
                 id="btn-save-video-edit"
                 onClick={handleSaveEdit}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold cursor-pointer"
               >
                 Save Changes
               </button>

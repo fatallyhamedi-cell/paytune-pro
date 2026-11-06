@@ -225,7 +225,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         >
           <div 
             id="payment-modal-card"
-            className="relative w-full max-w-md bg-[#1A1A1A] border border-amber-500/20 rounded-2xl shadow-2xl p-6 text-white overflow-hidden"
+            className="relative w-full max-w-md bg-[#1A1A1A] border border-purple-600/20 rounded-2xl shadow-2xl p-6 text-white overflow-hidden"
           >
             {/* Close Button */}
             <button
@@ -239,7 +239,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
             {/* Title & Product Info */}
             <div className="mb-6">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-600/10 border border-purple-600/20 text-purple-400 text-xs font-semibold mb-2">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Verified PAYTUNE Checkout</span>
               </div>
@@ -258,7 +258,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">Total Amount</span>
-                  <span className="text-2xl font-black text-amber-400">
+                  <span className="text-2xl font-black text-purple-400">
                     {resolvedAmount.toLocaleString()} {resolvedCurrency}
                   </span>
                 </div>
@@ -275,8 +275,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <span className="text-gray-300 font-bold">{Math.round(resolvedAmount * 0.05).toLocaleString()} {resolvedCurrency}</span>
                 </div>
                 <div className="border-r border-gray-800/80 px-1">
-                  <span className="text-amber-400/90 block uppercase text-[9px] font-bold">Artist (70%)</span>
-                  <span className="text-amber-400 font-extrabold">{Math.round(resolvedAmount * 0.95 * 0.70).toLocaleString()} {resolvedCurrency}</span>
+                  <span className="text-purple-400/90 block uppercase text-[9px] font-bold">Artist (70%)</span>
+                  <span className="text-purple-400 font-extrabold">{Math.round(resolvedAmount * 0.95 * 0.70).toLocaleString()} {resolvedCurrency}</span>
                 </div>
                 <div className="pl-1">
                   <span className="text-gray-400 block uppercase text-[9px]">Platform (30%)</span>
@@ -305,7 +305,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     disabled={processing}
                     className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 text-xs font-semibold transition cursor-pointer ${
                       provider === 'mtn_momo'
-                        ? 'bg-amber-500/15 border-amber-500 text-amber-400'
+                        ? 'bg-purple-600/15 border-purple-600 text-purple-400'
                         : 'bg-[#242424] border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
                     }`}
                   >
@@ -356,7 +356,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="e.g., 0788123456"
                       disabled={processing}
-                      className="w-full bg-[#242424] border border-gray-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm outline-none transition"
+                      className="w-full bg-[#242424] border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-600 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm outline-none transition"
                       required
                     />
                   </div>
@@ -383,15 +383,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                     placeholder="Say something inspiring to the artist..."
                     rows={2}
                     disabled={processing}
-                    className="w-full bg-[#242424] border border-gray-700 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm outline-none transition"
+                    className="w-full bg-[#242424] border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-600 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm outline-none transition"
                   />
                 </div>
               )}
 
               {/* Status Message during Polling */}
               {processing && statusMessage && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-300 flex items-center gap-2.5 animate-pulse">
-                  <Loader2 className="w-4 h-4 shrink-0 animate-spin text-amber-400" />
+                <div className="bg-purple-600/10 border border-purple-600/30 rounded-xl p-3 text-xs text-purple-300 flex items-center gap-2.5 animate-pulse">
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin text-purple-400" />
                   <span>{statusMessage}</span>
                 </div>
               )}
@@ -401,9 +401,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <button
                   type="button"
                   onClick={handleApproveSimulated}
-                  className="w-full py-2.5 px-3 rounded-xl border border-amber-500/40 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-purple-600/40 bg-purple-600/15 hover:bg-purple-600/25 text-purple-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <Sparkles className="w-4 h-4 text-purple-400" />
                   <span>Approve USSD PIN Prompt (Instant Demo)</span>
                 </button>
               )}
@@ -412,7 +412,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <button
                 type="submit"
                 disabled={processing}
-                className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold py-3.5 rounded-xl transition duration-150 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20"
+                className="w-full bg-purple-600 hover:bg-purple-400 disabled:opacity-50 text-black font-bold py-3.5 rounded-xl transition duration-150 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-purple-600/20"
               >
                 {processing ? (
                   <>

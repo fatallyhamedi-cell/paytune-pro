@@ -89,7 +89,7 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-amber-950/60 flex items-center justify-center">
+            <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-purple-950/60 flex items-center justify-center">
               <Play className="w-8 h-8 text-[#FFB300] opacity-60" />
             </div>
           )}
@@ -150,7 +150,7 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
               className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wide shadow-md ${
                 video.is_free
                   ? "bg-emerald-500 text-black font-extrabold"
-                  : "bg-amber-500 text-black font-extrabold"
+                  : "bg-purple-600 text-black font-extrabold"
               }`}
             >
               {formattedPrice}
@@ -183,7 +183,7 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
                 loading="lazy"
               />
             ) : (
-              <span className="text-xs font-bold text-amber-500">
+              <span className="text-xs font-bold text-purple-600">
                 {(artistName || "A").charAt(0).toUpperCase()}
               </span>
             )}
@@ -194,7 +194,7 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
             <Link to={`/watch/${video.id}`} className="block flex-1">
-              <h3 className="text-sm sm:text-[13px] font-semibold text-gray-900 dark:text-white line-clamp-2 leading-snug group-hover:text-amber-500 transition-colors">
+              <h3 className="text-sm sm:text-[13px] font-semibold text-gray-900 dark:text-white line-clamp-2 leading-snug group-hover:text-purple-600 transition-colors">
                 {video.title}
               </h3>
             </Link>
@@ -220,7 +220,7 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
             className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 font-medium hover:text-gray-900 dark:hover:text-white transition-colors mt-0.5 max-w-full truncate"
           >
             <span className="truncate">{artistName}</span>
-            <CheckCircle className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20 flex-shrink-0" />
+            <CheckCircle className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20 flex-shrink-0" />
           </Link>
 
           {/* Views, Rating & Upload Time */}
@@ -230,8 +230,8 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
               <span className="opacity-40">•</span>
               <span>{relativeTime}</span>
               <span className="opacity-40">•</span>
-              <span className="inline-flex items-center gap-0.5 text-amber-500 font-bold">
-                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+              <span className="inline-flex items-center gap-0.5 text-purple-600 font-bold">
+                <Star className="w-3 h-3 fill-purple-600 text-purple-600" />
                 {rating}
               </span>
             </div>

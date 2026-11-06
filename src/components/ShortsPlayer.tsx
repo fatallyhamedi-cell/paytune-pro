@@ -170,7 +170,7 @@ export const ShortsPlayer: React.FC<ShortsPlayerProps> = ({
       {isBuffering && isActive && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 bg-black/20 backdrop-blur-[2px]">
           <div className="p-3 rounded-full bg-black/60 backdrop-blur-md">
-            <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+            <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
           </div>
         </div>
       )}

@@ -326,7 +326,7 @@ export default function Watch() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-[#0F0F0F] text-gray-900 dark:text-white flex flex-col items-center justify-center p-6">
-        <Loader2 className="w-10 h-10 animate-spin text-amber-500 mb-4" />
+        <Loader2 className="w-10 h-10 animate-spin text-purple-600 mb-4" />
         <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Loading video...</p>
       </div>
     );
@@ -340,7 +340,7 @@ export default function Watch() {
         <p className="text-xs sm:text-sm text-gray-500 max-w-sm mb-6">{error || 'Video not found.'}</p>
         <Link
           to="/"
-          className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-md"
+          className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-black font-extrabold text-xs shadow-md"
         >
           Return to Home
         </Link>
@@ -355,8 +355,8 @@ export default function Watch() {
     <div id="watch-page" className="min-h-screen bg-white dark:bg-[#0F0F0F] text-gray-900 dark:text-white transition-colors pb-24">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 bg-black/90 text-white border border-amber-500/50 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-bold animate-fade-in">
-          <Check className="w-4 h-4 text-amber-500" />
+        <div className="fixed top-20 right-6 z-50 bg-black/90 text-white border border-purple-600/50 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-bold animate-fade-in">
+          <Check className="w-4 h-4 text-purple-600" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -366,7 +366,7 @@ export default function Watch() {
         <div className="mb-3">
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-amber-500 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-purple-600 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back</span>
@@ -404,7 +404,7 @@ export default function Watch() {
                 {!video.is_free && !video.userOwns ? (
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-black font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>Unlock Full Video ({video.price_rwf ? `${video.price_rwf.toLocaleString()} RWF` : '$0.50'})</span>
@@ -434,8 +434,8 @@ export default function Watch() {
                 {video.rating_avg && (
                   <>
                     <span>•</span>
-                    <span className="flex items-center gap-1 text-amber-500 font-bold">
-                      <Star className="w-3.5 h-3.5 fill-amber-500" />
+                    <span className="flex items-center gap-1 text-purple-600 font-bold">
+                      <Star className="w-3.5 h-3.5 fill-purple-600" />
                       <span>{video.rating_avg.toFixed(1)}</span>
                     </span>
                   </>
@@ -448,19 +448,19 @@ export default function Watch() {
               {/* Artist Profile & Follow Button */}
               <div className="flex items-center gap-3">
                 <Link to={`/artist/${video.artist_id || '1'}`} className="flex items-center gap-3 group">
-                  <div className="w-11 h-11 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0 ring-2 ring-amber-500/30">
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-neutral-800 flex-shrink-0 ring-2 ring-purple-600/30">
                     {artistAvatar ? (
                       <img src={artistAvatar} alt={artistName} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center font-bold text-amber-500">
+                      <div className="w-full h-full flex items-center justify-center font-bold text-purple-600">
                         {artistName[0]}
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 text-sm font-bold text-gray-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                    <div className="flex items-center gap-1 text-sm font-bold text-gray-900 dark:text-white group-hover:text-purple-600 transition-colors">
                       <span>{artistName}</span>
-                      <CheckCircle className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
+                      <CheckCircle className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20" />
                     </div>
                     <p className="text-xs text-gray-500">
                       {(followersCount || 14200).toLocaleString()} followers
@@ -476,7 +476,7 @@ export default function Watch() {
                   className={`ml-2 px-4 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer shadow-xs ${
                     isFollowing
                       ? 'bg-gray-200 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-neutral-700'
-                      : 'bg-amber-500 hover:bg-amber-400 text-black'
+                      : 'bg-purple-600 hover:bg-purple-400 text-black'
                   }`}
                 >
                   {isFollowing ? 'Following' : 'Follow'}
@@ -492,11 +492,11 @@ export default function Watch() {
                   onClick={handleLike}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border ${
                     isLiked
-                      ? 'bg-amber-500/15 text-amber-500 border-amber-500/40 shadow-xs'
+                      ? 'bg-purple-600/15 text-purple-600 border-purple-600/40 shadow-xs'
                       : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#252525] border-gray-200 dark:border-neutral-800'
                   }`}
                 >
-                  <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  <ThumbsUp className={`w-4 h-4 ${isLiked ? 'fill-purple-600 text-purple-600' : ''}`} />
                   <span>{likesCount.toLocaleString()}</span>
                 </button>
 
@@ -520,11 +520,11 @@ export default function Watch() {
                   }}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
                     userRating > 0
-                      ? 'bg-amber-500/15 text-amber-500 border-amber-500/40'
+                      ? 'bg-purple-600/15 text-purple-600 border-purple-600/40'
                       : 'bg-gray-100 dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#252525] border-gray-200 dark:border-neutral-800'
                   }`}
                 >
-                  <Star className={`w-4 h-4 ${userRating > 0 ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  <Star className={`w-4 h-4 ${userRating > 0 ? 'fill-purple-600 text-purple-600' : ''}`} />
                   <span>{userRating > 0 ? `${userRating}★` : 'Rate'}</span>
                 </button>
 
@@ -572,7 +572,7 @@ export default function Watch() {
           <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-gray-200 dark:border-neutral-800 shadow-2xl p-6 max-w-sm w-full text-center space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-neutral-800 pb-3">
               <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <Star className="w-4 h-4 text-purple-600 fill-purple-600" />
                 <span>Rate this Video</span>
               </h3>
               <button
@@ -602,7 +602,7 @@ export default function Watch() {
                   <Star
                     className={`w-8 h-8 ${
                       (hoverRating || userRating) >= star
-                        ? 'fill-amber-500 text-amber-500'
+                        ? 'fill-purple-600 text-purple-600'
                         : 'text-gray-300 dark:text-neutral-700'
                     }`}
                   />
@@ -611,7 +611,7 @@ export default function Watch() {
             </div>
 
             {isSubmittingRating && (
-              <div className="flex items-center justify-center gap-2 text-xs text-amber-500 font-semibold">
+              <div className="flex items-center justify-center gap-2 text-xs text-purple-600 font-semibold">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 <span>Submitting rating...</span>
               </div>

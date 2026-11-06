@@ -81,7 +81,7 @@ export default function ArtistDashboard() {
     return (
       <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center p-4 text-white">
         <div className="w-full max-w-md bg-[#161616] border border-white/10 rounded-2xl p-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-amber-500/10 text-[#FFB300] flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-full bg-purple-600/10 text-[#FFB300] flex items-center justify-center mx-auto">
             <AlertCircle className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-bold">Creator Studio Access</h3>

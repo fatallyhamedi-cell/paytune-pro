@@ -74,8 +74,8 @@ export default function ArtistLogin() {
     <div className="min-h-screen flex items-center justify-center bg-[#0F0F0F] px-4 py-8">
       <div className="bg-[#1A1A1A] p-8 rounded-2xl w-full max-w-md border border-gray-700 shadow-2xl">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-amber-500 font-black text-2xl tracking-wider">PAYTUNE</span>
-          <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded font-mono">
+          <span className="text-purple-600 font-black text-2xl tracking-wider">PAYTUNE</span>
+          <span className="text-xs bg-purple-600/20 text-purple-400 border border-purple-600/40 px-2 py-0.5 rounded font-mono">
             CREATOR
           </span>
         </div>
@@ -104,7 +104,7 @@ export default function ArtistLogin() {
               placeholder="artist@paytune.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               required
             />
           </div>
@@ -118,7 +118,7 @@ export default function ArtistLogin() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               required
             />
           </div>
@@ -126,7 +126,7 @@ export default function ArtistLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer"
+            className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3.5 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer"
           >
             {loading ? 'Logging in...' : 'Log In to Studio'}
           </button>
@@ -141,7 +141,7 @@ export default function ArtistLogin() {
             type="button"
             disabled={loading}
             onClick={() => handleDemoLogin('artist@paytune.com', 'password')}
-            className="w-full bg-[#2A2A2A] hover:bg-[#333333] border border-amber-500/40 hover:border-amber-500 text-amber-400 font-semibold py-2.5 px-4 rounded-lg text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full bg-[#2A2A2A] hover:bg-[#333333] border border-purple-600/40 hover:border-purple-600 text-purple-400 font-semibold py-2.5 px-4 rounded-lg text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <span>⚡ Instant Demo Studio Login</span>
             <span className="text-xs text-gray-400 font-mono">(artist@paytune.com)</span>
@@ -151,7 +151,7 @@ export default function ArtistLogin() {
         <div className="mt-6 pt-6 border-t border-gray-800 text-center space-y-2">
           <p className="text-gray-400 text-sm">
             New artist on PAYTUNE?{' '}
-            <Link to="/artist/signup" className="text-amber-500 hover:underline font-semibold">
+            <Link to="/artist/signup" className="text-purple-600 hover:underline font-semibold">
               Create an artist account
             </Link>
           </p>

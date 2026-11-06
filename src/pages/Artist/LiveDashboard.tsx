@@ -262,7 +262,7 @@ export default function LiveDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2.5">
-            <Radio className="w-7 h-7 text-amber-500 animate-pulse" /> Live Broadcast Studio
+            <Radio className="w-7 h-7 text-purple-600 animate-pulse" /> Live Broadcast Studio
           </h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             Manage RTMP ingestion, schedule concerts, monitor viewers, and review Super Thanks revenue.
@@ -271,7 +271,7 @@ export default function LiveDashboard() {
 
         <button
           onClick={() => setCreateModal(true)}
-          className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 font-black text-black text-xs uppercase px-6 py-3 rounded-full transition-all duration-200 shadow-md shadow-amber-500/10 cursor-pointer"
+          className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 font-black text-black text-xs uppercase px-6 py-3 rounded-full transition-all duration-200 shadow-md shadow-purple-600/10 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Create Broadcast
         </button>
@@ -292,7 +292,7 @@ export default function LiveDashboard() {
             <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
               Broadcasts
             </h3>
-            <span className="text-[11px] font-mono text-amber-500 font-bold">
+            <span className="text-[11px] font-mono text-purple-600 font-bold">
               {streams.length} Total
             </span>
           </div>
@@ -305,7 +305,7 @@ export default function LiveDashboard() {
                 onClick={() => setStatusFilter(tab)}
                 className={`flex-1 py-1.5 rounded-lg transition-all text-center ${
                   statusFilter === tab
-                    ? "bg-amber-500 text-black shadow-xs"
+                    ? "bg-purple-600 text-black shadow-xs"
                     : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
@@ -323,7 +323,7 @@ export default function LiveDashboard() {
                 <p className="text-xs text-gray-500 font-bold uppercase">No broadcasts found</p>
                 <button 
                   onClick={() => setCreateModal(true)} 
-                  className="text-xs text-amber-500 font-black uppercase hover:underline"
+                  className="text-xs text-purple-600 font-black uppercase hover:underline"
                 >
                   Create your first stream
                 </button>
@@ -337,7 +337,7 @@ export default function LiveDashboard() {
                     onClick={() => selectAndLoadStats(item)}
                     className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex flex-col gap-2.5 cursor-pointer ${
                       isSelected 
-                        ? "border-amber-500 bg-amber-500/10 dark:bg-amber-500/[0.06] shadow-xs" 
+                        ? "border-purple-600 bg-purple-600/10 dark:bg-purple-600/[0.06] shadow-xs" 
                         : "border-gray-100 dark:border-zinc-800/80 bg-white dark:bg-[#121212] hover:border-gray-300 dark:hover:border-zinc-700"
                     }`}
                   >
@@ -346,14 +346,14 @@ export default function LiveDashboard() {
                         item.status === "live" 
                           ? "bg-red-600 text-white animate-pulse" 
                           : item.status === "scheduled" 
-                          ? "bg-amber-500 text-black" 
+                          ? "bg-purple-600 text-black" 
                           : "bg-gray-200 dark:bg-zinc-800 text-gray-500 dark:text-gray-400"
                       }`}>
                         {item.status}
                       </span>
 
                       {item.is_paid && (
-                        <span className="text-[10px] font-black text-amber-500 flex items-center gap-0.5">
+                        <span className="text-[10px] font-black text-purple-600 flex items-center gap-0.5">
                           <DollarSign className="w-3.5 h-3.5" /> RWF {Number(item.price_rwf || 0).toLocaleString()}
                         </span>
                       )}
@@ -390,13 +390,13 @@ export default function LiveDashboard() {
                       selectedStream.status === "live"
                         ? "bg-red-500 text-white"
                         : selectedStream.status === "scheduled"
-                        ? "bg-amber-500 text-black"
+                        ? "bg-purple-600 text-black"
                         : "bg-zinc-700 text-white"
                     }`}>
                       {selectedStream.status}
                     </span>
                     {selectedStream.is_paid && (
-                      <span className="text-[10px] font-black text-amber-500">
+                      <span className="text-[10px] font-black text-purple-600">
                         Paid Event • RWF {Number(selectedStream.price_rwf || 0).toLocaleString()}
                       </span>
                     )}
@@ -458,7 +458,7 @@ export default function LiveDashboard() {
               {/* OBS RTMP Credentials */}
               <div className="p-6 bg-[#161617] text-white rounded-3xl border border-zinc-800 space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-500 font-black uppercase text-xs tracking-wider">
+                  <div className="flex items-center gap-2 text-purple-600 font-black uppercase text-xs tracking-wider">
                     <Key className="w-4 h-4" /> OBS / Streaming Software Credentials
                   </div>
                   <span className="text-[10px] text-zinc-400 font-mono">RTMP 1080p60</span>
@@ -468,10 +468,10 @@ export default function LiveDashboard() {
                   <div className="space-y-1.5 p-3.5 bg-black/40 rounded-2xl border border-zinc-800">
                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block">Ingest Server URL</span>
                     <div className="flex justify-between items-center bg-[#2C2C2E] p-2 rounded-xl border border-zinc-700/20">
-                      <span className="text-[11px] select-all truncate text-amber-500 font-medium">rtmp://live.paytune.com/app</span>
+                      <span className="text-[11px] select-all truncate text-purple-600 font-medium">rtmp://live.paytune.com/app</span>
                       <button 
                         onClick={() => copyToClipboard("rtmp://live.paytune.com/app", "url")}
-                        className="text-[10px] bg-black/50 hover:bg-amber-500 hover:text-black font-black uppercase px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
+                        className="text-[10px] bg-black/50 hover:bg-purple-600 hover:text-black font-black uppercase px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
                       >
                         {copiedUrl ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         {copiedUrl ? "Copied" : "Copy"}
@@ -485,7 +485,7 @@ export default function LiveDashboard() {
                       <span className="text-[11px] select-all truncate text-rose-400 font-medium">{selectedStream.stream_key || "stream_key_pending"}</span>
                       <button 
                         onClick={() => copyToClipboard(selectedStream.stream_key || "", "key")}
-                        className="text-[10px] bg-black/50 hover:bg-amber-500 hover:text-black font-black uppercase px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
+                        className="text-[10px] bg-black/50 hover:bg-purple-600 hover:text-black font-black uppercase px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
                       >
                         {copiedKey ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                         {copiedKey ? "Copied" : "Copy"}
@@ -500,7 +500,7 @@ export default function LiveDashboard() {
                 <div className="p-4 bg-white dark:bg-[#121212] border border-gray-100 dark:border-[#222222] rounded-2xl text-center space-y-1">
                   <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block">Peak Viewers</span>
                   <div className="text-lg font-black text-gray-900 dark:text-white flex items-center justify-center gap-1">
-                    <Users className="w-4 h-4 text-amber-500" />
+                    <Users className="w-4 h-4 text-purple-600" />
                     {streamAnalytics?.peak_viewers || streamAnalytics?.peakViewers || 0}
                   </div>
                 </div>
@@ -543,7 +543,7 @@ export default function LiveDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-amber-500" /> Viewer Count Over Time
+                      <TrendingUp className="w-4 h-4 text-purple-600" /> Viewer Count Over Time
                     </h3>
                     <p className="text-[11px] text-gray-500">Real-time attendance telemetry throughout the broadcast</p>
                   </div>
@@ -607,7 +607,7 @@ export default function LiveDashboard() {
             className="w-full max-w-md bg-white dark:bg-[#121212] border border-gray-100 dark:border-[#222222] p-6 rounded-3xl space-y-6 shadow-2xl text-gray-900 dark:text-white"
           >
             <div className="text-center space-y-1.5">
-              <Video className="w-10 h-10 text-amber-500 mx-auto" />
+              <Video className="w-10 h-10 text-purple-600 mx-auto" />
               <h3 className="text-lg font-black uppercase tracking-tight">Create Broadcast</h3>
               <p className="text-xs text-gray-500">Configure parameters for virtual concerts, fan conversations, or digital events.</p>
             </div>
@@ -621,7 +621,7 @@ export default function LiveDashboard() {
                   placeholder="E.g. Bruce Melodie Live MoMo Concert"
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-gray-50 dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -631,13 +631,13 @@ export default function LiveDashboard() {
                   placeholder="Outline the songs, special guests, or segment flow..."
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 h-20 resize-none"
+                  className="w-full bg-gray-50 dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-4 py-3 focus:outline-none focus:border-purple-500 h-20 resize-none"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="text-gray-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-500" /> Scheduled Start Time (Optional)
+                  <Clock className="w-3.5 h-3.5 text-purple-600" /> Scheduled Start Time (Optional)
                 </label>
                 <input
                   type="datetime-local"
@@ -661,7 +661,7 @@ export default function LiveDashboard() {
                     type="checkbox"
                     checked={formIsPaid}
                     onChange={(e) => setFormIsPaid(e.target.checked)}
-                    className="w-4 h-4 accent-amber-500 cursor-pointer"
+                    className="w-4 h-4 accent-purple-600 cursor-pointer"
                   />
                 </div>
 
@@ -680,7 +680,7 @@ export default function LiveDashboard() {
                         placeholder="1000"
                         value={formPriceRwf}
                         onChange={(e) => setFormPriceRwf(e.target.value)}
-                        className="w-full bg-white dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-purple-500"
                       />
                     </div>
                     <div>
@@ -693,7 +693,7 @@ export default function LiveDashboard() {
                         placeholder="1.00"
                         value={formPriceUsd}
                         onChange={(e) => setFormPriceUsd(e.target.value)}
-                        className="w-full bg-white dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-amber-500"
+                        className="w-full bg-white dark:bg-[#1E1E22] border border-gray-200 dark:border-[#272727] rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-purple-500"
                       />
                     </div>
                   </motion.div>
@@ -711,7 +711,7 @@ export default function LiveDashboard() {
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-black font-black uppercase text-[10px] rounded-xl tracking-wider transition-colors cursor-pointer"
+                  className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-black font-black uppercase text-[10px] rounded-xl tracking-wider transition-colors cursor-pointer"
                 >
                   {formLoading ? "Creating..." : "Create Broadcast"}
                 </button>

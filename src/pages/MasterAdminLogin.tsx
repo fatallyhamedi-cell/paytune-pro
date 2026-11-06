@@ -144,7 +144,7 @@ export default function MasterAdminLogin() {
       <main className="relative z-10 max-w-md w-full mx-auto px-4 py-8">
         <div className="bg-[#0b1120]/90 backdrop-blur-xl border border-slate-800/90 rounded-[28px] p-7 md:p-8 shadow-2xl shadow-black/80 relative overflow-hidden">
           {/* Top terminal accent line */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-600"></div>
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 via-purple-600 to-rose-600"></div>
 
           {/* Header */}
           <div className="text-center mb-8">

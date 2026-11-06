@@ -22,7 +22,7 @@ export default function LegalPages() {
         
         {/* Header section styled with ambient border */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-black uppercase tracking-wider mb-4 border border-amber-500/10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-600/10 text-purple-600 text-xs font-black uppercase tracking-wider mb-4 border border-purple-600/10">
             <Sparkles className="w-3.5 h-3.5" /> Compliance & Legal Center
           </div>
           <h1 className="text-4xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-2">
@@ -43,7 +43,7 @@ export default function LegalPages() {
                 onClick={() => handleTabChange(tab.id)}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
                   isActive
-                    ? "bg-amber-500 text-white shadow-sm"
+                    ? "bg-purple-600 text-white shadow-sm"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-[#181818]"
                 }`}
               >
@@ -62,7 +62,7 @@ export default function LegalPages() {
             <article className="space-y-6 prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-650 dark:text-gray-300">
               <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#222] pb-4 mb-6">
                 <span className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                  <Scale className="text-amber-500 w-5 h-5" /> Terms of Service
+                  <Scale className="text-purple-600 w-5 h-5" /> Terms of Service
                 </span>
                 <span className="text-xs font-bold font-mono text-gray-400 flex items-center gap-1.5 bg-gray-50 dark:bg-black/40 px-3 py-1 rounded-full border border-gray-200/50 dark:border-[#222]">
                   <Clock className="w-3.5 h-3.5" /> Effective: June 2026
@@ -79,13 +79,13 @@ export default function LegalPages() {
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-wider">2. Purchases & Lifetime Library</h3>
+                <h3 className="text-base font-black text-gray-900 dark:text-white uppercase tracking-wider">2. Purchases & Lifetime Profile Access</h3>
                 <p>
                   Content on PAYTUNE is acquired via single-payment lifetime access licenses (unless otherwise specified, such as Channel Memberships). 
                   Purchases are tied to your personal Fan Account profile. You are permitted to listen to, view, and stream the media coordinates infinitely 
                   for personal, non-commercial use on compatible devices. 
                 </p>
-                <p className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-2xl text-xs font-bold text-amber-600 dark:text-amber-500">
+                <p className="bg-purple-600/5 border border-purple-600/20 p-4 rounded-2xl text-xs font-bold text-purple-700 dark:text-purple-600">
                   ⚠️ REFUND CLAUSE: All purchases processed via Mobile Money APIs (MTN MoMo, Airtel) or international Stripe linkages are final upon media settlement confirmation. Please watch the 30-second free public previews carefully before executing cash transactions.
                 </p>
               </section>
@@ -95,7 +95,7 @@ export default function LegalPages() {
                 <p>
                   You are solely responsible for protecting your secret login credentials. Sharing accounts is strictly forbidden. 
                   You are prohibited from downloading, ripping, recording, or redistributing the transcode chunks of HLS stream media of Paytune. 
-                  Any violation results in immediate profile lock and forfeiture of library nodes without compensation.
+                  Any violation results in immediate profile lock and forfeiture of profile access without compensation.
                 </p>
               </section>
 
@@ -120,7 +120,7 @@ export default function LegalPages() {
             <article className="space-y-6 prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-650 dark:text-gray-300">
               <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#222] pb-4 mb-6">
                 <span className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                  <Shield className="text-amber-500 w-5 h-5" /> Privacy Policy
+                  <Shield className="text-purple-600 w-5 h-5" /> Privacy Policy
                 </span>
                 <span className="text-xs font-bold font-mono text-gray-400 flex items-center gap-1.5 bg-gray-50 dark:bg-black/40 px-3 py-1 rounded-full border border-gray-200/50 dark:border-[#222]">
                   <Clock className="w-3.5 h-3.5" /> Effective: June 2026
@@ -178,7 +178,7 @@ export default function LegalPages() {
             <article className="space-y-6 prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-650 dark:text-gray-300">
               <div className="flex items-center justify-between border-b border-gray-100 dark:border-[#222] pb-4 mb-6">
                 <span className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                  <FileText className="text-amber-500 w-5 h-5" /> Artist License Agreement
+                  <FileText className="text-purple-600 w-5 h-5" /> Artist License Agreement
                 </span>
                 <span className="text-xs font-bold font-mono text-gray-400 flex items-center gap-1.5 bg-gray-50 dark:bg-black/40 px-3 py-1 rounded-full border border-gray-200/50 dark:border-[#222]">
                   <Clock className="w-3.5 h-3.5" /> Effective: June 2026
@@ -245,11 +245,11 @@ export default function LegalPages() {
 
         {/* Back navigation */}
         <div className="mt-8 text-center flex items-center justify-center gap-4 text-xs font-black uppercase tracking-wider">
-          <Link to="/" className="text-gray-400 hover:text-amber-500 flex items-center gap-1">
+          <Link to="/" className="text-gray-400 hover:text-purple-600 flex items-center gap-1">
             Home Core
           </Link>
           <span className="text-gray-300 dark:text-[#222]">•</span>
-          <Link to="/auth" className="text-gray-400 hover:text-amber-500 flex items-center gap-1">
+          <Link to="/auth" className="text-gray-400 hover:text-purple-600 flex items-center gap-1">
             Access Account
           </Link>
         </div>

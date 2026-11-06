@@ -168,9 +168,9 @@ export function MasterCopyrightCenter() {
 
         <div className="p-4 rounded-2xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-1">
           <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase">Pending DMCA</span>
-          <div className="text-2xl font-black text-amber-500 flex items-center justify-between">
+          <div className="text-2xl font-black text-purple-600 flex items-center justify-between">
             <span>{dmcaRequests.filter(d => d.status === 'pending').length}</span>
-            <Scale className="w-5 h-5 text-amber-500" />
+            <Scale className="w-5 h-5 text-purple-600" />
           </div>
           <span className="text-[10px] text-gray-400">Takedown requests under review</span>
         </div>
@@ -205,7 +205,7 @@ export function MasterCopyrightCenter() {
 
       {/* Feedback Banner */}
       {feedback && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold flex items-center justify-between">
+        <div className="p-4 rounded-2xl bg-purple-600/10 border border-purple-600/20 text-purple-600 text-xs font-bold flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4" />
             <span>{feedback}</span>
@@ -220,7 +220,7 @@ export function MasterCopyrightCenter() {
           onClick={() => setActiveSubTab('claims')}
           className={`pb-3 border-b-2 transition-all cursor-pointer ${
             activeSubTab === 'claims'
-              ? 'border-amber-500 text-amber-500'
+              ? 'border-purple-600 text-purple-600'
               : 'border-transparent text-gray-400 hover:text-white'
           }`}
         >
@@ -230,20 +230,20 @@ export function MasterCopyrightCenter() {
           onClick={() => setActiveSubTab('dmca')}
           className={`pb-3 border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
             activeSubTab === 'dmca'
-              ? 'border-amber-500 text-amber-500'
+              ? 'border-purple-600 text-purple-600'
               : 'border-transparent text-gray-400 hover:text-white'
           }`}
         >
           <span>DMCA Takedown Requests ({dmcaRequests.length})</span>
           {dmcaRequests.filter(d => d.status === 'pending').length > 0 && (
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
           )}
         </button>
         <button
           onClick={() => setActiveSubTab('strikes')}
           className={`pb-3 border-b-2 transition-all cursor-pointer ${
             activeSubTab === 'strikes'
-              ? 'border-amber-500 text-amber-500'
+              ? 'border-purple-600 text-purple-600'
               : 'border-transparent text-gray-400 hover:text-white'
           }`}
         >
@@ -253,7 +253,7 @@ export function MasterCopyrightCenter() {
           onClick={() => setActiveSubTab('watermark')}
           className={`pb-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
             activeSubTab === 'watermark'
-              ? 'border-amber-500 text-amber-500'
+              ? 'border-purple-600 text-purple-600'
               : 'border-transparent text-gray-400 hover:text-white'
           }`}
         >
@@ -278,11 +278,11 @@ export function MasterCopyrightCenter() {
                 <div key={claim.id} className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-[#151518] transition-all">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-bold text-amber-500">{claim.id}</span>
+                      <span className="font-mono text-xs font-bold text-purple-600">{claim.id}</span>
                       <h4 className="text-sm font-bold text-gray-900 dark:text-white">{claim.video_title}</h4>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                         claim.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                        claim.status === 'disputed' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                        claim.status === 'disputed' ? 'bg-purple-600/10 text-purple-600 border border-purple-600/20' :
                         'bg-gray-500/10 text-gray-400'
                       }`}>
                         {claim.status}
@@ -290,7 +290,7 @@ export function MasterCopyrightCenter() {
                     </div>
 
                     <p className="text-xs text-gray-600 dark:text-gray-300">
-                      Detected: <strong>"{claim.detected_track_title}"</strong> by {claim.detected_artist_name} ({claim.detected_label || 'Label'}) • Confidence: <span className="font-mono text-amber-500 font-bold">{claim.match_confidence}%</span>
+                      Detected: <strong>"{claim.detected_track_title}"</strong> by {claim.detected_artist_name} ({claim.detected_label || 'Label'}) • Confidence: <span className="font-mono text-purple-600 font-bold">{claim.match_confidence}%</span>
                     </p>
 
                     <p className="text-[11px] text-gray-400">
@@ -305,7 +305,7 @@ export function MasterCopyrightCenter() {
                         onClick={() => handlePolicyChange(claim.id, 'monetize')}
                         className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                           claim.policy === 'monetize'
-                            ? 'bg-amber-500 text-black shadow-xs'
+                            ? 'bg-purple-600 text-black shadow-xs'
                             : 'text-gray-400 hover:text-white'
                         }`}
                       >
@@ -336,7 +336,7 @@ export function MasterCopyrightCenter() {
           <div className="bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 rounded-3xl overflow-hidden shadow-sm">
             <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Formal Notices & Counter-Notices</span>
-              <a href="/dmca" target="_blank" className="text-xs text-amber-500 hover:underline flex items-center gap-1">
+              <a href="/dmca" target="_blank" className="text-xs text-purple-600 hover:underline flex items-center gap-1">
                 Open Public Form <ExternalLink className="w-3 h-3" />
               </a>
             </div>
@@ -350,10 +350,10 @@ export function MasterCopyrightCenter() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800/60 pb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-amber-500">{req.id}</span>
+                          <span className="font-mono text-xs font-bold text-purple-600">{req.id}</span>
                           <h4 className="text-sm font-bold text-gray-900 dark:text-white">Video: {req.video_id}</h4>
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            req.status === 'pending' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                            req.status === 'pending' ? 'bg-purple-600/10 text-purple-600 border border-purple-600/20' :
                             req.status === 'approved' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
                             req.status === 'counter_notice' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
                             'bg-gray-500/10 text-gray-400'
@@ -396,7 +396,7 @@ export function MasterCopyrightCenter() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                       <div className="p-3 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 space-y-1">
                         <span className="text-gray-400 font-bold block">Original Work & Proof:</span>
-                        <a href={req.original_work_url} target="_blank" rel="noreferrer" className="text-amber-500 hover:underline break-all">
+                        <a href={req.original_work_url} target="_blank" rel="noreferrer" className="text-purple-600 hover:underline break-all">
                           {req.original_work_url}
                         </a>
                         <p className="text-gray-600 dark:text-gray-300 mt-2">
@@ -435,7 +435,7 @@ export function MasterCopyrightCenter() {
             </span>
             <button
               onClick={() => setShowStrikeModal(true)}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-black text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               Issue Manual Strike
             </button>
@@ -451,7 +451,7 @@ export function MasterCopyrightCenter() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-gray-900 dark:text-white">Artist ID: {s.artist_id}</span>
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        s.is_banned ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        s.is_banned ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-purple-600/10 text-purple-400 border border-purple-600/20'
                       }`}>
                         {s.is_banned ? 'BANNED' : `${s.strike_count} / 3 Strikes`}
                       </span>
@@ -488,7 +488,7 @@ export function MasterCopyrightCenter() {
         <div className="space-y-6">
           <div className="p-6 rounded-3xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-amber-500">
+              <div className="flex items-center gap-2 text-purple-600">
                 <Fingerprint className="w-6 h-6" />
                 <h3 className="text-lg font-black text-gray-900 dark:text-white">
                   Forensic Watermark Leak Identifier
@@ -506,12 +506,12 @@ export function MasterCopyrightCenter() {
                 value={traceToken}
                 onChange={(e) => setTraceToken(e.target.value)}
                 placeholder="e.g. wmk-1710000000000 or token string from leaked clip..."
-                className="flex-1 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs font-mono focus:outline-none focus:border-amber-500"
+                className="flex-1 px-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs font-mono focus:outline-none focus:border-purple-500"
               />
               <button
                 type="submit"
                 disabled={tracing}
-                className="px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-6 py-3 rounded-2xl bg-purple-600 hover:bg-purple-400 text-black font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 <Search className="w-4 h-4" />
                 {tracing ? 'Tracing...' : 'Trace Leaker'}
@@ -520,13 +520,13 @@ export function MasterCopyrightCenter() {
 
             {/* Trace Result Output */}
             {traceResult && (
-              <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-4">
-                <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+              <div className="p-5 rounded-2xl bg-purple-600/5 border border-purple-600/20 space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-600/20 pb-3">
                   <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Forensic Watermark Match Confirmed</span>
                   </div>
-                  <span className="font-mono text-xs text-amber-500">{traceResult.watermark?.id}</span>
+                  <span className="font-mono text-xs text-purple-600">{traceResult.watermark?.id}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
@@ -538,7 +538,7 @@ export function MasterCopyrightCenter() {
 
                   <div>
                     <span className="text-gray-400 font-bold block">User ID:</span>
-                    <p className="font-mono text-amber-500">{traceResult.watermark?.user_id}</p>
+                    <p className="font-mono text-purple-600">{traceResult.watermark?.user_id}</p>
                   </div>
 
                   <div>
@@ -598,7 +598,7 @@ export function MasterCopyrightCenter() {
                   value={strikeArtistId}
                   onChange={(e) => setStrikeArtistId(e.target.value)}
                   placeholder="e.g. artist-1"
-                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -609,7 +609,7 @@ export function MasterCopyrightCenter() {
                   value={strikeVideoId}
                   onChange={(e) => setStrikeVideoId(e.target.value)}
                   placeholder="e.g. video-1"
-                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -621,7 +621,7 @@ export function MasterCopyrightCenter() {
                   value={strikeReason}
                   onChange={(e) => setStrikeReason(e.target.value)}
                   placeholder="e.g. Verified unauthorized distribution or DMCA notice"
-                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
 

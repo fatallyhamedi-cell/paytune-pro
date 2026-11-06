@@ -45,7 +45,7 @@ export const ShortsLikeAnimation: React.FC<ShortsLikeAnimationProps> = ({
                 transition={{ duration: 0.6 }}
                 className="absolute inset-0 flex items-center justify-center"
               >
-                <div className="w-20 h-20 rounded-full border-4 border-amber-400/80" />
+                <div className="w-20 h-20 rounded-full border-4 border-purple-400/80" />
               </motion.div>
             </div>
           </motion.div>

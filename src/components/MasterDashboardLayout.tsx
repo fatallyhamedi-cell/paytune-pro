@@ -64,7 +64,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
   children
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const navItems = [
     { id: "overview" as MasterTab, label: "Overview", icon: LayoutDashboard },
@@ -85,7 +85,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
       label: "Withdrawals",
       icon: ArrowDownCircle,
       badge: pendingWithdrawals > 0 ? pendingWithdrawals : undefined,
-      badgeColor: "bg-amber-500 text-neutral-950 font-bold"
+      badgeColor: "bg-purple-600 text-neutral-950 font-bold"
     },
     { id: "copyright" as MasterTab, label: "Copyright & DMCA", icon: Scale },
     { id: "settings" as MasterTab, label: "Platform Settings", icon: Settings },
@@ -125,7 +125,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
       <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-[#1A1A1A] border-b border-neutral-800">
         <div className="flex items-center space-x-2">
           <Logo size="sm" />
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono font-bold">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-600/20 text-purple-400 font-mono font-bold">
             MASTER
           </span>
         </div>
@@ -141,29 +141,31 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar for Desktop & Mobile Overlay */}
         <aside
-          className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#141414] border-r border-neutral-800/80 flex flex-col justify-between transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:h-screen ${
+          className={`fixed inset-y-0 left-0 z-40 w-64 ${
+            isDarkMode ? "bg-[#141414] border-neutral-800/80" : "bg-white border-gray-200"
+          } border-r flex flex-col justify-between transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:h-screen ${
             mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           {/* Sidebar Top: Branding */}
-          <div className="p-4 border-b border-neutral-800/80">
+          <div className={`p-4 border-b ${isDarkMode ? "border-neutral-800/80" : "border-gray-100"}`}>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <Logo size="sm" />
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black tracking-widest uppercase">
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#8B5CF6] text-white font-black tracking-widest uppercase">
                   MASTER
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-400 flex items-center gap-1 font-medium pl-1">
-                <ShieldCheck className="w-3 h-3 text-amber-400 inline" /> Master Admin Console
+              <p className={`text-[11px] ${isDarkMode ? "text-neutral-400" : "text-gray-500"} flex items-center gap-1 font-medium pl-1`}>
+                <ShieldCheck className="w-3 h-3 text-[#8B5CF6] inline" /> Master Admin Console
               </p>
             </div>
 
             {/* Quick Auto-Approve Toggle in Sidebar */}
             {onToggleAutoApprove && (
-              <div className="mt-4 pt-3 border-t border-neutral-800/60 flex items-center justify-between text-xs">
-                <span className="text-neutral-400 flex items-center gap-1">
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <div className={`mt-4 pt-3 border-t ${isDarkMode ? "border-neutral-800/60" : "border-gray-100"} flex items-center justify-between text-xs`}>
+                <span className={`${isDarkMode ? "text-neutral-400" : "text-gray-500"} flex items-center gap-1`}>
+                  <Zap className="w-3.5 h-3.5 text-[#8B5CF6]" />
                   Auto-Approval
                 </span>
                 <button
@@ -171,8 +173,10 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
                   onClick={onToggleAutoApprove}
                   className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                     autoApproveActive
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-neutral-800 text-neutral-400 hover:text-neutral-200 border border-neutral-700"
+                      ? "bg-emerald-500/20 text-emerald-600 border border-emerald-500/30"
+                      : isDarkMode
+                      ? "bg-neutral-800 text-neutral-400 hover:text-neutral-200 border border-neutral-700"
+                      : "bg-gray-100 text-gray-600 hover:text-gray-900 border border-gray-200"
                   }`}
                 >
                   {autoApproveActive ? "ENABLED" : "DISABLED"}
@@ -193,18 +197,22 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
                   onClick={() => handleTabSelect(item.id)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
                     isActive
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/15"
-                      : "text-neutral-300 hover:bg-neutral-800/70 hover:text-white"
+                      ? isDarkMode
+                        ? "bg-[#8B5CF6] text-white font-bold shadow-md shadow-purple-600/15"
+                        : "bg-[#F3E8FF] text-[#8B5CF6] font-semibold"
+                      : isDarkMode
+                      ? "text-neutral-300 hover:bg-neutral-800/70 hover:text-white"
+                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Icon className={`w-4 h-4 ${isActive ? "text-neutral-950" : "text-neutral-400"}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? (isDarkMode ? "text-white" : "text-[#8B5CF6]") : (isDarkMode ? "text-neutral-400" : "text-gray-500")}`} />
                     <span>{item.label}</span>
                   </div>
                   {item.badge !== undefined && (
                     <span
                       className={`text-[11px] px-2 py-0.5 rounded-full ${
-                        item.badgeColor || (isActive ? "bg-neutral-950 text-amber-400" : "bg-amber-500/20 text-amber-400")
+                        item.badgeColor || (isActive ? "bg-purple-100 text-[#8B5CF6]" : "bg-purple-50 text-purple-700")
                       }`}
                     >
                       {item.badge}
@@ -219,12 +227,12 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
           <div className="p-4 border-t border-neutral-800/80 bg-neutral-950/40">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-neutral-800 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-neutral-800 border border-purple-600/40 flex items-center justify-center text-purple-400 font-bold text-xs">
                   MA
                 </div>
                 <div className="overflow-hidden">
                   <p className="text-xs font-semibold text-white truncate">master@paytune.com</p>
-                  <p className="text-[10px] text-amber-400/80 truncate">Super Administrator</p>
+                  <p className="text-[10px] text-purple-400/80 truncate">Super Administrator</p>
                 </div>
               </div>
             </div>
@@ -269,7 +277,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
               <div className="flex items-center text-xs text-neutral-400 space-x-1 mb-1">
                 <span>PAYTUNE Platform</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-amber-400 font-medium">Master Dashboard</span>
+                <span className="text-purple-400 font-medium">Master Dashboard</span>
               </div>
               <h1 className="text-xl font-bold tracking-tight">{getPageTitle(activeTab)}</h1>
             </div>
@@ -292,7 +300,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
                 className="p-2 rounded-lg bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors cursor-pointer"
                 title="Toggle Theme"
               >
-                {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-700" />}
+                {isDarkMode ? <Sun className="w-4 h-4 text-purple-400" /> : <Moon className="w-4 h-4 text-neutral-700" />}
               </button>
 
               {/* Status Alert Pills */}
@@ -301,7 +309,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
                   {pendingApprovals > 0 && (
                     <button
                       onClick={() => onTabChange("artists")}
-                      className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-semibold hover:bg-amber-500/30 transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded-full bg-purple-600/20 border border-purple-600/30 text-purple-400 text-xs font-semibold hover:bg-purple-600/30 transition-colors cursor-pointer"
                     >
                       {pendingApprovals} Pending Approval
                     </button>

@@ -52,8 +52,8 @@ const FeedPage = lazy(() => import("./pages/Feed"));
 
 const RouteLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-    <div className="w-8 h-8 rounded-full border-2 border-amber-500/20 border-t-amber-500 animate-spin" />
-    <span className="text-xs text-amber-500/80 font-mono tracking-wider">LOADING PAYTUNE...</span>
+    <div className="w-8 h-8 rounded-full border-2 border-purple-600/20 border-t-purple-600 animate-spin" />
+    <span className="text-xs text-purple-600/80 font-mono tracking-wider">LOADING PAYTUNE...</span>
   </div>
 );
 
@@ -78,6 +78,7 @@ function App() {
                     <Route path="/search" element={<SearchPage />} />
                     <Route path="/trending" element={<TrendingPage />} />
                     <Route path="/feed" element={<FeedPage />} />
+                    <Route path="/follows" element={<Navigate to="/feed" replace />} />
                     <Route path="/live" element={<LiveStreams />} />
                     <Route path="/live/:streamId" element={<LiveWatch />} />
                     <Route path="/legal" element={<LegalPages />} />

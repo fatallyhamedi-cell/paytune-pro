@@ -78,7 +78,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search by user name or email..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500"
               />
             </div>
 
@@ -91,7 +91,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   onClick={() => setStatusFilter(st)}
                   className={`px-3 py-1 rounded-lg capitalize font-medium transition-all cursor-pointer ${
                     statusFilter === st
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow"
+                      ? "bg-purple-600 text-neutral-950 font-bold shadow"
                       : "text-neutral-400 hover:text-white"
                   }`}
                 >
@@ -183,7 +183,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     </td>
                     <td className="p-3.5 text-neutral-300 font-semibold">{u.purchases_count} videos</td>
                     <td className="p-3.5">
-                      <span className="font-bold text-amber-400">
+                      <span className="font-bold text-purple-400">
                         {Number(u.total_spent).toLocaleString()} RWF
                       </span>
                     </td>
@@ -268,7 +268,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               </div>
               <div className="p-3 rounded-xl bg-neutral-900 border border-neutral-800">
                 <span className="text-neutral-400 block text-[10px]">Total Spent</span>
-                <span className="text-sm font-bold text-amber-400">
+                <span className="text-sm font-bold text-purple-400">
                   {Number(selectedUser.total_spent).toLocaleString()} RWF
                 </span>
               </div>

@@ -50,17 +50,17 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
     <div id="withdrawal-management-module" className="space-y-5">
       {/* 2 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="p-5 rounded-2xl bg-[#161616] border border-amber-500/30 flex items-center justify-between">
+        <div className="p-5 rounded-2xl bg-[#161616] border border-purple-600/30 flex items-center justify-between">
           <div>
             <span className="text-xs font-medium text-neutral-400">Pending Creator Payouts</span>
-            <p className="mt-1 text-2xl font-black text-amber-400">
-              {totalPendingAmount.toLocaleString()} <span className="text-xs text-amber-400">RWF</span>
+            <p className="mt-1 text-2xl font-black text-purple-400">
+              {totalPendingAmount.toLocaleString()} <span className="text-xs text-purple-400">RWF</span>
             </p>
             <span className="text-xs text-neutral-500">
               {pendingRequests.length} artists awaiting mobile money disbursement
             </span>
           </div>
-          <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400">
+          <div className="p-3 rounded-2xl bg-purple-600/10 text-purple-400">
             <Clock className="w-6 h-6" />
           </div>
         </div>
@@ -93,7 +93,7 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
                 onClick={() => setStatusFilter(st)}
                 className={`px-3 py-1 rounded-lg capitalize font-medium transition-all cursor-pointer ${
                   statusFilter === st
-                    ? "bg-amber-500 text-neutral-950 font-bold shadow"
+                    ? "bg-purple-600 text-neutral-950 font-bold shadow"
                     : "text-neutral-400 hover:text-white"
                 }`}
               >
@@ -117,7 +117,7 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
           <button
             id="btn-batch-process-withdrawals"
             onClick={onBatchProcess}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-md transition-all cursor-pointer"
+            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-md transition-all cursor-pointer"
           >
             <Sparkles className="w-4 h-4" />
             <span>Process {selectedIds.length} Selected Payouts</span>
@@ -165,7 +165,7 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
                     <tr
                       key={w.id}
                       className={`hover:bg-neutral-800/40 transition-colors ${
-                        isSelected ? "bg-amber-500/5" : ""
+                        isSelected ? "bg-purple-600/5" : ""
                       }`}
                     >
                       <td className="p-3.5 text-center">
@@ -174,7 +174,7 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleSelectWithdrawal(w.id)}
-                            className="rounded accent-amber-500 cursor-pointer"
+                            className="rounded accent-purple-600 cursor-pointer"
                           />
                         ) : (
                           <span className="text-neutral-600">—</span>
@@ -182,7 +182,7 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
                       </td>
                       <td className="p-3.5 font-bold text-white text-sm">{w.artist_name}</td>
                       <td className="p-3.5">
-                        <span className="font-bold text-amber-400 text-sm">
+                        <span className="font-bold text-purple-400 text-sm">
                           {Number(w.amount).toLocaleString()} RWF
                         </span>
                       </td>
@@ -194,7 +194,7 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             w.provider === "MTN"
-                              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                              ? "bg-purple-600/20 text-purple-400 border border-purple-600/30"
                               : "bg-red-500/20 text-red-400 border border-red-500/30"
                           }`}
                         >
@@ -206,10 +206,10 @@ export const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({
                           className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize inline-flex items-center gap-1 ${
                             w.status === "completed"
                               ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-amber-500/20 text-amber-400 animate-pulse"
+                              : "bg-purple-600/20 text-purple-400 animate-pulse"
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${w.status === "completed" ? "bg-emerald-400" : "bg-amber-400"}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${w.status === "completed" ? "bg-emerald-400" : "bg-purple-400"}`} />
                           {w.status || "pending"}
                         </span>
                       </td>

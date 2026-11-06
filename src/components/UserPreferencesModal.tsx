@@ -117,7 +117,7 @@ export default function UserPreferencesModal({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-purple-600/20 text-purple-600 flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
@@ -139,7 +139,7 @@ export default function UserPreferencesModal({
         <div className="p-5 overflow-y-auto space-y-5">
           {isLoading ? (
             <div className="py-12 flex justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
             </div>
           ) : (
             <>
@@ -158,7 +158,7 @@ export default function UserPreferencesModal({
                         onClick={() => toggleInterest(genre)}
                         className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                           isSelected
-                            ? "bg-amber-500 text-black font-bold shadow-xs"
+                            ? "bg-purple-600 text-black font-bold shadow-xs"
                             : "bg-gray-100 dark:bg-[#252525] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#303030] border border-gray-200 dark:border-gray-800"
                         }`}
                       >
@@ -185,11 +185,11 @@ export default function UserPreferencesModal({
                         onClick={() => toggleLanguage(lang.code)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                           isSelected
-                            ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 font-bold"
+                            ? "bg-purple-600/20 text-purple-700 dark:text-purple-400 border border-purple-600/40 font-bold"
                             : "bg-gray-100 dark:bg-[#252525] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#303030] border border-gray-200 dark:border-gray-800"
                         }`}
                       >
-                        {isSelected && <Check className="w-3 h-3 text-amber-500 stroke-[3]" />}
+                        {isSelected && <Check className="w-3 h-3 text-purple-600 stroke-[3]" />}
                         <span>{lang.label}</span>
                       </button>
                     );
@@ -215,7 +215,7 @@ export default function UserPreferencesModal({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-5 py-2 rounded-lg text-xs font-extrabold bg-amber-500 hover:bg-amber-400 text-black shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-5 py-2 rounded-lg text-xs font-extrabold bg-purple-600 hover:bg-purple-400 text-black shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
             >
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               <span>Save & Update Feed</span>

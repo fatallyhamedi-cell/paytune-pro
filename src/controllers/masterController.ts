@@ -196,7 +196,7 @@ export const getMasterActivity = async (req: Request, res: Response) => {
         description: `${p.user_name || "User"} paid ${Number(p.amount_rwf || p.amount || 1000).toLocaleString()} RWF for "${p.video_title || 'Video'}"`,
         timestamp: p.created_at || new Date().toISOString(),
         badge: "PAID",
-        badgeColor: "bg-amber-500/20 text-amber-400"
+        badgeColor: "bg-purple-600/20 text-purple-400"
       });
     });
 
@@ -235,7 +235,7 @@ export const getMasterActivity = async (req: Request, res: Response) => {
         description: `${w.artist_name || 'Artist'} requested ${Number(w.amount || 0).toLocaleString()} RWF to ${w.phone || w.momo_number || 'Mobile Money'}`,
         timestamp: w.created_at || w.requested_at || new Date().toISOString(),
         badge: (w.status || "pending").toUpperCase(),
-        badgeColor: (w.status === "completed") ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"
+        badgeColor: (w.status === "completed") ? "bg-emerald-500/20 text-emerald-400" : "bg-purple-600/20 text-purple-400"
       });
     });
 

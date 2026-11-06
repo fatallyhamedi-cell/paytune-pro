@@ -65,7 +65,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1A1A1A]">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-[#FFB300]">
+              <div className="p-2 rounded-xl bg-purple-600/10 text-[#FFB300]">
                 <Film className="w-5 h-5" />
               </div>
               <div>
@@ -92,7 +92,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
                   className="w-24 h-16 object-cover rounded-lg border border-white/10 shrink-0"
                 />
               ) : (
-                <div className="w-24 h-16 rounded-lg bg-white/5 border border-white/10 shrink-0 flex items-center justify-center text-amber-400 font-bold text-xs">
+                <div className="w-24 h-16 rounded-lg bg-white/5 border border-white/10 shrink-0 flex items-center justify-center text-purple-400 font-bold text-xs">
                   ▶
                 </div>
               )}
@@ -198,7 +198,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
                     onClick={() => setIsFree(false)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       !isFree
-                        ? 'bg-[#FFB300] text-black shadow-md shadow-amber-500/20'
+                        ? 'bg-[#FFB300] text-black shadow-md shadow-purple-600/20'
                         : 'bg-[#161616] text-gray-400 hover:text-white border border-white/10'
                     }`}
                   >
@@ -268,7 +268,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="px-5 py-2.5 rounded-xl bg-[#FFB300] text-black text-xs font-black hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                className="px-5 py-2.5 rounded-xl bg-[#FFB300] text-black text-xs font-black hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-purple-600/20"
               >
                 <Save className="w-4 h-4" />
                 {loading ? 'Saving Changes...' : 'Save Changes'}

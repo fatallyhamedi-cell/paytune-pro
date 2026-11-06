@@ -19,7 +19,7 @@ export default function ArtistAnalytics() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-gray-400">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
+        <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-3" />
         Loading analytics...
       </div>
     );
@@ -56,12 +56,12 @@ export default function ArtistAnalytics() {
                 className="bg-[#202020] p-4 rounded-xl flex items-center justify-between border border-gray-800/80 hover:border-gray-700 transition-colors"
               >
                 <div className="flex items-center gap-3 truncate">
-                  <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-400 text-xs font-bold flex items-center justify-center">
                     {index + 1}
                   </span>
                   <span className="text-sm font-medium text-white truncate">{v.title}</span>
                 </div>
-                <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 whitespace-nowrap">
+                <span className="text-xs font-semibold text-purple-400 bg-purple-600/10 px-2.5 py-1 rounded-full border border-purple-600/20 whitespace-nowrap">
                   {(v.views || 0).toLocaleString()} views
                 </span>
               </div>

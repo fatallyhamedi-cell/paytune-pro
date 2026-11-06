@@ -77,21 +77,21 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
             <img
               src={artist.profile_image}
               alt={artist.full_name}
-              className="w-11 h-11 rounded-full object-cover border border-amber-500/40"
+              className="w-11 h-11 rounded-full object-cover border border-purple-600/40"
             />
           ) : (
-            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-black font-black text-base border border-amber-500/40">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-purple-700 to-purple-400 flex items-center justify-center text-black font-black text-base border border-purple-600/40">
               {artist.full_name ? artist.full_name.charAt(0).toUpperCase() : 'A'}
             </div>
           )}
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-gray-900 dark:text-white hover:text-amber-500 transition-colors cursor-pointer">
+              <span className="font-bold text-gray-900 dark:text-white hover:text-purple-600 transition-colors cursor-pointer">
                 {artist.full_name}
               </span>
               {artist.is_verified && (
                 <span title="Verified PAYTUNE Artist">
-                  <CheckCircle2 className="w-4 h-4 text-amber-500 fill-amber-500/20" />
+                  <CheckCircle2 className="w-4 h-4 text-purple-600 fill-purple-600/20" />
                 </span>
               )}
             </div>
@@ -108,12 +108,12 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
             className={`ml-2 h-9 px-4 rounded-full text-xs font-bold transition-all cursor-pointer ${
               video.userSubscribed
                 ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                : "bg-amber-500 hover:bg-amber-400 text-black shadow-sm"
+                : "bg-purple-600 hover:bg-purple-400 text-black shadow-sm"
             }`}
           >
             {video.userSubscribed ? (
               <span className="flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-amber-500" /> Following
+                <UserCheck className="w-3.5 h-3.5 text-purple-600" /> Following
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
@@ -130,12 +130,12 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
               Free to Watch
             </span>
           ) : video.userOwns ? (
-            <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40 text-xs font-bold flex items-center gap-1">
+            <span className="px-3 py-1 rounded-full bg-purple-600/15 text-purple-700 dark:text-purple-400 border border-purple-600/40 text-xs font-bold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Lifetime Unlocked
             </span>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#1e1e1e] border border-amber-500/40 text-xs">
-              <span className="font-bold text-amber-400">{video.price_rwf.toLocaleString()} RWF</span>
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#1e1e1e] border border-purple-600/40 text-xs">
+              <span className="font-bold text-purple-400">{video.price_rwf.toLocaleString()} RWF</span>
               <span className="text-gray-400 font-medium">(${video.price_usd.toFixed(2)})</span>
             </div>
           )}
@@ -152,7 +152,7 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
           <span>•</span>
           <span>{formatDate(video.uploaded_at || video.upload_date || '')}</span>
           <span>•</span>
-          <span className="text-amber-600 dark:text-amber-400 font-bold">{video.category || "Afrobeats"}</span>
+          <span className="text-purple-700 dark:text-purple-400 font-bold">{video.category || "Afrobeats"}</span>
           {video.purchaseCount ? (
             <>
               <span>•</span>
@@ -175,7 +175,7 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-800 space-y-3">
             {video.tags && video.tags.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-amber-500" />
+                <Tag className="w-3.5 h-3.5 text-purple-600" />
                 {video.tags.map((tag, idx) => (
                   <span
                     key={idx}
@@ -199,7 +199,7 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
         {/* Toggle Button */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="mt-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+          className="mt-2 text-xs font-bold text-purple-700 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
         >
           {isExpanded ? (
             <>Show Less <ChevronUp className="w-3.5 h-3.5" /></>

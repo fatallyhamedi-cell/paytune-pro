@@ -93,7 +93,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({
         {onOpenSuperThanks && (
           <button
             onClick={onOpenSuperThanks}
-            className="flex items-center gap-1.5 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/20 transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-2.5 py-1 rounded-full border border-purple-600/20 transition-colors"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>Super Thanks</span>
@@ -121,12 +121,12 @@ export const LiveChat: React.FC<LiveChatProps> = ({
           value={inputMessage}
           onChange={e => setInputMessage(e.target.value)}
           placeholder="Send a message..."
-          className="flex-1 bg-zinc-800/70 border border-zinc-700/50 rounded-full px-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500"
+          className="flex-1 bg-zinc-800/70 border border-zinc-700/50 rounded-full px-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500"
         />
         <button
           type="submit"
           disabled={!inputMessage.trim() || sending}
-          className="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-600 disabled:opacity-40 flex items-center justify-center text-black transition-colors shrink-0"
+          className="w-9 h-9 rounded-full bg-purple-600 hover:bg-purple-700 disabled:opacity-40 flex items-center justify-center text-black transition-colors shrink-0"
         >
           <Send className="w-4 h-4 ml-0.5" />
         </button>

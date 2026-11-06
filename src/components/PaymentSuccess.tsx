@@ -17,7 +17,7 @@ export const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
   currency = 'RWF'
 }) => (
   <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn">
-    <div className="bg-[#1A1A1A] border border-amber-500/30 p-8 rounded-2xl text-center max-w-md w-full shadow-2xl shadow-amber-500/10">
+    <div className="bg-[#1A1A1A] border border-purple-600/30 p-8 rounded-2xl text-center max-w-md w-full shadow-2xl shadow-purple-600/10">
       <div className="flex justify-center mb-5">
         <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
           <CheckCircle2 className="w-10 h-10" />
@@ -31,7 +31,7 @@ export const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
           {amount && (
             <div className="flex justify-between">
               <span className="text-gray-400">Amount Paid:</span>
-              <span className="font-semibold text-amber-400">{amount} {currency}</span>
+              <span className="font-semibold text-purple-400">{amount} {currency}</span>
             </div>
           )}
           {receiptNumber && (
@@ -49,7 +49,7 @@ export const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
 
       <button
         onClick={onClose}
-        className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 px-6 rounded-xl transition duration-150 cursor-pointer shadow-lg shadow-amber-500/25"
+        className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3.5 px-6 rounded-xl transition duration-150 cursor-pointer shadow-lg shadow-purple-600/25"
       >
         Continue to Content
       </button>

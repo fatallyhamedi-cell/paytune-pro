@@ -132,14 +132,14 @@ export default function ArtistLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col justify-center items-center p-4 py-16 relative selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col justify-center items-center p-4 py-16 relative selection:bg-purple-600 selection:text-black">
       {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-amber-500/10 blur-[130px] pointer-events-none rounded-full" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-purple-600/10 blur-[130px] pointer-events-none rounded-full" />
 
       <div className="max-w-md w-full relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2.5 p-3 rounded-2xl bg-amber-500 text-black font-black mb-5 shadow-xl shadow-amber-500/20 hover:scale-105 transition-transform">
+          <Link to="/" className="inline-flex items-center gap-2.5 p-3 rounded-2xl bg-purple-600 text-black font-black mb-5 shadow-xl shadow-purple-600/20 hover:scale-105 transition-transform">
             <Music className="w-7 h-7 fill-black" />
           </Link>
           <h1 className="text-3xl font-black tracking-tight mb-2 italic">Creator Studio Login</h1>
@@ -150,7 +150,7 @@ export default function ArtistLogin() {
           {/* Geo Detection Badge */}
           {geoInfo && (
             <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-gray-300">
-              <Globe2 className="w-3.5 h-3.5 text-amber-400" />
+              <Globe2 className="w-3.5 h-3.5 text-purple-400" />
               <span>
                 Detected Region: <strong className="text-white">{geoInfo.country_name}</strong> ({geoInfo.currency_code})
               </span>
@@ -159,8 +159,8 @@ export default function ArtistLogin() {
         </div>
 
         {/* Notice: No Google OAuth for artists */}
-        <div className="mb-6 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex items-start gap-3">
-          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="mb-6 p-3.5 rounded-2xl bg-purple-600/10 border border-purple-600/20 text-xs text-purple-200 flex items-start gap-3">
+          <Info className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-white">Artist Security Policy:</span> Google Sign-In is restricted to viewers and fans. Artists authenticate exclusively via <strong>Email & Password</strong> with SMS OTP verification for payout security.
           </div>
@@ -176,8 +176,8 @@ export default function ArtistLogin() {
           )}
 
           {warning && (
-            <div className="mb-5 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm flex items-start gap-2.5">
-              <PhoneCall className="w-4 h-4 text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+            <div className="mb-5 p-3.5 rounded-xl bg-purple-600/10 border border-purple-600/20 text-purple-300 text-sm flex items-start gap-2.5">
+              <PhoneCall className="w-4 h-4 text-purple-400 shrink-0 mt-0.5 animate-pulse" />
               <span>{warning}</span>
             </div>
           )}
@@ -194,7 +194,7 @@ export default function ArtistLogin() {
                   placeholder="artist@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-black/50 border-white/10 h-12 pl-12 rounded-xl text-white placeholder:text-gray-600 focus:border-amber-500/50"
+                  className="bg-black/50 border-white/10 h-12 pl-12 rounded-xl text-white placeholder:text-gray-600 focus:border-purple-500/50"
                   required
                 />
               </div>
@@ -213,7 +213,7 @@ export default function ArtistLogin() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-black/50 border-white/10 h-12 pl-12 rounded-xl text-white placeholder:text-gray-600 focus:border-amber-500/50"
+                  className="bg-black/50 border-white/10 h-12 pl-12 rounded-xl text-white placeholder:text-gray-600 focus:border-purple-500/50"
                   required
                 />
               </div>
@@ -222,7 +222,7 @@ export default function ArtistLogin() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-black text-sm h-12 rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+              className="w-full bg-purple-600 hover:bg-purple-400 text-black font-black text-sm h-12 rounded-xl shadow-lg shadow-purple-600/20 transition-all flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -247,7 +247,7 @@ export default function ArtistLogin() {
               <button
                 type="button"
                 onClick={() => handleFillDemoArtist('unverified')}
-                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] text-amber-300 transition text-left"
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] text-purple-300 transition text-left"
               >
                 <div className="font-bold flex items-center gap-1">
                   <PhoneCall className="w-3 h-3" /> Unverified Artist
@@ -272,7 +272,7 @@ export default function ArtistLogin() {
         <div className="mt-8 text-center text-sm text-gray-400 space-y-2">
           <p>
             Don't have an artist channel yet?{" "}
-            <Link to="/signup/artist" className="text-amber-400 font-bold hover:underline">
+            <Link to="/signup/artist" className="text-purple-400 font-bold hover:underline">
               Apply to become a Creator
             </Link>
           </p>

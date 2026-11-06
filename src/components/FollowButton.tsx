@@ -60,7 +60,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
       className={`inline-flex items-center justify-center font-semibold rounded-full transition-all duration-200 ${
         isFollowing
           ? 'bg-gray-200 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-zinc-700'
-          : 'bg-amber-500 hover:bg-amber-600 text-black shadow-md hover:shadow-amber-500/20'
+          : 'bg-purple-600 hover:bg-purple-700 text-black shadow-md hover:shadow-purple-600/20'
       } ${sizeClasses} ${className}`}
     >
       {loading ? (

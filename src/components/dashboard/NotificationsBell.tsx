@@ -54,7 +54,7 @@ export const NotificationsBell: React.FC = () => {
         return <DollarSign className="w-4 h-4 text-yellow-400" />;
       case 'membership_joined':
       case 'membership':
-        return <Crown className="w-4 h-4 text-amber-300" />;
+        return <Crown className="w-4 h-4 text-purple-300" />;
       case 'live_started':
       case 'live':
         return <Radio className="w-4 h-4 text-red-500 animate-pulse" />;
@@ -65,9 +65,9 @@ export const NotificationsBell: React.FC = () => {
       case 'copyright_claim':
       case 'copyright_strike':
       case 'copyright':
-        return <ShieldAlert className="w-4 h-4 text-amber-500" />;
+        return <ShieldAlert className="w-4 h-4 text-purple-600" />;
       default:
-        return <Sparkles className="w-4 h-4 text-amber-400" />;
+        return <Sparkles className="w-4 h-4 text-purple-400" />;
     }
   };
 

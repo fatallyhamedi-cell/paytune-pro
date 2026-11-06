@@ -52,7 +52,7 @@ export default function TrendingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {trendingVideos.map((video, index) => (
             <div key={video.id} className="relative">
-              <span className="absolute -top-3 -left-2 z-10 w-7 h-7 rounded-full bg-amber-500 text-black text-xs font-black flex items-center justify-center shadow-lg border border-black/40">
+              <span className="absolute -top-3 -left-2 z-10 w-7 h-7 rounded-full bg-purple-600 text-black text-xs font-black flex items-center justify-center shadow-lg border border-black/40">
                 #{index + 1}
               </span>
               <VideoCard video={video} />
@@ -63,3 +63,5 @@ export default function TrendingPage() {
     </div>
   );
 }
+
+export { TrendingPage as Trending };

@@ -184,7 +184,7 @@ export function MasterCategoryManager() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <Tag className="w-5 h-5 text-amber-500" />
+            <Tag className="w-5 h-5 text-purple-600" />
             <h2 className="text-lg font-black text-gray-900 dark:text-white">
               Category Discovery Management
             </h2>
@@ -197,7 +197,7 @@ export function MasterCategoryManager() {
         <Button
           onClick={handleStartAdd}
           disabled={isAdding}
-          className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-sm rounded-xl cursor-pointer"
+          className="bg-purple-600 hover:bg-purple-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-sm rounded-xl cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Add New Category</span>
@@ -206,10 +206,10 @@ export function MasterCategoryManager() {
 
       {/* Add / Edit Form Modal / Card */}
       {(isAdding || editingId) && (
-        <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/30 space-y-4">
-          <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+        <div className="p-5 rounded-2xl bg-purple-600/5 border border-purple-600/30 space-y-4">
+          <div className="flex items-center justify-between border-b border-purple-600/20 pb-3">
             <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              {isAdding ? <Plus className="w-4 h-4 text-amber-500" /> : <Pencil className="w-4 h-4 text-amber-500" />}
+              {isAdding ? <Plus className="w-4 h-4 text-purple-600" /> : <Pencil className="w-4 h-4 text-purple-600" />}
               {isAdding ? "Create New Discovery Category" : `Edit Category`}
             </h3>
             <button onClick={handleCancel} className="text-gray-400 hover:text-gray-900 dark:hover:text-white">
@@ -239,7 +239,7 @@ export function MasterCategoryManager() {
                   }
                 }}
                 placeholder="e.g. Rwandan Hits"
-                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
 
@@ -252,7 +252,7 @@ export function MasterCategoryManager() {
                 value={formSlug}
                 onChange={(e) => setFormSlug(e.target.value)}
                 placeholder="e.g. rwandan-hits"
-                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-600 font-mono"
               />
             </div>
 
@@ -265,7 +265,7 @@ export function MasterCategoryManager() {
                 value={formIcon}
                 onChange={(e) => setFormIcon(e.target.value)}
                 placeholder="e.g. 🇷🇼 or 🎵"
-                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
 
@@ -277,7 +277,7 @@ export function MasterCategoryManager() {
                 type="number"
                 value={formOrder}
                 onChange={(e) => setFormOrder(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3 py-2 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#202020] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
           </div>
@@ -288,7 +288,7 @@ export function MasterCategoryManager() {
                 type="checkbox"
                 checked={formVisible}
                 onChange={(e) => setFormVisible(e.target.checked)}
-                className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-600"
               />
               <span>Visible in Category Bar</span>
             </label>
@@ -298,13 +298,13 @@ export function MasterCategoryManager() {
                 type="checkbox"
                 checked={formFeatured}
                 onChange={(e) => setFormFeatured(e.target.checked)}
-                className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500"
+                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-600"
               />
               <span>Featured Highlight</span>
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-amber-500/20">
+          <div className="flex justify-end gap-2 pt-2 border-t border-purple-600/20">
             <Button variant="outline" size="sm" onClick={handleCancel} className="text-xs">
               Cancel
             </Button>
@@ -312,7 +312,7 @@ export function MasterCategoryManager() {
               size="sm"
               onClick={handleSave}
               disabled={createMutation.isPending || updateMutation.isPending}
-              className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs"
+              className="bg-purple-600 hover:bg-purple-400 text-black font-bold text-xs"
             >
               {createMutation.isPending || updateMutation.isPending ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -329,7 +329,7 @@ export function MasterCategoryManager() {
       <div className="bg-white dark:bg-[#161616] rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-xs">
         {isLoading ? (
           <div className="p-12 flex justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
           </div>
         ) : categories.length === 0 ? (
           <div className="p-8 text-center text-xs text-gray-500">No categories found.</div>
@@ -378,11 +378,11 @@ export function MasterCategoryManager() {
                       <button
                         onClick={() => handleToggleFeatured(cat)}
                         className={`p-1 rounded cursor-pointer ${
-                          cat.is_featured ? "text-amber-500" : "text-gray-300 dark:text-gray-700 hover:text-gray-400"
+                          cat.is_featured ? "text-purple-600" : "text-gray-300 dark:text-gray-700 hover:text-gray-400"
                         }`}
                         title={cat.is_featured ? "Featured category" : "Mark as featured"}
                       >
-                        <Star className={`w-4 h-4 ${cat.is_featured ? "fill-amber-500" : ""}`} />
+                        <Star className={`w-4 h-4 ${cat.is_featured ? "fill-purple-600" : ""}`} />
                       </button>
                     </td>
                     <td className="p-3.5 text-right space-x-1">

@@ -77,7 +77,7 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
       {/* Top Header Row: Mute status pill & Quality badge */}
       <div className="flex items-center justify-between pointer-events-auto">
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-full bg-black/50 backdrop-blur-md text-amber-400 border border-amber-500/30">
+          <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-full bg-black/50 backdrop-blur-md text-purple-400 border border-purple-600/30">
             Shorts
           </span>
           <span className="text-xs text-white/70 font-medium px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-sm">
@@ -96,8 +96,8 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
         >
           {isMuted ? (
             <div className="flex items-center gap-1.5 px-1">
-              <VolumeX className="w-4 h-4 text-amber-400" />
-              <span className="text-xs font-medium text-amber-400 hidden sm:inline">Tap to unmute</span>
+              <VolumeX className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-medium text-purple-400 hidden sm:inline">Tap to unmute</span>
             </div>
           ) : (
             <Volume2 className="w-4 h-4 text-white" />
@@ -121,20 +121,20 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
                   <img
                     src={short.artist_avatar}
                     alt={short.artist_name}
-                    className="w-10 h-10 rounded-full object-cover border-2 border-amber-400 group-hover:scale-105 transition-transform"
+                    className="w-10 h-10 rounded-full object-cover border-2 border-purple-400 group-hover:scale-105 transition-transform"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-amber-500 text-black font-black text-sm flex items-center justify-center border-2 border-amber-400">
+                  <div className="w-10 h-10 rounded-full bg-purple-600 text-black font-black text-sm flex items-center justify-center border-2 border-purple-400">
                     {short.artist_name?.charAt(0)?.toUpperCase() || 'A'}
                   </div>
                 )}
                 {short.artist_verified && (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 fill-black absolute -bottom-0.5 -right-0.5" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 fill-black absolute -bottom-0.5 -right-0.5" />
                 )}
               </div>
               <div className="leading-tight">
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors drop-shadow-sm">
+                  <span className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors drop-shadow-sm">
                     {short.artist_name}
                   </span>
                 </div>
@@ -154,7 +154,7 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-md cursor-pointer ${
                 short.is_subscribed
                   ? "bg-white/20 hover:bg-white/30 text-white border border-white/30"
-                  : "bg-amber-400 hover:bg-amber-500 text-black shadow-amber-500/20"
+                  : "bg-purple-400 hover:bg-purple-600 text-black shadow-purple-600/20"
               }`}
             >
               {short.is_subscribed ? "Following" : "Follow"}
@@ -185,7 +185,7 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
                     e.stopPropagation();
                     setExpandedDesc(!expandedDesc);
                   }}
-                  className="text-xs text-amber-400 hover:text-amber-300 font-medium inline-flex items-center gap-0.5 mt-0.5"
+                  className="text-xs text-purple-400 hover:text-purple-300 font-medium inline-flex items-center gap-0.5 mt-0.5"
                 >
                   {expandedDesc ? (
                     <>Show less <ChevronUp className="w-3 h-3" /></>
@@ -200,7 +200,7 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
           {/* Music Audio Tag & Rotating Disc */}
           <div className="flex items-center gap-2 text-xs text-white/90 pt-1">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 max-w-[240px] truncate">
-              <Music2 className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+              <Music2 className="w-3.5 h-3.5 text-purple-400 animate-pulse shrink-0" />
               <span className="truncate">{short.song_title}</span>
             </div>
           </div>
@@ -278,12 +278,12 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
                   e.stopPropagation();
                   onOpenTip();
                 }}
-                className="w-12 h-12 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/40 hover:bg-amber-400/30 backdrop-blur-md flex items-center justify-center transition-all"
+                className="w-12 h-12 rounded-full bg-purple-400/20 text-purple-400 border border-purple-400/40 hover:bg-purple-400/30 backdrop-blur-md flex items-center justify-center transition-all"
                 aria-label="Tip artist via Mobile Money"
               >
-                <Coins className="w-5 h-5 text-amber-400" />
+                <Coins className="w-5 h-5 text-purple-400" />
               </motion.button>
-              <span className="text-xs font-semibold text-amber-400 drop-shadow">
+              <span className="text-xs font-semibold text-purple-400 drop-shadow">
                 Tip
               </span>
             </div>
@@ -293,7 +293,7 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-            className="w-10 h-10 rounded-full p-1 bg-neutral-900 border-2 border-amber-400/70 shadow-lg flex items-center justify-center cursor-pointer mt-1"
+            className="w-10 h-10 rounded-full p-1 bg-neutral-900 border-2 border-purple-400/70 shadow-lg flex items-center justify-center cursor-pointer mt-1"
             onClick={(e) => {
               e.stopPropagation();
               onToggleMute();
@@ -306,7 +306,7 @@ export const ShortsOverlay: React.FC<ShortsOverlayProps> = ({
                 className="w-6 h-6 rounded-full object-cover"
               />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-amber-500 text-black font-bold text-[10px] flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-purple-600 text-black font-bold text-[10px] flex items-center justify-center">
                 {short.artist_name?.charAt(0)?.toUpperCase() || 'A'}
               </div>
             )}

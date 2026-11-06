@@ -389,7 +389,7 @@ export default function SettingsPage() {
   if (fetching) {
      return (
        <div className="flex flex-col items-center justify-center p-32 space-y-4">
-          <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
+          <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
           <p className="text-gray-400 font-black uppercase text-xs tracking-[0.25em]">Synchronizing Settings...</p>
        </div>
      );
@@ -399,8 +399,8 @@ export default function SettingsPage() {
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="mb-10">
          <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-500/10 rounded-xl">
-               <SettingsIcon className="w-5 h-5 text-amber-600" />
+            <div className="p-2 bg-purple-600/10 rounded-xl">
+               <SettingsIcon className="w-5 h-5 text-purple-700" />
             </div>
             <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">Settings & Identity</h1>
          </div>
@@ -506,7 +506,7 @@ export default function SettingsPage() {
                                  </label>
                                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                                     <div className="relative group shrink-0">
-                                       <div className="w-20 h-20 rounded-full overflow-hidden bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center text-amber-600 font-black text-xl shadow-inner">
+                                       <div className="w-20 h-20 rounded-full overflow-hidden bg-purple-600/10 border-2 border-purple-600/30 flex items-center justify-center text-purple-700 font-black text-xl shadow-inner">
                                           {userProfile.avatar_url ? (
                                              <img 
                                                src={userProfile.avatar_url} 
@@ -525,7 +525,7 @@ export default function SettingsPage() {
                                          type="button"
                                          onClick={() => userAvatarRef.current?.click()}
                                          disabled={uploadingUserAvatar}
-                                         className="absolute bottom-0 right-0 p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md border-2 border-white transition-all cursor-pointer"
+                                         className="absolute bottom-0 right-0 p-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-full shadow-md border-2 border-white transition-all cursor-pointer"
                                          title="Upload new photo"
                                        >
                                           {uploadingUserAvatar ? (
@@ -569,7 +569,7 @@ export default function SettingsPage() {
                                                 </>
                                              ) : (
                                                 <>
-                                                   <Upload className="w-3.5 h-3.5 text-amber-500" />
+                                                   <Upload className="w-3.5 h-3.5 text-purple-600" />
                                                    Upload Avatar
                                                 </>
                                              )}
@@ -581,7 +581,7 @@ export default function SettingsPage() {
                                             type="url"
                                             value={userProfile.avatar_url}
                                             onChange={(e) => setUserProfile({ ...userProfile, avatar_url: e.target.value })}
-                                            className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-700 focus:outline-none focus:border-amber-500"
+                                            className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-700 focus:outline-none focus:border-purple-500"
                                             placeholder="Or enter direct image URL (https://...)"
                                           />
                                        </div>
@@ -596,7 +596,7 @@ export default function SettingsPage() {
                                       type="text" 
                                       value={userProfile.full_name}
                                       onChange={(e) => setUserProfile({ ...userProfile, full_name: e.target.value })}
-                                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                       placeholder="e.g. Jean Kamali"
                                       required
                                     />
@@ -607,7 +607,7 @@ export default function SettingsPage() {
                                       type="text" 
                                       value={userProfile.username}
                                       onChange={(e) => setUserProfile({ ...userProfile, username: e.target.value })}
-                                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                       placeholder="e.g. jeankamali"
                                       required
                                     />
@@ -631,7 +631,7 @@ export default function SettingsPage() {
                                       type="text" 
                                       value={userProfile.phone}
                                       onChange={(e) => setUserProfile({ ...userProfile, phone: e.target.value })}
-                                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                       placeholder="e.g. 078XXXXXXX"
                                     />
                                  </div>
@@ -646,7 +646,7 @@ export default function SettingsPage() {
                                    value={userProfile.bio}
                                    onChange={(e) => setUserProfile({ ...userProfile, bio: e.target.value })}
                                    rows={3}
-                                   className="w-full p-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-medium text-gray-800 focus:outline-none focus:border-amber-500 resize-none"
+                                   className="w-full p-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-medium text-gray-800 focus:outline-none focus:border-purple-500 resize-none"
                                    placeholder="Share a short line about your musical tastes or diaspora community connection..."
                                  />
                               </div>
@@ -655,7 +655,7 @@ export default function SettingsPage() {
 
                               <div>
                                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
-                                    <CreditCard className="w-4 h-4 text-amber-500" />
+                                    <CreditCard className="w-4 h-4 text-purple-600" />
                                     Saved Payment Phones
                                  </h3>
                                  <p className="text-xs text-gray-400 font-bold mb-4">Register mobile money account numbers for quick one-click authorization at paywall checkout.</p>
@@ -665,13 +665,13 @@ export default function SettingsPage() {
                                       type="text" 
                                       value={newPaymentPhone}
                                       onChange={(e) => setNewPaymentPhone(e.target.value)}
-                                      className="flex-1 h-11 px-4 rounded-xl bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                      className="flex-1 h-11 px-4 rounded-xl bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                       placeholder="Prefix e.g. 0788000000"
                                     />
                                     <Button 
                                        type="button" 
                                        onClick={handleAddPaymentPhone}
-                                       className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase h-11 px-4 gap-1 border-none"
+                                       className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase h-11 px-4 gap-1 border-none"
                                     >
                                        <Plus className="w-4 h-4" /> Add Phone
                                     </Button>
@@ -681,7 +681,7 @@ export default function SettingsPage() {
                                     {userProfile.saved_payment_phones.length > 0 ? (
                                        userProfile.saved_payment_phones.map(phone => (
                                           <div key={phone} className="flex items-center gap-2 bg-gray-50 px-4 py-2 border border-gray-100 rounded-xl text-xs font-bold text-gray-700">
-                                             <Smartphone className="w-3.5 h-3.5 text-amber-500" />
+                                             <Smartphone className="w-3.5 h-3.5 text-purple-600" />
                                              {phone}
                                              <button 
                                                type="button" 
@@ -702,7 +702,7 @@ export default function SettingsPage() {
 
                               <div>
                                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
-                                    <Bell className="w-4 h-4 text-amber-500" />
+                                    <Bell className="w-4 h-4 text-purple-600" />
                                     Notification Preferences
                                  </h3>
                                  <label className="flex items-center gap-3 cursor-pointer">
@@ -710,7 +710,7 @@ export default function SettingsPage() {
                                       type="checkbox" 
                                       checked={userProfile.notification_pref_upload}
                                       onChange={(e) => setUserProfile({ ...userProfile, notification_pref_upload: e.target.checked })}
-                                      className="rounded border-gray-100 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                      className="rounded border-gray-100 text-purple-600 focus:ring-purple-600 w-4 h-4"
                                     />
                                     <span className="text-xs text-gray-600 font-bold uppercase tracking-wider">Email me instantly when artists I follow drop new songs</span>
                                  </label>
@@ -720,7 +720,7 @@ export default function SettingsPage() {
                                  <Button 
                                    type="submit" 
                                    disabled={saving}
-                                   className="bg-amber-500 text-white hover:bg-amber-600 font-black text-[11px] uppercase tracking-wider py-4 px-10 h-12 rounded-xl shadow-lg shadow-amber-150 border-none flex items-center gap-2"
+                                   className="bg-purple-600 text-white hover:bg-purple-700 font-black text-[11px] uppercase tracking-wider py-4 px-10 h-12 rounded-xl shadow-lg shadow-purple-200 border-none flex items-center gap-2"
                                  >
                                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Save Fan Profile Details
@@ -746,9 +746,9 @@ export default function SettingsPage() {
                            </h2>
                            <form onSubmit={handleSaveArtist} className="space-y-6">
                               {/* Visual Branding Section: Avatar and Banner */}
-                              <div className="p-6 bg-amber-500/5 border border-amber-200/50 rounded-2xl space-y-6">
+                              <div className="p-6 bg-purple-600/5 border border-purple-200/50 rounded-2xl space-y-6">
                                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
-                                    <Camera className="w-4 h-4 text-amber-500" />
+                                    <Camera className="w-4 h-4 text-purple-600" />
                                     Artist Visual Branding
                                  </h3>
 
@@ -758,7 +758,7 @@ export default function SettingsPage() {
                                        Stage Profile Picture (Avatar)
                                     </label>
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                       <div className="w-18 h-18 rounded-full overflow-hidden bg-gray-200 border-2 border-amber-500/30 shrink-0 shadow-inner flex items-center justify-center">
+                                       <div className="w-18 h-18 rounded-full overflow-hidden bg-gray-200 border-2 border-purple-600/30 shrink-0 shadow-inner flex items-center justify-center">
                                           {artistProfile.profile_image ? (
                                              <img 
                                                src={artistProfile.profile_image} 
@@ -803,7 +803,7 @@ export default function SettingsPage() {
                                                    </>
                                                 ) : (
                                                    <>
-                                                      <Upload className="w-3.5 h-3.5 text-amber-500" />
+                                                      <Upload className="w-3.5 h-3.5 text-purple-600" />
                                                       Upload Photo
                                                    </>
                                                 )}
@@ -813,7 +813,7 @@ export default function SettingsPage() {
                                             type="url" 
                                             value={artistProfile.profile_image}
                                             onChange={(e) => setArtistProfile({ ...artistProfile, profile_image: e.target.value })}
-                                            className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                            className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                             placeholder="Or direct image URL (https://...)"
                                           />
                                        </div>
@@ -868,7 +868,7 @@ export default function SettingsPage() {
                                                 </>
                                              ) : (
                                                 <>
-                                                   <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
+                                                   <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
                                                    Upload Banner
                                                 </>
                                              )}
@@ -877,7 +877,7 @@ export default function SettingsPage() {
                                             type="url" 
                                             value={artistProfile.banner_image}
                                             onChange={(e) => setArtistProfile({ ...artistProfile, banner_image: e.target.value })}
-                                            className="flex-1 h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                            className="flex-1 h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                             placeholder="Or enter banner URL (https://...)"
                                           />
                                        </div>
@@ -891,7 +891,7 @@ export default function SettingsPage() {
                                    type="text" 
                                    value={artistProfile.full_name}
                                    onChange={(e) => setArtistProfile({ ...artistProfile, full_name: e.target.value })}
-                                   className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                   className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                    placeholder="e.g. Bruce Melodie"
                                    required
                                  />
@@ -903,7 +903,7 @@ export default function SettingsPage() {
                                    value={artistProfile.bio}
                                    onChange={(e) => setArtistProfile({ ...artistProfile, bio: e.target.value })}
                                    rows={4}
-                                   className="w-full p-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                   className="w-full p-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                    placeholder="A short story about your music style, achievements, and messages to your diaspora community..."
                                  />
                               </div>
@@ -911,7 +911,7 @@ export default function SettingsPage() {
                               {/* Social Links Section */}
                               <div className="p-6 bg-gray-50/80 border border-gray-100 rounded-2xl space-y-4">
                                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
-                                    <Globe className="w-4 h-4 text-amber-500" />
+                                    <Globe className="w-4 h-4 text-purple-600" />
                                     Social Media & Digital Profiles
                                  </h3>
                                  <p className="text-xs text-gray-400 font-medium">Link your public artist channels for fans to connect with your music worldwide.</p>
@@ -923,7 +923,7 @@ export default function SettingsPage() {
                                          type="url"
                                          value={artistProfile.instagram}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, instagram: e.target.value })}
-                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="https://instagram.com/artist"
                                        />
                                     </div>
@@ -933,7 +933,7 @@ export default function SettingsPage() {
                                          type="url"
                                          value={artistProfile.twitter}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, twitter: e.target.value })}
-                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="https://x.com/artist"
                                        />
                                     </div>
@@ -943,7 +943,7 @@ export default function SettingsPage() {
                                          type="url"
                                          value={artistProfile.youtube}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, youtube: e.target.value })}
-                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="https://youtube.com/@channel"
                                        />
                                     </div>
@@ -953,7 +953,7 @@ export default function SettingsPage() {
                                          type="url"
                                          value={artistProfile.spotify}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, spotify: e.target.value })}
-                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="https://open.spotify.com/artist/..."
                                        />
                                     </div>
@@ -963,16 +963,16 @@ export default function SettingsPage() {
                                          type="url"
                                          value={artistProfile.website}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, website: e.target.value })}
-                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-10 px-3 rounded-xl bg-white border border-gray-200 text-xs font-medium text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="https://artistwebsite.com"
                                        />
                                     </div>
                                  </div>
                               </div>
 
-                              <div className="p-5 bg-amber-500/5 border border-amber-200/50 rounded-2xl">
-                                 <h4 className="text-xs font-black text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                                    <AlertTriangle className="w-4 h-4 text-amber-600" /> Important: Mobile Money Registration (payouts phone)
+                              <div className="p-5 bg-purple-600/5 border border-purple-200/50 rounded-2xl">
+                                 <h4 className="text-xs font-black text-purple-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <AlertTriangle className="w-4 h-4 text-purple-700" /> Important: Mobile Money Registration (payouts phone)
                                  </h4>
                                  <p className="text-[11px] text-gray-500 font-bold leading-relaxed mb-4">
                                     Changing your phone number or disbursement MoMo details triggers an immediate status lock, requiring manual master approval before future revenue withdrawal processing can resume.
@@ -995,7 +995,7 @@ export default function SettingsPage() {
                                          type="text" 
                                          value={artistProfile.phone}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, phone: e.target.value })}
-                                         className="w-full h-11 px-3 rounded-xl bg-white border border-gray-150 text-xs font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-11 px-3 rounded-xl bg-white border border-gray-150 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="e.g. 0788112233"
                                          required
                                        />
@@ -1006,7 +1006,7 @@ export default function SettingsPage() {
                                          type="text" 
                                          value={artistProfile.momo_code}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, momo_code: e.target.value })}
-                                         className="w-full h-11 px-3 rounded-xl bg-white border border-gray-150 text-xs font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                                         className="w-full h-11 px-3 rounded-xl bg-white border border-gray-150 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                                          placeholder="e.g. *182*8*1*2233#"
                                          required
                                        />
@@ -1018,7 +1018,7 @@ export default function SettingsPage() {
 
                               <div>
                                  <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
-                                    <Bell className="w-4 h-4 text-amber-500" />
+                                    <Bell className="w-4 h-4 text-purple-600" />
                                     Studio Smart Notifications
                                  </h3>
                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1030,7 +1030,7 @@ export default function SettingsPage() {
                                             ...artistProfile,
                                             active_notifications: { ...artistProfile.active_notifications, purchase: e.target.checked }
                                          })}
-                                         className="rounded border-gray-100 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                         className="rounded border-gray-100 text-purple-600 focus:ring-purple-600 w-4 h-4"
                                        />
                                        <span className="text-xs text-gray-600 font-bold uppercase tracking-wider">Email me on new purchases / sales</span>
                                     </label>
@@ -1042,7 +1042,7 @@ export default function SettingsPage() {
                                             ...artistProfile,
                                             active_notifications: { ...artistProfile.active_notifications, subscriber: e.target.checked }
                                          })}
-                                         className="rounded border-gray-100 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                         className="rounded border-gray-100 text-purple-600 focus:ring-purple-600 w-4 h-4"
                                        />
                                        <span className="text-xs text-gray-600 font-bold uppercase tracking-wider">Email me on new followers</span>
                                     </label>
@@ -1054,7 +1054,7 @@ export default function SettingsPage() {
                                             ...artistProfile,
                                             active_notifications: { ...artistProfile.active_notifications, comment: e.target.checked }
                                          })}
-                                         className="rounded border-gray-100 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                         className="rounded border-gray-100 text-purple-600 focus:ring-purple-600 w-4 h-4"
                                        />
                                        <span className="text-xs text-gray-600 font-bold uppercase tracking-wider">Notify on new comments</span>
                                     </label>
@@ -1066,7 +1066,7 @@ export default function SettingsPage() {
                                             ...artistProfile,
                                             active_notifications: { ...artistProfile.active_notifications, payout: e.target.checked }
                                          })}
-                                         className="rounded border-gray-100 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                         className="rounded border-gray-100 text-purple-600 focus:ring-purple-600 w-4 h-4"
                                        />
                                        <span className="text-xs text-gray-600 font-bold uppercase tracking-wider">Alert status of processed payout withdrawals</span>
                                     </label>
@@ -1077,7 +1077,7 @@ export default function SettingsPage() {
                                  <Button 
                                    type="submit" 
                                    disabled={saving}
-                                   className="bg-yellow-500 text-white hover:bg-yellow-600 font-black text-[11px] uppercase tracking-wider py-4 px-10 h-12 rounded-xl shadow-lg shadow-yellow-10 shadow-amber-100 border-none flex items-center gap-2"
+                                   className="bg-yellow-500 text-white hover:bg-yellow-600 font-black text-[11px] uppercase tracking-wider py-4 px-10 h-12 rounded-xl shadow-lg shadow-yellow-10 shadow-purple-100 border-none flex items-center gap-2"
                                  >
                                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Persist Artist Parameters
@@ -1401,7 +1401,7 @@ export default function SettingsPage() {
             <Card className="bg-white border-gray-100 rounded-[30px] shadow-sm">
                <CardContent className="p-6">
                   <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight mb-4 flex items-center gap-2">
-                     <Lock className="w-4.5 h-4.5 text-amber-500" />
+                     <Lock className="w-4.5 h-4.5 text-purple-600" />
                      Security Update
                   </h3>
                   <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -1411,7 +1411,7 @@ export default function SettingsPage() {
                           type="password" 
                           value={passwordState.currentPassword}
                           onChange={(e) => setPasswordState({ ...passwordState, currentPassword: e.target.value })}
-                          className="w-full h-10 px-3 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                          className="w-full h-10 px-3 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                           placeholder="••••••••"
                           required
                         />
@@ -1422,7 +1422,7 @@ export default function SettingsPage() {
                           type="password" 
                           value={passwordState.newPassword}
                           onChange={(e) => setPasswordState({ ...passwordState, newPassword: e.target.value })}
-                          className="w-full h-10 px-3 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                          className="w-full h-10 px-3 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                           placeholder="minLength 6 chars"
                           required
                         />
@@ -1433,7 +1433,7 @@ export default function SettingsPage() {
                           type="password" 
                           value={passwordState.confirmPassword}
                           onChange={(e) => setPasswordState({ ...passwordState, confirmPassword: e.target.value })}
-                          className="w-full h-10 px-3 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-amber-500"
+                          className="w-full h-10 px-3 rounded-lg bg-gray-50 border border-gray-100 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                           placeholder="match new code"
                           required
                         />
@@ -1468,7 +1468,7 @@ export default function SettingsPage() {
                      className="w-full bg-rose-500 text-white hover:bg-rose-600 font-black text-[10px] uppercase tracking-wider h-11 rounded-xl shadow-lg shadow-rose-100 border-none flex items-center justify-center gap-2"
                   >
                      <Trash2 className="w-4 h-4" />
-                     Delete Account & Library
+                     Delete Account & Profile
                   </Button>
                </CardContent>
             </Card>

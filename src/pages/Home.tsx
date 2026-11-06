@@ -213,11 +213,11 @@ export default function Home() {
         
         {/* Search Query Indicator if active */}
         {q && (
-          <div className="flex items-center justify-between bg-amber-500/10 border border-amber-500/30 px-4 py-3 rounded-xl">
+          <div className="flex items-center justify-between bg-purple-600/10 border border-purple-600/30 px-4 py-3 rounded-xl">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-amber-500" />
+              <Search className="w-4 h-4 text-purple-600" />
               <span className="text-sm font-bold text-gray-900 dark:text-white">
-                Results for: <span className="text-amber-500 font-extrabold">"{q}"</span>
+                Results for: <span className="text-purple-600 font-extrabold">"{q}"</span>
               </span>
             </div>
             <button
@@ -289,7 +289,7 @@ export default function Home() {
           <section id="upcoming-livestreams-shelf" className="space-y-3 pt-1 border-b border-gray-200 dark:border-gray-800 pb-7">
             <div className="flex items-center justify-between px-0.5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                <div className="w-7 h-7 rounded-lg bg-purple-600/20 text-purple-600 flex items-center justify-center font-bold">
                   <Clock className="w-4 h-4" />
                 </div>
                 <div>
@@ -301,7 +301,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <Link to="/live" className="text-xs font-bold text-amber-500 hover:underline flex items-center gap-0.5">
+              <Link to="/live" className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-0.5">
                 View all live <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -343,16 +343,16 @@ export default function Home() {
                 <h2 className="text-base sm:text-lg font-black text-gray-900 dark:text-white tracking-tight">
                   For You
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-600/15 text-purple-700 dark:text-purple-400 border border-purple-600/25">
                   Personalized
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPreferencesOpen(true)}
-                className="text-xs font-semibold text-gray-500 hover:text-amber-500 dark:text-gray-400 dark:hover:text-amber-400 flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 flex items-center gap-1 cursor-pointer"
               >
-                <Sparkles className="w-3 h-3 text-amber-500" />
+                <Sparkles className="w-3 h-3 text-purple-600" />
                 <span>Customize feed</span>
               </button>
             </div>
@@ -437,7 +437,7 @@ export default function Home() {
                   From Artists You Follow
                 </h2>
               </div>
-              <Link to="/dashboard/following" className="text-xs font-semibold text-gray-500 hover:text-amber-500">
+              <Link to="/dashboard/following" className="text-xs font-semibold text-gray-500 hover:text-purple-600">
                 Manage Subscriptions
               </Link>
             </div>
@@ -506,8 +506,8 @@ export default function Home() {
                   Your Purchased Videos
                 </h2>
               </div>
-              <Link to="/dashboard/purchased" className="text-xs font-bold text-emerald-500 hover:underline">
-                View Library
+              <Link to="/dashboard" className="text-xs font-bold text-emerald-500 hover:underline">
+                View Profile
               </Link>
             </div>
 
@@ -523,7 +523,7 @@ export default function Home() {
         <section id="main-catalog-section" className="space-y-3 pt-2">
           <div className="flex items-center justify-between px-0.5">
             <div className="flex items-center gap-2">
-              <Compass className="w-5 h-5 text-amber-500" />
+              <Compass className="w-5 h-5 text-purple-600" />
               <h2 className="text-base sm:text-lg font-black text-gray-900 dark:text-white tracking-tight">
                 {activeCategory === "All"
                   ? q
@@ -557,7 +557,7 @@ export default function Home() {
               </p>
               <Button
                 onClick={() => refetchCatalog()}
-                className="bg-[#FFB300] hover:bg-amber-500 text-black font-extrabold text-xs uppercase px-5 rounded-full shadow-xs"
+                className="bg-[#FFB300] hover:bg-purple-600 text-black font-extrabold text-xs uppercase px-5 rounded-full shadow-xs"
               >
                 <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Retry
               </Button>
@@ -582,7 +582,7 @@ export default function Home() {
                   >
                     {isLoadingMore ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin text-amber-500" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin text-purple-600" />
                         Loading more videos...
                       </>
                     ) : (

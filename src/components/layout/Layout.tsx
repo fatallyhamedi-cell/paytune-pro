@@ -11,7 +11,7 @@ export default function Layout() {
   const isMasterRoute = location.pathname.startsWith("/master");
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0F0F0F] text-gray-900 dark:text-white transition-colors duration-200 antialiased selection:bg-amber-500 selection:text-black">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0F0F0F] text-gray-900 dark:text-white transition-colors duration-200 antialiased selection:bg-purple-600 selection:text-black">
       <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex h-screen pt-14 overflow-hidden relative">
         {/* Desktop Sidebar (Hidden for mobile and master route layouts) */}

@@ -111,12 +111,12 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* 1. Community Header Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Total Followers
             </span>
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-[#FFB300]">
+            <div className="p-2.5 rounded-xl bg-purple-600/10 text-[#FFB300]">
               <Users className="w-5 h-5" />
             </div>
           </div>
@@ -131,7 +131,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
         </div>
 
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               New Supporters
@@ -148,12 +148,12 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
         </div>
 
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Top Supporter Value
             </span>
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-[#FFB300]">
+            <div className="p-2.5 rounded-xl bg-purple-600/10 text-[#FFB300]">
               <Trophy className="w-5 h-5" />
             </div>
           </div>
@@ -168,7 +168,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
         </div>
 
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Fan Comments
@@ -193,7 +193,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
             onClick={() => setActiveSubSection('subscribers')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeSubSection === 'subscribers'
-                ? 'bg-[#FFB300] text-black shadow-md shadow-amber-500/20'
+                ? 'bg-[#FFB300] text-black shadow-md shadow-purple-600/20'
                 : 'bg-[#161616] text-gray-400 hover:text-white border border-white/5'
             }`}
           >
@@ -205,7 +205,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
             onClick={() => setActiveSubSection('top-fans')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeSubSection === 'top-fans'
-                ? 'bg-[#FFB300] text-black shadow-md shadow-amber-500/20'
+                ? 'bg-[#FFB300] text-black shadow-md shadow-purple-600/20'
                 : 'bg-[#161616] text-gray-400 hover:text-white border border-white/5'
             }`}
           >
@@ -217,7 +217,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
             onClick={() => setActiveSubSection('comments')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
               activeSubSection === 'comments'
-                ? 'bg-[#FFB300] text-black shadow-md shadow-amber-500/20'
+                ? 'bg-[#FFB300] text-black shadow-md shadow-purple-600/20'
                 : 'bg-[#161616] text-gray-400 hover:text-white border border-white/5'
             }`}
           >
@@ -296,7 +296,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                         <td className="py-4 px-5">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                             sub.tier === 'Superfan'
-                              ? 'bg-amber-500/20 text-[#FFB300] border border-amber-500/30'
+                              ? 'bg-purple-600/20 text-[#FFB300] border border-purple-600/30'
                               : 'bg-white/5 text-gray-300 border border-white/10'
                           }`}>
                             {sub.tier}
@@ -326,7 +326,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           {/* VIEW 2: TOP FANS LEADERBOARD */}
           {activeSubSection === 'top-fans' && (
             <div className="space-y-6">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-transparent to-transparent border border-amber-500/20 flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-600/10 via-transparent to-transparent border border-purple-600/20 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#FFB300] text-black flex items-center justify-center font-black">
                     <Trophy className="w-5 h-5" />
@@ -336,7 +336,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                     <p className="text-xs text-gray-400">Your top contributing listeners ranked by total purchases and tips</p>
                   </div>
                 </div>
-                <span className="text-[11px] font-bold text-[#FFB300] uppercase tracking-wider bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                <span className="text-[11px] font-bold text-[#FFB300] uppercase tracking-wider bg-purple-600/10 px-3 py-1 rounded-full border border-purple-600/20">
                   Hall of Fame
                 </span>
               </div>
@@ -347,7 +347,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                     key={fan.rank}
                     className={`bg-[#161616] border rounded-2xl p-5 relative overflow-hidden transition-all ${
                       fan.rank === 1 
-                        ? 'border-amber-500/50 shadow-lg shadow-amber-500/10' 
+                        ? 'border-purple-600/50 shadow-lg shadow-purple-600/10' 
                         : 'border-white/5 hover:border-white/10'
                     }`}
                   >
@@ -356,7 +356,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${
                           fan.rank === 1 ? 'bg-[#FFB300] text-black' :
                           fan.rank === 2 ? 'bg-gray-300 text-black' :
-                          fan.rank === 3 ? 'bg-amber-700 text-white' : 'bg-white/10 text-gray-300'
+                          fan.rank === 3 ? 'bg-purple-700 text-white' : 'bg-white/10 text-gray-300'
                         }`}>
                           #{fan.rank}
                         </div>
@@ -368,7 +368,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                           />
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-[#FFB300] text-[10px] font-black uppercase tracking-wider border border-amber-500/20">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-600/10 text-[#FFB300] text-[10px] font-black uppercase tracking-wider border border-purple-600/20">
                         {fan.badge}
                       </span>
                     </div>
@@ -439,7 +439,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
 
                     {/* Replies thread */}
                     {comment.replies && comment.replies.length > 0 && (
-                      <div className="ml-6 pl-3 border-l-2 border-amber-500/30 space-y-2 pt-2">
+                      <div className="ml-6 pl-3 border-l-2 border-purple-600/30 space-y-2 pt-2">
                         {comment.replies.map((reply: any) => (
                           <div key={reply.id} className="text-xs bg-[#1F1F1F] p-2.5 rounded-xl">
                             <span className="font-bold text-[#FFB300]">{reply.author} (Artist): </span>

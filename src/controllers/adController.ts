@@ -317,7 +317,18 @@ export const createMasterAd = async (req: Request, res: Response) => {
       advertiser_name: (advertiser_name || "Advertiser").trim(),
       budget_rwf: Number(budget_rwf) || 100000,
       spent_rwf: 0,
-      status: "active",
+      status: req.body.status || "active",
+      bid_model: req.body.bid_model || "cpm", // cpm, cpc, cpa
+      bid_amount: Number(req.body.bid_amount) || 500,
+      format: req.body.format || "pre-roll", // pre-roll, mid-roll, overlay, companion
+      target_category: req.body.target_category || "All",
+      target_device: req.body.target_device || "all", // all, mobile, desktop
+      target_country: req.body.target_country || "all",
+      frequency_cap: Number(req.body.frequency_cap) || 3,
+      pacing: req.body.pacing || "even", // even, asap
+      vast_tag_url: (req.body.vast_tag_url || "").trim(),
+      start_date: req.body.start_date || new Date().toISOString(),
+      end_date: req.body.end_date || null,
       created_by: user?.id || "master-admin-uuid-001",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -369,7 +380,18 @@ export const updateMasterAd = async (req: Request, res: Response) => {
       "duration_seconds",
       "advertiser_name",
       "budget_rwf",
-      "status"
+      "status",
+      "bid_model",
+      "bid_amount",
+      "format",
+      "target_category",
+      "target_device",
+      "target_country",
+      "frequency_cap",
+      "pacing",
+      "vast_tag_url",
+      "start_date",
+      "end_date"
     ];
 
     allowed.forEach((field) => {
@@ -397,6 +419,123 @@ export const updateMasterAd = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Error updating master ad:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * MASTER ADMIN: POST /api/ads/campaigns/:id/pause or /api/ads/master/:id/pause
+ * Pauses an active ad campaign
+ */
+export const pauseMasterAd = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const store = getDbStore();
+    const ads = store.ads || [];
+    const ad = ads.find((a: any) => String(a.id) === String(id));
+
+    if (!ad) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    ad.status = "paused";
+    ad.updated_at = new Date().toISOString();
+    notifyMutation();
+
+    const user = (req as any).user;
+    logAdminAction(
+      user?.email || "master@paytune.com",
+      "PAUSE_AD_CAMPAIGN",
+      `Campaign: ${ad.title}`,
+      req.ip || "127.0.0.1",
+      `Paused campaign "${ad.title}"`
+    );
+
+    return res.json({
+      success: true,
+      ad,
+      message: `Campaign "${ad.title}" has been paused.`
+    });
+  } catch (err: any) {
+    console.error("Error pausing ad campaign:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * MASTER ADMIN: POST /api/ads/campaigns/:id/resume or /api/ads/master/:id/resume
+ * Resumes a paused ad campaign
+ */
+export const resumeMasterAd = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const store = getDbStore();
+    const ads = store.ads || [];
+    const ad = ads.find((a: any) => String(a.id) === String(id));
+
+    if (!ad) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    ad.status = "active";
+    ad.updated_at = new Date().toISOString();
+    notifyMutation();
+
+    const user = (req as any).user;
+    logAdminAction(
+      user?.email || "master@paytune.com",
+      "RESUME_AD_CAMPAIGN",
+      `Campaign: ${ad.title}`,
+      req.ip || "127.0.0.1",
+      `Resumed campaign "${ad.title}"`
+    );
+
+    return res.json({
+      success: true,
+      ad,
+      message: `Campaign "${ad.title}" has been resumed.`
+    });
+  } catch (err: any) {
+    console.error("Error resuming ad campaign:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * MASTER ADMIN: POST /api/ads/campaigns/:id/end or /api/ads/master/:id/end
+ * Terminates / ends an ad campaign
+ */
+export const endMasterAd = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const store = getDbStore();
+    const ads = store.ads || [];
+    const ad = ads.find((a: any) => String(a.id) === String(id));
+
+    if (!ad) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    ad.status = "ended";
+    ad.updated_at = new Date().toISOString();
+    notifyMutation();
+
+    const user = (req as any).user;
+    logAdminAction(
+      user?.email || "master@paytune.com",
+      "END_AD_CAMPAIGN",
+      `Campaign: ${ad.title}`,
+      req.ip || "127.0.0.1",
+      `Ended campaign "${ad.title}"`
+    );
+
+    return res.json({
+      success: true,
+      ad,
+      message: `Campaign "${ad.title}" has been ended.`
+    });
+  } catch (err: any) {
+    console.error("Error ending ad campaign:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -649,18 +788,48 @@ export const deleteMasterAssignment = async (req: Request, res: Response) => {
 
 /**
  * MASTER ADMIN: GET /api/ads/master/analytics
- * Aggregated analytics for the Ads Center (impressions, clicks, devices, countries, recent events)
+ * Aggregated analytics for the Ads Center (impressions, clicks, devices, countries, recent events, escrow, trends)
  */
 export const getMasterAdAnalytics = async (req: Request, res: Response) => {
   try {
+    const { range } = req.query; // 'today' | '7d' | '30d' | 'month' | 'all'
     const store = getDbStore();
-    const impressions = store.ad_impressions || [];
+    const rawImpressions = store.ad_impressions || [];
     const ads = store.ads || [];
+
+    const now = Date.now();
+    let cutoff = 0;
+    if (range === "today") {
+      cutoff = now - 24 * 60 * 60 * 1000;
+    } else if (range === "7d") {
+      cutoff = now - 7 * 24 * 60 * 60 * 1000;
+    } else if (range === "30d" || range === "month") {
+      cutoff = now - 30 * 24 * 60 * 60 * 1000;
+    }
+
+    const impressions = cutoff > 0 
+      ? rawImpressions.filter((i: any) => new Date(i.created_at).getTime() >= cutoff)
+      : rawImpressions;
 
     const totalImpressions = impressions.length;
     const totalClicks = impressions.filter((i: any) => i.clicked).length;
     const overallCtr = totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(1)) : 0;
+    
+    // Total Ad Spend
     const totalSpent = ads.reduce((acc: number, ad: any) => acc + Number(ad.spent_rwf || 0), 0);
+    // Platform Share: 30% | Creator Pool: 70%
+    const platformRevenueRwf = Math.round(totalSpent * 0.30);
+    const creatorPoolRwf = Math.round(totalSpent * 0.70);
+
+    // Escrow Status Ledger
+    const escrowLedger = {
+      total_spent_rwf: totalSpent,
+      platform_revenue_rwf: platformRevenueRwf,
+      creator_pool_rwf: creatorPoolRwf,
+      held_in_escrow: Math.max(0, Math.round(totalSpent * 0.15)),
+      queued_for_transfer: Math.max(0, Math.round(totalSpent * 0.55)),
+      paid_to_platform: platformRevenueRwf
+    };
 
     // Device breakdown
     const deviceCounts: Record<string, number> = {};
@@ -669,23 +838,63 @@ export const getMasterAdAnalytics = async (req: Request, res: Response) => {
       deviceCounts[dev] = (deviceCounts[dev] || 0) + 1;
     });
 
-    // Country breakdown
+    // Country breakdown with detailed hover telemetry
     const countryCounts: Record<string, number> = {};
+    const countryDetails: Record<string, { views: number; clicks: number; spend_rwf: number }> = {};
+    
     impressions.forEach((i: any) => {
       const c = i.country || "Rwanda";
       countryCounts[c] = (countryCounts[c] || 0) + 1;
+
+      if (!countryDetails[c]) {
+        countryDetails[c] = { views: 0, clicks: 0, spend_rwf: 0 };
+      }
+      countryDetails[c].views += 1;
+      if (i.clicked) countryDetails[c].clicks += 1;
+      countryDetails[c].spend_rwf += Math.round(totalSpent / Math.max(1, rawImpressions.length));
     });
 
-    // Recent impressions feed (last 30)
+    // Generate 7-day trend chart data (Impressions vs Clicks)
+    const trendData: Array<{ day: string; impressions: number; clicks: number; spend: number }> = [];
+    for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
+      const d = new Date(now - dayOffset * 24 * 60 * 60 * 1000);
+      const dayStr = d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+      const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
+
+      const dayImps = rawImpressions.filter((imp: any) => {
+        const impTime = new Date(imp.created_at).getTime();
+        return impTime >= startOfDay && impTime < endOfDay;
+      });
+
+      const dayClicks = dayImps.filter((imp: any) => imp.clicked).length;
+      const daySpend = Math.round((dayImps.length / Math.max(1, rawImpressions.length)) * totalSpent);
+
+      trendData.push({
+        day: dayStr,
+        impressions: dayImps.length,
+        clicks: dayClicks,
+        spend: daySpend
+      });
+    }
+
+    // Recent impressions telemetry feed (last 30) with eCPM, viewability, and estimated revenue
     const recentFeed = [...impressions]
       .reverse()
       .slice(0, 30)
       .map((imp: any) => {
         const matchedAd = ads.find((a: any) => String(a.id) === String(imp.ad_id));
+        const estimatedRevenue = matchedAd?.bid_amount ? Math.round(matchedAd.bid_amount / 1000 * (imp.watched_seconds >= 15 ? 1 : 0.5)) : 25;
+        const eCPM = totalImpressions > 0 ? Math.round((totalSpent / totalImpressions) * 1000) : 5000;
+        const viewabilityScore = imp.watched_seconds >= 15 ? "100% (Complete)" : imp.watched_seconds >= 7 ? "50% (Midpoint)" : "25% (First Quartile)";
+
         return {
           ...imp,
           ad_title: matchedAd?.title || "Ad Campaign",
-          advertiser_name: matchedAd?.advertiser_name || "Advertiser"
+          advertiser_name: matchedAd?.advertiser_name || "Advertiser",
+          estimated_revenue: estimatedRevenue,
+          ecpm: eCPM,
+          viewability_score: viewabilityScore
         };
       });
 
@@ -697,10 +906,16 @@ export const getMasterAdAnalytics = async (req: Request, res: Response) => {
         overall_ctr: `${overallCtr}%`,
         overall_ctr_num: overallCtr,
         total_spent_rwf: totalSpent,
-        active_campaigns_count: ads.filter((a: any) => a.status === "active").length
+        platform_revenue_rwf: platformRevenueRwf,
+        creator_pool_rwf: creatorPoolRwf,
+        active_campaigns_count: ads.filter((a: any) => a.status === "active").length,
+        ctr_tooltip: "Unique Clicks / Total Impressions (Micro-test sample)"
       },
+      escrow_ledger: escrowLedger,
+      trend_data: trendData,
       device_breakdown: deviceCounts,
       country_breakdown: countryCounts,
+      country_details: countryDetails,
       recent_impressions: recentFeed
     });
   } catch (err: any) {

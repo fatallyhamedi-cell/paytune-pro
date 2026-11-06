@@ -52,14 +52,14 @@ export default function FeedPage() {
         </div>
       ) : feedVideos.length === 0 ? (
         <div className="text-center py-16 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-zinc-800/60 p-8">
-          <Users className="w-12 h-12 mx-auto mb-3 opacity-40 text-amber-500" />
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-40 text-purple-600" />
           <p className="text-lg font-medium text-zinc-300">Your feed is currently empty</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto mb-4">
             Follow your favorite Rwandan artists to see their newest video drops and exclusives right here.
           </p>
           <Link
             to="/trending"
-            className="inline-flex items-center px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs transition-colors"
+            className="inline-flex items-center px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-700 text-black font-semibold text-xs transition-colors"
           >
             Explore Artists & Trending
           </Link>

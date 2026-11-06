@@ -151,7 +151,7 @@ export default function MembershipDashboard() {
   }
 
   const cards = [
-    { label: "Monthly Recurring Revenue", value: `${(analytics?.mrr || 0).toLocaleString()} RWF`, subtext: "Split share calculated", icon: DollarSign, color: "text-amber-500", bg: "bg-amber-500/5 border-amber-500/10" },
+    { label: "Monthly Recurring Revenue", value: `${(analytics?.mrr || 0).toLocaleString()} RWF`, subtext: "Split share calculated", icon: DollarSign, color: "text-purple-600", bg: "bg-purple-600/5 border-purple-600/10" },
     { label: "Active Members", value: analytics?.activeSubscribers || 0, subtext: "Exclusive Channel Members", icon: UserCheck, color: "text-emerald-500", bg: "bg-emerald-500/5 border-emerald-500/10" },
     { label: "Average Revenue / User", value: `${(analytics?.arpu || 0).toLocaleString()} RWF`, subtext: "ARPU across Tiers", icon: Activity, color: "text-indigo-500", bg: "bg-indigo-500/5 border-indigo-500/10" },
     { label: "Subscription Churn Rate", value: `${analytics?.churnRate || 0}%`, subtext: "Cancelled vs Total", icon: Percent, color: "text-rose-500", bg: "bg-rose-500/5 border-rose-500/10" }
@@ -162,7 +162,7 @@ export default function MembershipDashboard() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-4xl font-black uppercase tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-amber-500 to-orange-600 italic">
+          <h1 className="text-4xl font-black uppercase tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-orange-600 italic">
             Channel Memberships
           </h1>
           <p className="text-gray-500 mt-2 font-black text-xs uppercase tracking-widest">
@@ -171,7 +171,7 @@ export default function MembershipDashboard() {
         </div>
         <Button 
           onClick={() => handleOpenForm(null)}
-          className="bg-amber-500 hover:bg-amber-600 text-white rounded-2xl h-12 px-6 font-black text-xs uppercase tracking-[0.15em] shadow-lg shadow-amber-100 dark:shadow-none border-none flex items-center gap-2"
+          className="bg-purple-600 hover:bg-purple-700 text-white rounded-2xl h-12 px-6 font-black text-xs uppercase tracking-[0.15em] shadow-lg shadow-purple-100 dark:shadow-none border-none flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Create Level Tier
@@ -200,7 +200,7 @@ export default function MembershipDashboard() {
         {/* Tiers List */}
         <div className="lg:col-span-2 space-y-6 text-left">
           <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic flex items-center gap-2">
-            <Award className="w-6 h-6 text-amber-500" />
+            <Award className="w-6 h-6 text-purple-600" />
             Active Membership Tiers
           </h2>
 
@@ -217,7 +217,7 @@ export default function MembershipDashboard() {
                         <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">{t.name}</h3>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-black text-amber-500">RWF {Number(t.price_rwf || 0).toLocaleString()}</p>
+                        <p className="text-lg font-black text-purple-600">RWF {Number(t.price_rwf || 0).toLocaleString()}</p>
                         <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-widest leading-none">/ month</p>
                       </div>
                     </div>
@@ -227,7 +227,7 @@ export default function MembershipDashboard() {
                       <ul className="space-y-1.5 text-xs text-gray-600 dark:text-gray-400 font-medium">
                         {(t.benefits || []).map((b: string, idx: number) => (
                           <li key={idx} className="flex items-center gap-1.5">
-                            <span className="text-amber-500">✓</span> {b}
+                            <span className="text-purple-600">✓</span> {b}
                           </li>
                         ))}
                       </ul>
@@ -266,7 +266,7 @@ export default function MembershipDashboard() {
         {/* Revenue Projection Area */}
         <div className="text-left">
           <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter italic flex items-center gap-2 mb-6">
-            <TrendingUp className="w-6 h-6 text-amber-500" />
+            <TrendingUp className="w-6 h-6 text-purple-600" />
             MRR Forecast
           </h2>
 
@@ -324,7 +324,7 @@ export default function MembershipDashboard() {
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">@{prof.username || "vip_fan"}</p>
                       </td>
                       <td className="py-4 text-center">
-                        <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
+                        <span className="bg-purple-600/10 text-purple-700 dark:text-purple-400 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">
                           {tierName}
                         </span>
                       </td>
@@ -377,7 +377,7 @@ export default function MembershipDashboard() {
                   required
                   value={tierName}
                   onChange={(e) => setTierName(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-amber-500 text-xs font-bold text-gray-850 dark:text-white"
+                  className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-purple-500 text-xs font-bold text-gray-850 dark:text-white"
                   placeholder="e.g. VIP Backstage, Super Fan Gold"
                 />
               </div>
@@ -389,7 +389,7 @@ export default function MembershipDashboard() {
                   required
                   value={priceRwf}
                   onChange={(e) => setPriceRwf(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-amber-500 text-xs font-bold text-gray-850 dark:text-white"
+                  className="w-full h-11 px-4 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-purple-500 text-xs font-bold text-gray-850 dark:text-white"
                   placeholder="e.g. 5000"
                 />
               </div>
@@ -401,7 +401,7 @@ export default function MembershipDashboard() {
                   value={benefitsInput}
                   onChange={(e) => setBenefitsInput(e.target.value)}
                   rows={3}
-                  className="w-full p-4 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-amber-500 text-xs font-bold text-gray-850 dark:text-white resize-none"
+                  className="w-full p-4 rounded-xl bg-gray-50 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 focus:outline-none focus:border-purple-500 text-xs font-bold text-gray-850 dark:text-white resize-none"
                   placeholder="Benefit 1, Benefit 2, Gold Badge, Live backstage streams"
                 ></textarea>
               </div>
@@ -413,7 +413,7 @@ export default function MembershipDashboard() {
                     id="isActive"
                     checked={isActive}
                     onChange={(e) => setIsActive(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"
+                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-600 focus:ring-offset-0 cursor-pointer"
                   />
                   <label htmlFor="isActive" className="text-xs font-black uppercase tracking-widest text-gray-500 select-none cursor-pointer">
                     Enable Tier for New Subs
@@ -432,7 +432,7 @@ export default function MembershipDashboard() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white h-11 text-xs font-black uppercase rounded-xl border-none shadow-lg shadow-amber-100"
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white h-11 text-xs font-black uppercase rounded-xl border-none shadow-lg shadow-purple-100"
                 >
                   {submitting ? "Saving..." : "Save Tier"}
                 </Button>

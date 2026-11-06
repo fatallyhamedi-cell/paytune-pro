@@ -53,7 +53,7 @@ export default function ArtistEarnings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-gray-400">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
+        <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-3" />
         Loading earnings...
       </div>
     );
@@ -114,13 +114,13 @@ export default function ArtistEarnings() {
               min={5000}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-amber-500 focus:outline-none font-mono"
+              className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-purple-500 focus:outline-none font-mono"
             />
           </div>
           <button
             type="submit"
             disabled={submitting || !amount || Number(amount) < 5000}
-            className="bg-amber-500 hover:bg-amber-400 text-black px-6 py-3.5 rounded-xl font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md"
+            className="bg-purple-600 hover:bg-purple-400 text-black px-6 py-3.5 rounded-xl font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md"
           >
             {submitting ? 'Submitting...' : 'Request Payout'}
           </button>
@@ -150,7 +150,7 @@ export default function ArtistEarnings() {
                       ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                       : w.status === 'failed'
                       ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'bg-purple-600/20 text-purple-400 border border-purple-600/40'
                   }`}
                 >
                   {w.status?.toUpperCase() || 'PENDING'}
@@ -169,12 +169,12 @@ function Card({ label, value, highlight }: { label: string; value: any; highligh
     <div
       className={`rounded-2xl p-5 border ${
         highlight
-          ? 'bg-amber-500/15 border-amber-500/40 shadow-lg'
+          ? 'bg-purple-600/15 border-purple-600/40 shadow-lg'
           : 'bg-[#161616] border-gray-800'
       }`}
     >
       <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-black mt-2 ${highlight ? 'text-amber-400' : 'text-white'}`}>
+      <p className={`text-2xl font-black mt-2 ${highlight ? 'text-purple-400' : 'text-white'}`}>
         {value}
       </p>
     </div>

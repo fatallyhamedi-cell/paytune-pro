@@ -217,7 +217,7 @@ export const Settings: React.FC = () => {
                   className="w-full h-full object-cover group-hover:opacity-75 transition-opacity"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-black font-black text-2xl">
+                <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center text-black font-black text-2xl">
                   {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
                 </div>
               )}
@@ -361,16 +361,16 @@ export const Settings: React.FC = () => {
                   type="button"
                   onClick={() => userAvatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold text-xs rounded-xl border border-amber-500/20 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-purple-400 font-bold text-xs rounded-xl border border-purple-600/20 flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   {uploadingAvatar ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
                       <span>Uploading from device...</span>
                     </>
                   ) : (
                     <>
-                      <Upload className="w-4 h-4 text-amber-500" />
+                      <Upload className="w-4 h-4 text-purple-600" />
                       <span>Upload Avatar from Device</span>
                     </>
                   )}
@@ -540,7 +540,7 @@ export const Settings: React.FC = () => {
           <div>
             <h4 className="text-xs font-semibold text-white">Delete or Deactivate Account</h4>
             <p className="text-[11px] text-gray-400 mt-0.5">
-              Permanently delete your profile and library record. This action cannot be reversed.
+              Permanently delete your profile and account record. This action cannot be reversed.
             </p>
           </div>
           <button

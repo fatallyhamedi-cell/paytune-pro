@@ -1,64 +1,80 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = "light" | "dark";
+export type Theme = 'light' | 'dark';
 
 export interface ThemeContextType {
   theme: Theme;
   isDark: boolean;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
-  primaryAmber: string;
+  primaryPurple: string;
 }
 
-export const AMBER_COLOR = "#FFB300";
+export const PURPLE_COLOR = '#8B5CF6';
 
-export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+export const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  isDark: false,
+  setTheme: () => {},
+  toggleTheme: () => {},
+  primaryPurple: PURPLE_COLOR,
+});
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    const saved = localStorage.getItem("paytune_theme");
-    return (saved as Theme) || "light";
-  });
+export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+  // Force default to 'light'
+  const [theme, setThemeState] = useState<Theme>('light');
 
   useEffect(() => {
-    try {
-      localStorage.setItem("paytune_theme", theme);
-      const root = document.documentElement;
-      if (theme === "dark") {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-    } catch (e) {
-      // safe fallback
-    }
-  }, [theme]);
+    // Remove any existing dark class on load
+    document.documentElement.classList.remove('dark');
 
-  const setTheme = (t: Theme) => setThemeState(t);
-  const toggleTheme = () => setThemeState((prev) => (prev === "light" ? "dark" : "light"));
+    const savedTheme = (localStorage.getItem('theme') || localStorage.getItem('paytune_theme')) as Theme | null;
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      setThemeState('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      setThemeState('light');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+    localStorage.setItem('paytune_theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+    localStorage.setItem('paytune_theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   return (
     <ThemeContext.Provider
       value={{
         theme,
-        isDark: theme === "dark",
+        isDark: theme === 'dark',
         setTheme,
         toggleTheme,
-        primaryAmber: AMBER_COLOR,
+        primaryPurple: PURPLE_COLOR,
       }}
     >
       {children}
     </ThemeContext.Provider>
   );
-}
+};
 
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
-}
-
+export const useTheme = () => useContext(ThemeContext);
 export default ThemeContext;

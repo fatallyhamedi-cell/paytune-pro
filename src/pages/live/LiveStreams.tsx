@@ -48,7 +48,7 @@ export default function LiveStreams() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
         <p className="text-gray-500 dark:text-gray-400 mt-4 text-xs font-mono">TUNING IN TO PAYTUNE LIVE...</p>
       </div>
     );
@@ -61,10 +61,10 @@ export default function LiveStreams() {
       className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-8"
     >
       {/* Banner Billboard */}
-      <div className="relative h-64 md:h-80 rounded-3xl overflow-hidden bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 p-8 md:p-12 flex flex-col justify-end text-black shadow-lg shadow-amber-500/10">
+      <div className="relative h-64 md:h-80 rounded-3xl overflow-hidden bg-gradient-to-r from-purple-600 via-purple-700 to-purple-700 p-8 md:p-12 flex flex-col justify-end text-black shadow-lg shadow-purple-600/10">
         <div className="absolute inset-x-0 bottom-0 top-0 bg-black/20 pointer-events-none" />
         <div className="relative z-10 max-w-2xl space-y-3">
-          <span className="inline-flex items-center gap-1 px-3 py-1 text-[10px] font-black tracking-widest bg-black text-amber-500 rounded-full uppercase">
+          <span className="inline-flex items-center gap-1 px-3 py-1 text-[10px] font-black tracking-widest bg-black text-purple-600 rounded-full uppercase">
             <Radio className="w-3.5 h-3.5 animate-pulse" /> PAYTUNE LIVE BROADCASTS
           </span>
           <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight leading-none text-white">Live Concerts & Exclusive Showcases</h1>
@@ -79,7 +79,7 @@ export default function LiveStreams() {
             onClick={() => setActiveTab("live")}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${
               activeTab === "live"
-                ? "bg-amber-500 text-black font-black"
+                ? "bg-purple-600 text-black font-black"
                 : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -91,7 +91,7 @@ export default function LiveStreams() {
             onClick={() => setActiveTab("upcoming")}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${
               activeTab === "upcoming"
-                ? "bg-amber-500 text-black font-black"
+                ? "bg-purple-600 text-black font-black"
                 : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -102,7 +102,7 @@ export default function LiveStreams() {
 
         <button 
           onClick={fetchStreams}
-          className="text-[11px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 hover:underline"
+          className="text-[11px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-600 hover:underline"
         >
           Refresh Feeds
         </button>
@@ -123,7 +123,7 @@ export default function LiveStreams() {
                 <Link 
                   to={`/live/${stream.id}`} 
                   key={stream.id}
-                  className="group bg-white dark:bg-[#121212] border border-gray-100 dark:border-[#202020] rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-amber-500/5 transition-all duration-300 flex flex-col justify-between"
+                  className="group bg-white dark:bg-[#121212] border border-gray-100 dark:border-[#202020] rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-purple-600/5 transition-all duration-300 flex flex-col justify-between"
                 >
                   <div className="relative aspect-video bg-gray-900 flex items-center justify-center">
                     {stream.artists?.profile_image ? (
@@ -133,7 +133,7 @@ export default function LiveStreams() {
                         className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-amber-950/70 flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-purple-950/70 flex items-center justify-center">
                         <Play className="w-12 h-12 text-[#FFB300] opacity-60" />
                       </div>
                     )}
@@ -142,7 +142,7 @@ export default function LiveStreams() {
                       LIVE NOW
                     </span>
                     <span className="absolute bottom-4 right-4 inline-flex items-center gap-1 px-2.5 py-1 bg-black/60 backdrop-blur-md text-white font-black text-[10px] rounded-lg">
-                      <Users className="w-3.5 h-3.5 text-amber-500" />
+                      <Users className="w-3.5 h-3.5 text-purple-600" />
                       {stream.total_viewers || 10} VIEWERS
                     </span>
                   </div>
@@ -153,15 +153,15 @@ export default function LiveStreams() {
                         <img 
                           src={stream.artists.profile_image} 
                           alt={stream.artists?.full_name} 
-                          className="w-10 h-10 rounded-full border border-amber-500 object-cover"
+                          className="w-10 h-10 rounded-full border border-purple-600 object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-amber-500 text-black font-black text-sm flex items-center justify-center border border-amber-500">
+                        <div className="w-10 h-10 rounded-full bg-purple-600 text-black font-black text-sm flex items-center justify-center border border-purple-600">
                           {stream.artists?.full_name?.charAt(0)?.toUpperCase() || 'A'}
                         </div>
                       )}
                       <div>
-                        <h4 className="text-xs font-black uppercase text-amber-500 leading-snug">{stream.artists?.full_name}</h4>
+                        <h4 className="text-xs font-black uppercase text-purple-600 leading-snug">{stream.artists?.full_name}</h4>
                         <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">Artist Creator</span>
                       </div>
                     </div>
@@ -175,8 +175,8 @@ export default function LiveStreams() {
                       <span className="inline-flex items-center gap-1 text-xs font-black uppercase">
                         {stream.is_paid ? (
                           <>
-                            <Ticket className="w-4 h-4 text-amber-500" />
-                            <span className="text-amber-500">RWF {stream.price_rwf?.toLocaleString()}</span>
+                            <Ticket className="w-4 h-4 text-purple-600" />
+                            <span className="text-purple-600">RWF {stream.price_rwf?.toLocaleString()}</span>
                           </>
                         ) : (
                           <>
@@ -185,7 +185,7 @@ export default function LiveStreams() {
                         )}
                       </span>
 
-                      <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase text-amber-500 group-hover:translate-x-1 transition-transform">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase text-purple-600 group-hover:translate-x-1 transition-transform">
                         Watch Live <ChevronRight className="w-4 h-4" />
                       </span>
                     </div>
@@ -218,17 +218,17 @@ export default function LiveStreams() {
                         className="w-full h-full object-cover opacity-75"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-amber-950/70 flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-purple-950/70 flex items-center justify-center">
                         <Clock className="w-10 h-10 text-[#FFB300] opacity-60" />
                       </div>
                     )}
-                    <div className="absolute top-4 left-4 inline-flex items-center gap-1 px-3 py-1 bg-amber-500 text-black font-black uppercase text-[9px] rounded-full tracking-wider">
+                    <div className="absolute top-4 left-4 inline-flex items-center gap-1 px-3 py-1 bg-purple-600 text-black font-black uppercase text-[9px] rounded-full tracking-wider">
                       <Clock className="w-3.5 h-3.5" />
                       SCHEDULED SHOW
                     </div>
 
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-4 flex flex-col justify-end text-white">
-                      <span className="text-[10px] font-black uppercase text-amber-500">START DATE:</span>
+                      <span className="text-[10px] font-black uppercase text-purple-600">START DATE:</span>
                       <span className="text-xs font-black uppercase">{new Date(stream.scheduled_start).toLocaleString()}</span>
                     </div>
                   </div>
@@ -242,12 +242,12 @@ export default function LiveStreams() {
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-amber-500 text-black font-black text-sm flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-purple-600 text-black font-black text-sm flex items-center justify-center">
                           {stream.artists?.full_name?.charAt(0)?.toUpperCase() || 'A'}
                         </div>
                       )}
                       <div>
-                        <h4 className="text-xs font-black uppercase text-amber-500 leading-snug">{stream.artists?.full_name}</h4>
+                        <h4 className="text-xs font-black uppercase text-purple-600 leading-snug">{stream.artists?.full_name}</h4>
                         <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-bold">Artist Creator</span>
                       </div>
                     </div>
@@ -261,8 +261,8 @@ export default function LiveStreams() {
                       <span className="inline-flex items-center gap-1 text-xs font-black uppercase">
                         {stream.is_paid ? (
                           <>
-                            <Ticket className="w-4 h-4 text-amber-500" />
-                            <span className="text-amber-500">RWF {stream.price_rwf?.toLocaleString()}</span>
+                            <Ticket className="w-4 h-4 text-purple-600" />
+                            <span className="text-purple-600">RWF {stream.price_rwf?.toLocaleString()}</span>
                           </>
                         ) : (
                           <>
@@ -273,7 +273,7 @@ export default function LiveStreams() {
 
                       <Link 
                         to={`/live/${stream.id}`}
-                        className="px-4 py-1.5 bg-gray-100 dark:bg-[#1E1E22] text-gray-800 dark:text-gray-200 hover:bg-amber-500 hover:text-black font-black uppercase text-[10px] rounded-full transition-colors"
+                        className="px-4 py-1.5 bg-gray-100 dark:bg-[#1E1E22] text-gray-800 dark:text-gray-200 hover:bg-purple-600 hover:text-black font-black uppercase text-[10px] rounded-full transition-colors"
                       >
                         Event Details
                       </Link>

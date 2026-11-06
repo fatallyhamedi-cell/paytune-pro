@@ -90,7 +90,7 @@ export const History: React.FC = () => {
             onClick={handleTogglePause}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
               isPaused
-                ? 'bg-amber-500/10 border-amber-500/30 text-[#FFB300]'
+                ? 'bg-purple-600/10 border-purple-600/30 text-[#FFB300]'
                 : 'bg-[#181818] border-white/5 text-gray-300 hover:text-white hover:bg-[#222]'
             }`}
           >
@@ -136,7 +136,7 @@ export const History: React.FC = () => {
 
       {/* Paused Notification Banner */}
       {isPaused && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-[#FFB300] flex items-center gap-2">
+        <div className="p-3 bg-purple-600/10 border border-purple-600/20 rounded-xl text-xs text-[#FFB300] flex items-center gap-2">
           <PauseCircle className="w-4 h-4 shrink-0" />
           <span>Watch history recording is currently paused. Newly watched videos won't appear here.</span>
         </div>

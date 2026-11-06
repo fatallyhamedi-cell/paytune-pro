@@ -116,17 +116,17 @@ export default function DynamicCategoryBar({
   return (
     <div
       id="dynamic-category-bar-wrapper"
-      className="sticky top-14 z-30 bg-white/95 dark:bg-[#0F0F0F]/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 transition-colors"
+      className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-colors"
     >
-      <div className="relative max-w-[1920px] mx-auto px-2 sm:px-4 py-2 flex items-center">
+      <div className="relative max-w-[1920px] mx-auto px-2 sm:px-4 py-2.5 flex items-center">
         {/* Left Arrow Button */}
         {canScrollLeft && (
-          <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pl-2 pr-4 bg-gradient-to-r from-white dark:from-[#0F0F0F] via-white/80 dark:via-[#0F0F0F]/80 to-transparent">
+          <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pl-2 pr-4 bg-gradient-to-r from-white via-white/80 to-transparent">
             <button
               id="category-scroll-left"
               type="button"
               onClick={() => scroll("left")}
-              className="p-1.5 rounded-full bg-white dark:bg-[#202020] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 shadow-md hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-all cursor-pointer"
+              className="p-1.5 rounded-full bg-white border border-gray-200 text-gray-700 shadow-md hover:bg-gray-100 transition-all cursor-pointer"
               aria-label="Scroll categories left"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -142,7 +142,7 @@ export default function DynamicCategoryBar({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth w-full select-none py-0.5 px-1"
+          className="flex items-center gap-3 overflow-x-auto scrollbar-hide scroll-smooth w-full select-none py-0.5 px-2"
           style={{ cursor: isDragging ? "grabbing" : "default" }}
         >
           {/* Always have 'All' category first */}
@@ -150,10 +150,10 @@ export default function DynamicCategoryBar({
             id="category-chip-all"
             type="button"
             onClick={() => onSelectCategory("All")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0 cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer ${
               activeCategory === "All"
-                ? "bg-amber-500 text-black font-extrabold shadow-sm"
-                : "bg-gray-100 dark:bg-[#222222] hover:bg-gray-200 dark:hover:bg-[#303030] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-800"
+                ? "bg-[#8B5CF6] text-white shadow-xs font-semibold"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             All
@@ -170,10 +170,10 @@ export default function DynamicCategoryBar({
                   key={cat.id || cat.slug}
                   type="button"
                   onClick={() => onSelectCategory(cat.name)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-[13px] font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer flex items-center gap-1.5 ${
                     isActive
-                      ? "bg-amber-500 text-black font-extrabold shadow-sm"
-                      : "bg-gray-100 dark:bg-[#222222] hover:bg-gray-200 dark:hover:bg-[#303030] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-800"
+                      ? "bg-[#8B5CF6] text-white shadow-xs font-semibold"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
                   {cat.icon && <span className="text-sm">{cat.icon}</span>}
@@ -188,29 +188,32 @@ export default function DynamicCategoryBar({
               id="category-customize-interests-btn"
               type="button"
               onClick={onOpenPreferences}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0 cursor-pointer flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+              className="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex-shrink-0 cursor-pointer flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-[#8B5CF6] border border-purple-200"
               title="Personalize your discovery feed"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <Sparkles className="w-3.5 h-3.5 text-[#8B5CF6]" />
               <span>For You</span>
             </button>
           )}
         </div>
 
-        {/* Right Arrow Button */}
+        {/* Right Arrow Button & Gradient */}
         {canScrollRight && (
-          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pr-2 pl-4 bg-gradient-to-l from-white dark:from-[#0F0F0F] via-white/80 dark:via-[#0F0F0F]/80 to-transparent">
+          <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pr-2 pl-4 bg-gradient-to-l from-white via-white/80 to-transparent">
             <button
               id="category-scroll-right"
               type="button"
               onClick={() => scroll("right")}
-              className="p-1.5 rounded-full bg-white dark:bg-[#202020] border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 shadow-md hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-all cursor-pointer"
+              className="p-1.5 rounded-full bg-white border border-gray-200 text-gray-700 shadow-md hover:bg-gray-100 transition-all cursor-pointer"
               aria-label="Scroll categories right"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         )}
+
+        {/* Right Fade Gradient */}
+        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none" />
       </div>
     </div>
   );

@@ -210,14 +210,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         variant="outline"
         className={`h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
           video.userLiked
-            ? 'bg-amber-500/15 border-amber-500 text-amber-500 dark:text-amber-400'
+            ? 'bg-purple-600/15 border-purple-600 text-purple-600 dark:text-purple-400'
             : 'bg-gray-100 dark:bg-[#202020] border-gray-300 dark:border-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2c2c2c]'
         }`}
       >
         {likeLoading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
-          <ThumbsUp className={`w-4 h-4 ${video.userLiked ? 'fill-amber-500 text-amber-500' : ''}`} />
+          <ThumbsUp className={`w-4 h-4 ${video.userLiked ? 'fill-purple-600 text-purple-600' : ''}`} />
         )}
         <span>{video.likes.toLocaleString()}</span>
       </Button>
@@ -241,10 +241,10 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         className={`h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
           canInteract
             ? 'bg-gray-100 dark:bg-[#202020] border-gray-300 dark:border-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2c2c2c]'
-            : 'bg-gray-100 dark:bg-[#1a1a1a] border-gray-300 dark:border-gray-800 text-gray-400 hover:text-amber-400'
+            : 'bg-gray-100 dark:bg-[#1a1a1a] border-gray-300 dark:border-gray-800 text-gray-400 hover:text-purple-400'
         }`}
       >
-        {canInteract ? <Download className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-amber-500" />}
+        {canInteract ? <Download className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-purple-600" />}
         <span>Download</span>
       </Button>
 
@@ -254,7 +254,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           id="video-gift-btn"
           onClick={() => setShowGiftModal(true)}
           variant="outline"
-          className="h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-gray-100 dark:bg-[#202020] border-gray-300 dark:border-gray-800 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-all cursor-pointer"
+          className="h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-gray-100 dark:bg-[#202020] border-gray-300 dark:border-gray-800 text-purple-700 dark:text-purple-400 hover:bg-purple-600/10 transition-all cursor-pointer"
         >
           <Gift className="w-4 h-4" />
           <span>Gift Video</span>
@@ -266,9 +266,9 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         id="video-super-thanks-btn"
         onClick={() => setShowSuperThanksModal(true)}
         variant="outline"
-        className="h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 to-rose-500/20 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:from-amber-500/30 hover:to-rose-500/30 transition-all cursor-pointer"
+        className="h-9 px-4 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-gradient-to-r from-purple-600/20 to-rose-500/20 border-purple-600/40 text-purple-700 dark:text-purple-400 hover:from-purple-600/30 hover:to-rose-500/30 transition-all cursor-pointer"
       >
-        <Sparkles className="w-4 h-4 text-amber-500" />
+        <Sparkles className="w-4 h-4 text-purple-600" />
         <span>Super Thanks</span>
       </Button>
 
@@ -280,7 +280,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         className="h-9 px-3.5 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-gray-100 dark:bg-[#202020] border-gray-300 dark:border-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2c2c2c] transition-all cursor-pointer"
         title="Rate this video 1-5 stars"
       >
-        <Star className={`w-4 h-4 ${userRating > 0 ? "fill-amber-400 text-amber-400" : "text-gray-400"}`} />
+        <Star className={`w-4 h-4 ${userRating > 0 ? "fill-purple-400 text-purple-400" : "text-gray-400"}`} />
         <span>{userRating > 0 ? `${userRating}★` : "Rate"}</span>
       </Button>
 
@@ -293,7 +293,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         title="Save to Watch Later"
       >
         {savedToWatchLater ? (
-          <BookmarkCheck className="w-4 h-4 text-amber-500" />
+          <BookmarkCheck className="w-4 h-4 text-purple-600" />
         ) : (
           <Bookmark className="w-4 h-4" />
         )}
@@ -312,7 +312,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           >
             <div className="flex items-center justify-between border-b border-gray-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Share2 className="w-4 h-4 text-amber-400" /> Share Video
+                <Share2 className="w-4 h-4 text-purple-400" /> Share Video
               </h3>
               <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">
                 ✕
@@ -356,9 +356,9 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                   navigator.clipboard.writeText(`<iframe width="560" height="315" src="${shareUrl}" title="${video.title}" frameborder="0" allowfullscreen></iframe>`);
                   alert("Embed code copied to clipboard!");
                 }}
-                className="p-3 rounded-xl bg-[#282828] hover:bg-amber-500/20 hover:text-amber-400 transition-colors flex flex-col items-center gap-1 cursor-pointer"
+                className="p-3 rounded-xl bg-[#282828] hover:bg-purple-600/20 hover:text-purple-400 transition-colors flex flex-col items-center gap-1 cursor-pointer"
               >
-                <Code className="w-5 h-5 text-amber-400" />
+                <Code className="w-5 h-5 text-purple-400" />
                 <span>Embed</span>
               </button>
             </div>
@@ -375,7 +375,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                 />
                 <Button
                   onClick={handleCopyLink}
-                  className="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-all cursor-pointer flex-shrink-0"
+                  className="h-8 px-3 rounded-lg bg-purple-600 hover:bg-purple-400 text-black text-xs font-bold transition-all cursor-pointer flex-shrink-0"
                 >
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -399,7 +399,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           >
             <div className="flex items-center justify-between border-b border-gray-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Gift className="w-5 h-5 text-amber-400" /> Gift "{video.title}"
+                <Gift className="w-5 h-5 text-purple-400" /> Gift "{video.title}"
               </h3>
               <button onClick={() => setShowGiftModal(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">
                 ✕
@@ -413,11 +413,11 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                 </div>
                 <h4 className="text-lg font-bold text-white">Gift Sent Successfully!</h4>
                 <p className="text-xs text-gray-400">
-                  We have dispatched the access link to <span className="text-amber-400 font-bold">{giftRecipient}</span>.
+                  We have dispatched the access link to <span className="text-purple-400 font-bold">{giftRecipient}</span>.
                 </p>
                 <Button
                   onClick={() => setShowGiftModal(false)}
-                  className="bg-amber-500 text-black font-bold text-xs rounded-xl mt-2 cursor-pointer"
+                  className="bg-purple-600 text-black font-bold text-xs rounded-xl mt-2 cursor-pointer"
                 >
                   Done
                 </Button>
@@ -436,7 +436,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     value={giftRecipient}
                     onChange={e => setGiftRecipient(e.target.value)}
                     placeholder="friend@example.com"
-                    className="w-full h-10 px-3 mt-1 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                    className="w-full h-10 px-3 mt-1 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs font-mono focus:outline-none focus:border-purple-500"
                   />
                 </div>
 
@@ -447,14 +447,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     value={giftMessage}
                     onChange={e => setGiftMessage(e.target.value)}
                     placeholder="Enjoy this Rwandan masterpiece!"
-                    className="w-full p-2.5 mt-1 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs focus:outline-none focus:border-amber-500 resize-none"
+                    className="w-full p-2.5 mt-1 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs focus:outline-none focus:border-purple-500 resize-none"
                   />
                 </div>
 
                 <Button
                   type="submit"
                   disabled={giftLoading}
-                  className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full h-11 bg-purple-600 hover:bg-purple-400 text-black font-bold text-xs rounded-xl shadow transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   {giftLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />}
                   Buy Gift for {video.price_rwf.toLocaleString()} RWF
@@ -477,7 +477,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           >
             <div className="flex items-center justify-between border-b border-gray-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400" /> Rate Video
+                <Star className="w-4 h-4 text-purple-400 fill-purple-400" /> Rate Video
               </h3>
               <button onClick={() => setShowRatingModal(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">
                 ✕
@@ -505,7 +505,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     <Star 
                       className={`w-8 h-8 transition-colors ${
                         isLit 
-                          ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" 
+                          ? "fill-purple-400 text-purple-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" 
                           : "text-gray-600 hover:text-gray-400"
                       }`} 
                     />
@@ -520,7 +520,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
               </p>
             ) : (
               <p className="text-[11px] text-gray-400">
-                Current Average: <span className="text-amber-400 font-bold">{video.rating_avg ? video.rating_avg.toFixed(1) : "5.0"}★</span> ({video.rating_count || 12} ratings)
+                Current Average: <span className="text-purple-400 font-bold">{video.rating_avg ? video.rating_avg.toFixed(1) : "5.0"}★</span> ({video.rating_count || 12} ratings)
               </p>
             )}
           </div>
@@ -540,7 +540,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           >
             <div className="flex items-center justify-between border-b border-gray-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-400" /> Send Super Thanks
+                <Sparkles className="w-5 h-5 text-purple-400" /> Send Super Thanks
               </h3>
               <button onClick={() => setShowSuperThanksModal(false)} className="text-gray-400 hover:text-white text-xs cursor-pointer">
                 ✕
@@ -549,14 +549,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
             {thanksSuccess ? (
               <div className="py-6 text-center space-y-3">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20 animate-pulse">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-purple-600 to-rose-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-600/20 animate-pulse">
                   <Heart className="w-8 h-8 fill-white" />
                 </div>
                 <h4 className="text-lg font-bold text-white">Super Thanks Sent!</h4>
                 <p className="text-xs text-gray-300">
-                  Your contribution of <span className="text-amber-400 font-bold">{thanksAmount.toLocaleString()} RWF</span> was sent to <span className="font-bold text-white">{video.artist_name}</span>. Your highlighted comment will shine on this track!
+                  Your contribution of <span className="text-purple-400 font-bold">{thanksAmount.toLocaleString()} RWF</span> was sent to <span className="font-bold text-white">{video.artist_name}</span>. Your highlighted comment will shine on this track!
                 </p>
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                <div className="p-3 rounded-xl bg-purple-600/10 border border-purple-600/30 text-xs text-purple-300">
                   ⚡ 5% VAT deducted • 70% paid to artist wallet • 30% platform fee
                 </div>
                 <Button
@@ -564,7 +564,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     setShowSuperThanksModal(false);
                     setThanksSuccess(false);
                   }}
-                  className="bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-xl mt-2 cursor-pointer"
+                  className="bg-purple-600 hover:bg-purple-400 text-black font-bold text-xs rounded-xl mt-2 cursor-pointer"
                 >
                   Close
                 </Button>
@@ -586,7 +586,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                         onClick={() => setThanksAmount(amt)}
                         className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
                           thanksAmount === amt
-                            ? "bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/20"
+                            ? "bg-purple-600 text-black border-purple-400 shadow-md shadow-purple-600/20"
                             : "bg-[#252525] hover:bg-[#303030] text-gray-200 border-gray-700"
                         }`}
                       >
@@ -605,7 +605,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     value={thanksMessage}
                     onChange={e => setThanksMessage(e.target.value)}
                     placeholder="Say something inspiring to the artist..."
-                    className="w-full p-2.5 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs focus:outline-none focus:border-amber-500 resize-none"
+                    className="w-full p-2.5 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs focus:outline-none focus:border-purple-500 resize-none"
                   />
                 </div>
 
@@ -616,7 +616,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     <select
                       value={thanksProvider}
                       onChange={e => setThanksProvider(e.target.value as 'MTN' | 'Airtel')}
-                      className="w-full h-10 px-3 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs focus:outline-none focus:border-amber-500"
+                      className="w-full h-10 px-3 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs focus:outline-none focus:border-purple-500"
                     >
                       <option value="MTN">MTN MoMo</option>
                       <option value="Airtel">Airtel Money</option>
@@ -629,7 +629,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                       value={thanksPhone}
                       onChange={e => setThanksPhone(e.target.value)}
                       placeholder="0788123456"
-                      className="w-full h-10 px-3 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                      className="w-full h-10 px-3 rounded-xl bg-[#121212] border border-gray-700 text-white text-xs font-mono focus:outline-none focus:border-purple-500"
                     />
                   </div>
                 </div>
@@ -642,7 +642,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span>70% Artist Share:</span>
-                    <span className="text-amber-400 font-bold font-mono">{(thanksAmount * 0.95 * 0.70).toLocaleString()} RWF</span>
+                    <span className="text-purple-400 font-bold font-mono">{(thanksAmount * 0.95 * 0.70).toLocaleString()} RWF</span>
                   </div>
                   <div className="flex justify-between">
                     <span>30% Platform Share:</span>
@@ -653,7 +653,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                 <Button
                   type="submit"
                   disabled={thanksLoading}
-                  className="w-full h-11 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-black font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full h-11 bg-gradient-to-r from-purple-600 to-rose-500 hover:from-purple-400 hover:to-rose-400 text-black font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   {thanksLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Heart className="w-4 h-4 fill-black" />}
                   Send {thanksAmount.toLocaleString()} RWF Super Thanks

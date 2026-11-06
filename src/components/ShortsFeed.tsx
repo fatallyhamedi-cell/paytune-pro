@@ -235,7 +235,7 @@ export const ShortsFeed: React.FC = () => {
           onClick={() => setSortTab('trending')}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all ${
             sortTab === 'trending'
-              ? 'bg-amber-400 text-black shadow-sm'
+              ? 'bg-purple-400 text-black shadow-sm'
               : 'text-white/70 hover:text-white'
           }`}
         >
@@ -247,7 +247,7 @@ export const ShortsFeed: React.FC = () => {
           onClick={() => setSortTab('new')}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all ${
             sortTab === 'new'
-              ? 'bg-amber-400 text-black shadow-sm'
+              ? 'bg-purple-400 text-black shadow-sm'
               : 'text-white/70 hover:text-white'
           }`}
         >
@@ -259,7 +259,7 @@ export const ShortsFeed: React.FC = () => {
           onClick={() => setSortTab('following')}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all ${
             sortTab === 'following'
-              ? 'bg-amber-400 text-black shadow-sm'
+              ? 'bg-purple-400 text-black shadow-sm'
               : 'text-white/70 hover:text-white'
           }`}
         >
@@ -291,7 +291,7 @@ export const ShortsFeed: React.FC = () => {
       {/* Loading state */}
       {isLoading && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+          <Loader2 className="w-10 h-10 text-purple-400 animate-spin" />
           <p className="text-sm text-neutral-400">Loading PAYTUNE Shorts...</p>
         </div>
       )}
@@ -333,7 +333,7 @@ export const ShortsFeed: React.FC = () => {
           {/* Infinite Scroll Fetching Indicator */}
           {isFetchingNextPage && (
             <div className="w-full h-24 flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+              <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
             </div>
           )}
         </div>
@@ -342,7 +342,7 @@ export const ShortsFeed: React.FC = () => {
       {/* Empty state */}
       {!isLoading && shorts.length === 0 && (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4">
-          <Compass className="w-12 h-12 text-amber-400/80" />
+          <Compass className="w-12 h-12 text-purple-400/80" />
           <h3 className="text-lg font-bold">No Shorts Found</h3>
           <p className="text-sm text-neutral-400 max-w-sm">
             {sortTab === 'following'
@@ -351,7 +351,7 @@ export const ShortsFeed: React.FC = () => {
           </p>
           <button
             onClick={() => setSortTab('trending')}
-            className="px-5 py-2.5 rounded-full bg-amber-400 text-black font-semibold text-sm hover:bg-amber-500 transition-colors"
+            className="px-5 py-2.5 rounded-full bg-purple-400 text-black font-semibold text-sm hover:bg-purple-600 transition-colors"
           >
             Explore Trending
           </button>
@@ -391,7 +391,7 @@ export const ShortsFeed: React.FC = () => {
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {loadingComments ? (
                   <div className="flex items-center justify-center h-40">
-                    <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+                    <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
                   </div>
                 ) : comments.length === 0 ? (
                   <div className="text-center py-12 text-neutral-400 text-sm">
@@ -407,7 +407,7 @@ export const ShortsFeed: React.FC = () => {
                           className="w-8 h-8 rounded-full object-cover shrink-0 border border-white/10"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0 border border-amber-500/30">
+                        <div className="w-8 h-8 rounded-full bg-purple-600/20 text-purple-400 font-bold text-xs flex items-center justify-center shrink-0 border border-purple-600/30">
                           {(c.user_name || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -430,12 +430,12 @@ export const ShortsFeed: React.FC = () => {
                   value={newCommentText}
                   onChange={(e) => setNewCommentText(e.target.value)}
                   placeholder="Add a comment on this short..."
-                  className="flex-1 bg-neutral-800 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+                  className="flex-1 bg-neutral-800 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-400"
                 />
                 <button
                   type="submit"
                   disabled={!newCommentText.trim() || submittingComment}
-                  className="p-2 rounded-full bg-amber-400 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-black transition-colors"
+                  className="p-2 rounded-full bg-purple-400 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-black transition-colors"
                 >
                   {submittingComment ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -482,7 +482,7 @@ export const ShortsFeed: React.FC = () => {
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-500 text-black text-xs font-semibold flex items-center gap-1 transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-purple-400 hover:bg-purple-600 text-black text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   {copiedLink ? 'Copied' : 'Copy'}
@@ -529,7 +529,7 @@ export const ShortsFeed: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Coins className="w-5 h-5 text-amber-400" />
+                  <Coins className="w-5 h-5 text-purple-400" />
                   <h3 className="font-bold text-base text-white">Support {activeShort.artist_name}</h3>
                 </div>
                 <button
@@ -563,7 +563,7 @@ export const ShortsFeed: React.FC = () => {
                         onClick={() => setTipAmount(amt)}
                         className={`py-2 rounded-xl text-xs font-bold transition-all ${
                           tipAmount === amt
-                            ? 'bg-amber-400 text-black shadow-md'
+                            ? 'bg-purple-400 text-black shadow-md'
                             : 'bg-neutral-800 text-white/80 hover:bg-neutral-700'
                         }`}
                       >
@@ -616,7 +616,7 @@ export const ShortsFeed: React.FC = () => {
                   <button
                     onClick={handleSendTip}
                     disabled={!tipPhone.trim() || isTipping}
-                    className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-500/20"
+                    className="w-full py-3 rounded-xl bg-purple-400 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-lg shadow-purple-600/20"
                   >
                     {isTipping ? (
                       <>

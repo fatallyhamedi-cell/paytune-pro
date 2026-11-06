@@ -451,6 +451,7 @@ app.use("/api/artist/live", artistLiveRouter);
 const resolvedExchangeRoutes = (exchangeRoutes as any)?.default || exchangeRoutes;
 app.use("/api/exchange-rates", resolvedExchangeRoutes);
 app.use("/api/ads", adRouter);
+app.use("/api/admin/ads", adRouter);
 app.use("/api/shorts", shortsRouter);
 app.use("/api/artists", artistRouter);
 app.use("/api/purchase", purchaseRouter);

@@ -121,14 +121,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   return (
     <div id="comments-section" className="mt-8 space-y-6 pt-6 border-t border-gray-200 dark:border-neutral-800">
       <div className="flex items-center gap-2">
-        <MessageSquare className="w-5 h-5 text-amber-500" />
+        <MessageSquare className="w-5 h-5 text-purple-600" />
         <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
           Comments ({commentList.length})
         </h3>
       </div>
 
       <form onSubmit={handleSubmit} className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0 text-amber-500 overflow-hidden">
+        <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0 text-purple-600 overflow-hidden">
           <UserIcon className="w-5 h-5" />
         </div>
 
@@ -139,7 +139,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Add a comment..."
-            className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+            className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all"
           />
 
           <div className="flex justify-end gap-2">
@@ -156,7 +156,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
               id="comment-submit-btn"
               type="submit"
               disabled={isSubmitting || !inputText.trim()}
-              className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-400 disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             >
               {isSubmitting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -171,7 +171,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
       {isLoading ? (
         <div className="py-8 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+          <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
         </div>
       ) : commentList.length === 0 ? (
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center py-6">
@@ -186,7 +186,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
             return (
               <div key={c.id} className="flex items-start gap-3 text-left">
-                <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0 text-amber-500 overflow-hidden font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0 text-purple-600 overflow-hidden font-bold text-xs">
                   {avatar ? (
                     <img src={avatar} alt={author} className="w-full h-full object-cover" />
                   ) : (

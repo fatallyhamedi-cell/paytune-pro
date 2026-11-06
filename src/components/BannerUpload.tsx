@@ -56,7 +56,7 @@ export default function BannerUpload({
     <div className="w-full">
       <div
         onClick={pick}
-        className="relative w-full h-44 bg-[#1e1e1e] border-2 border-dashed border-gray-700 hover:border-amber-500 rounded-2xl overflow-hidden cursor-pointer group transition-all"
+        className="relative w-full h-44 bg-[#1e1e1e] border-2 border-dashed border-gray-700 hover:border-purple-600 rounded-2xl overflow-hidden cursor-pointer group transition-all"
         title="Click to change channel banner"
       >
         {preview ? (
@@ -73,8 +73,8 @@ export default function BannerUpload({
         </div>
         {loading && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs text-amber-400 font-semibold">Uploading banner...</span>
+            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-purple-400 font-semibold">Uploading banner...</span>
           </div>
         )}
       </div>

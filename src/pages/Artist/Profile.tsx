@@ -60,7 +60,7 @@ export default function ArtistProfile() {
   if (!artist) {
     return (
       <div className="flex items-center justify-center min-h-[40vh] text-gray-400">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mr-3" />
+        <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mr-3" />
         Loading artist profile...
       </div>
     );
@@ -115,7 +115,7 @@ export default function ArtistProfile() {
           <p className="text-xs text-gray-400 mt-1">
             Your avatar and banner are uploaded directly from your device and are publicly visible across your video watch pages and channel.
           </p>
-          <p className="text-[11px] text-amber-500/90 mt-2 font-mono">
+          <p className="text-[11px] text-purple-600/90 mt-2 font-mono">
             {artist.email} • {artist.phone || 'No phone'}
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function ArtistProfile() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="e.g. Bruce Melodie"
-              className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+              className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               required
             />
           </div>
@@ -143,7 +143,7 @@ export default function ArtistProfile() {
               onChange={(e) => setBio(e.target.value)}
               placeholder="Write your story, musical influences, and upcoming projects for your fans..."
               rows={4}
-              className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-amber-500 focus:outline-none text-sm"
+              className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-purple-500 focus:outline-none text-sm"
             />
           </div>
 
@@ -153,7 +153,7 @@ export default function ArtistProfile() {
               <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
-                className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-amber-500 focus:outline-none"
+                className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
               >
                 <option value="MTN">MTN MoMo</option>
                 <option value="Airtel">Airtel Money</option>
@@ -165,7 +165,7 @@ export default function ArtistProfile() {
                 value={momo}
                 onChange={(e) => setMomo(e.target.value)}
                 placeholder="0788123456"
-                className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-amber-500 focus:outline-none font-mono"
+                className="w-full p-3.5 rounded-xl bg-[#222] text-white border border-gray-700 focus:border-purple-500 focus:outline-none font-mono"
                 required
               />
             </div>
@@ -174,7 +174,7 @@ export default function ArtistProfile() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold py-3.5 rounded-xl transition-all cursor-pointer shadow-md disabled:opacity-50 text-sm"
+            className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3.5 rounded-xl transition-all cursor-pointer shadow-md disabled:opacity-50 text-sm"
           >
             {saving ? 'Saving...' : 'Save Profile Changes'}
           </button>

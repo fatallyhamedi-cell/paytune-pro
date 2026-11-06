@@ -31,7 +31,7 @@ export const AdminLogs: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-amber-400" />
+              <Shield className="w-5 h-5 text-purple-400" />
               <span>Administrative Audit Trail</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-normal">
                 {total} logged events
@@ -47,7 +47,7 @@ export const AdminLogs: React.FC = () => {
             onClick={exportCSV}
             className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium text-xs border border-neutral-700 transition-colors cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
+            <Download className="w-3.5 h-3.5 text-purple-400" />
             <span>Export Audit CSV</span>
           </button>
         </div>
@@ -82,7 +82,7 @@ export const AdminLogs: React.FC = () => {
                 value={adminFilter}
                 onChange={e => setAdminFilter(e.target.value)}
                 placeholder="Filter by admin email..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500"
               />
             </div>
           </div>
@@ -124,7 +124,7 @@ export const AdminLogs: React.FC = () => {
                     </td>
                     <td className="p-3.5 font-semibold text-white">{log.admin}</td>
                     <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 font-mono text-[10px] font-bold">
+                      <span className="px-2 py-0.5 rounded bg-purple-600/15 text-purple-400 font-mono text-[10px] font-bold">
                         {log.action}
                       </span>
                     </td>

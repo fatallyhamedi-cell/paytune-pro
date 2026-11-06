@@ -292,7 +292,7 @@ export default function ArtistChannel() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-amber-950/60 flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-purple-950/60 flex items-center justify-center">
                         <Play className="w-12 h-12 text-[#FFB300] opacity-70" />
                       </div>
                     )}
@@ -387,7 +387,7 @@ export default function ArtistChannel() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-amber-950/60 flex items-center justify-center">
+                    <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-purple-950/60 flex items-center justify-center">
                       <Play className="w-8 h-8 text-[#FFB300] opacity-60" />
                     </div>
                   )}
@@ -698,7 +698,7 @@ export default function ArtistChannel() {
                         onClick={() => setMomoProvider("MTN")}
                         className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
                           momoProvider === "MTN"
-                            ? "bg-amber-400 text-black border-amber-400 font-extrabold"
+                            ? "bg-purple-400 text-black border-purple-400 font-extrabold"
                             : "bg-neutral-900 text-neutral-400 border-neutral-800"
                         }`}
                       >

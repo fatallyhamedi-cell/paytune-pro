@@ -73,7 +73,7 @@ export const MasterDiagnostics: React.FC = () => {
       <div className="p-4 rounded-2xl bg-[#161616] border border-neutral-800 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Activity className="w-5 h-5 text-amber-400" />
+            <Activity className="w-5 h-5 text-purple-400" />
             <span>System Telemetry & Health Diagnostics</span>
           </h2>
           <p className="text-xs text-neutral-400">
@@ -85,7 +85,7 @@ export const MasterDiagnostics: React.FC = () => {
           id="btn-run-diagnostics"
           onClick={runFullDiagnostics}
           disabled={runningTest}
-          className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+          className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${runningTest ? "animate-spin" : ""}`} />
           <span>{runningTest ? "Testing Nodes..." : "Execute Health Check"}</span>
@@ -93,7 +93,7 @@ export const MasterDiagnostics: React.FC = () => {
       </div>
 
       {message && (
-        <div className="p-4 rounded-xl bg-neutral-900 border border-amber-500/30 text-amber-400 text-xs flex items-center space-x-2">
+        <div className="p-4 rounded-xl bg-neutral-900 border border-purple-600/30 text-purple-400 text-xs flex items-center space-x-2">
           <CheckCircle className="w-4 h-4 shrink-0" />
           <span>{message}</span>
         </div>
@@ -117,9 +117,9 @@ export const MasterDiagnostics: React.FC = () => {
         <div className="p-5 rounded-2xl bg-[#161616] border border-neutral-800 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-neutral-400 font-medium">Roundtrip Latency</span>
-            <Activity className="w-4 h-4 text-amber-400" />
+            <Activity className="w-4 h-4 text-purple-400" />
           </div>
-          <p className="text-lg font-black text-amber-400">
+          <p className="text-lg font-black text-purple-400">
             {testResults?.responseTime ? `${testResults.responseTime} ms` : "< 15 ms"}
           </p>
           <div className="text-[11px] text-neutral-500">
@@ -149,7 +149,7 @@ export const MasterDiagnostics: React.FC = () => {
             onClick={simulateTestPurchase}
             className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 text-xs font-semibold transition-colors cursor-pointer"
           >
-            <Play className="w-3.5 h-3.5 text-amber-400" />
+            <Play className="w-3.5 h-3.5 text-purple-400" />
             <span>Simulate 1,000 RWF Mobile Money Purchase</span>
           </button>
         </div>

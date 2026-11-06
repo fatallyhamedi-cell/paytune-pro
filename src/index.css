@@ -10,8 +10,8 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", sans-serif;
 
-  --color-primary: #f59e0b;
-  --color-amber-500: #f59e0b;
+  --color-primary: #8b5cf6;
+  --color-purple-600: #9333ea;
 }
 
 @layer base {

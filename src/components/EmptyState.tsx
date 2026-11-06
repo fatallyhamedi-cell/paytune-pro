@@ -21,14 +21,14 @@ export default function EmptyState({ icon = '📭', title, description, actionLa
         actionHref.startsWith('http') ? (
           <a
             href={actionHref}
-            className="bg-amber-500 text-black px-6 py-3 rounded-xl font-bold hover:bg-amber-400 transition shadow-lg cursor-pointer"
+            className="bg-purple-600 text-black px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-lg cursor-pointer"
           >
             {actionLabel}
           </a>
         ) : (
           <Link
             to={actionHref}
-            className="bg-amber-500 text-black px-6 py-3 rounded-xl font-bold hover:bg-amber-400 transition shadow-lg cursor-pointer inline-block"
+            className="bg-purple-600 text-black px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-lg cursor-pointer inline-block"
           >
             {actionLabel}
           </Link>

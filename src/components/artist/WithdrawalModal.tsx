@@ -104,7 +104,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#1A1A1A]">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10 text-[#FFB300]">
+              <div className="p-2.5 rounded-xl bg-purple-600/10 text-[#FFB300]">
                 <Wallet className="w-5 h-5" />
               </div>
               <div>
@@ -145,14 +145,14 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Status:</span>
-                  <span className="text-amber-400 font-bold uppercase text-[10px] bg-amber-500/10 px-2 py-0.5 rounded">
+                  <span className="text-purple-400 font-bold uppercase text-[10px] bg-purple-600/10 px-2 py-0.5 rounded">
                     Pending Processing
                   </span>
                 </div>
               </div>
               <button
                 onClick={handleDone}
-                className="w-full py-3 bg-[#FFB300] text-black font-extrabold rounded-xl hover:bg-[#ffc107] transition-all shadow-lg shadow-amber-500/20"
+                className="w-full py-3 bg-[#FFB300] text-black font-extrabold rounded-xl hover:bg-[#ffc107] transition-all shadow-lg shadow-purple-600/20"
               >
                 Done
               </button>
@@ -185,7 +185,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                     onClick={() => setPaymentMethod('MTN Mobile Money')}
                     className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-xs font-bold ${
                       paymentMethod === 'MTN Mobile Money'
-                        ? 'border-[#FFB300] bg-amber-500/10 text-[#FFB300]'
+                        ? 'border-[#FFB300] bg-purple-600/10 text-[#FFB300]'
                         : 'border-white/10 bg-[#1A1A1A] text-gray-400 hover:text-white hover:border-white/20'
                     }`}
                   >
@@ -198,7 +198,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                     onClick={() => setPaymentMethod('Airtel Money')}
                     className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-xs font-bold ${
                       paymentMethod === 'Airtel Money'
-                        ? 'border-[#FFB300] bg-amber-500/10 text-[#FFB300]'
+                        ? 'border-[#FFB300] bg-purple-600/10 text-[#FFB300]'
                         : 'border-white/10 bg-[#1A1A1A] text-gray-400 hover:text-white hover:border-white/20'
                     }`}
                   >
@@ -211,7 +211,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                     onClick={() => setPaymentMethod('Bank Transfer')}
                     className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-xs font-bold ${
                       paymentMethod === 'Bank Transfer'
-                        ? 'border-[#FFB300] bg-amber-500/10 text-[#FFB300]'
+                        ? 'border-[#FFB300] bg-purple-600/10 text-[#FFB300]'
                         : 'border-white/10 bg-[#1A1A1A] text-gray-400 hover:text-white hover:border-white/20'
                     }`}
                   >
@@ -271,7 +271,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                     type="button"
                     disabled={!canWithdraw}
                     onClick={() => handleQuickAmount(availableBalance)}
-                    className="px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-500/30 text-[#FFB300] hover:bg-amber-500/10 transition-all ml-auto"
+                    className="px-2.5 py-1 rounded-lg text-xs font-bold border border-purple-600/30 text-[#FFB300] hover:bg-purple-600/10 transition-all ml-auto"
                   >
                     All Available
                   </button>
@@ -368,7 +368,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                     <div className="pt-1">
                       <a
                         href="/artist/verify-phone"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-black font-bold text-xs hover:bg-purple-400 transition"
                       >
                         <ShieldCheck className="w-3.5 h-3.5" />
                         <span>Verify Phone via SMS Now</span>
@@ -385,7 +385,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                   className={`w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all ${
                     !canWithdraw || !isValidAmount
                       ? 'bg-white/10 text-gray-500 cursor-not-allowed'
-                      : 'bg-[#FFB300] text-black hover:bg-[#ffc107] shadow-lg shadow-amber-500/20 active:scale-[0.99]'
+                      : 'bg-[#FFB300] text-black hover:bg-[#ffc107] shadow-lg shadow-purple-600/20 active:scale-[0.99]'
                   }`}
                 >
                   {loading ? (
@@ -399,7 +399,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                 </button>
 
                 {!canWithdraw && (
-                  <p className="text-center text-xs text-amber-500/80 mt-2 font-medium">
+                  <p className="text-center text-xs text-purple-600/80 mt-2 font-medium">
                     Minimum withdrawal is 5,000 RWF. Keep sharing your music!
                   </p>
                 )}

@@ -62,7 +62,7 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
         {/* Header */}
         <div className="p-5 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#161616]/95 backdrop-blur-md z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-[#FFB300] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-purple-600/10 text-[#FFB300] flex items-center justify-center">
               <BarChart2 className="w-5 h-5" />
             </div>
             <div>
@@ -204,7 +204,7 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
                   <button
                     onClick={handleRegenerateLink}
                     disabled={regenerating}
-                    className="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-[#FFB300] text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-[#FFB300] text-xs font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
                     <span>{regenerating ? 'Refreshing Token...' : 'Regenerate Stream Token'}</span>

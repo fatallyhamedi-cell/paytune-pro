@@ -1098,7 +1098,7 @@ export const getArtistMembershipTiers = async (req: Request, res: Response) => {
         billing_period: "monthly",
         description: "Show your direct support and get recognized across every release.",
         perks: [
-          "Official amber fan loyalty badge next to your name",
+          "Official purple fan loyalty badge next to your name",
           "Exclusive custom artist emojis in live chats and comments",
           "Priority reply in video comment discussions"
         ],

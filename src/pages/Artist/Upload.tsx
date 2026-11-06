@@ -229,14 +229,14 @@ export default function ArtistUpload() {
 
         {loading && (
           <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-            <div className="bg-amber-500 h-full transition-all" style={{ width: `${progress}%` }} />
+            <div className="bg-purple-600 h-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading || !allDeclared}
-          className="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg disabled:opacity-50 cursor-pointer"
+          className="w-full bg-purple-600 text-black font-semibold py-3 rounded-lg disabled:opacity-50 cursor-pointer"
         >
           {loading ? `Uploading ${progress}%...` : 'Upload Video'}
         </button>

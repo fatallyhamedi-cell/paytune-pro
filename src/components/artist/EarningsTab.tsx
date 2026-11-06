@@ -69,7 +69,7 @@ export const EarningsTab: React.FC<EarningsTabProps> = ({
 
         <button
           onClick={onOpenWithdraw}
-          className="px-5 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 self-start sm:self-auto"
+          className="px-5 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95 self-start sm:self-auto"
         >
           <ArrowDownCircle className="w-4 h-4" />
           <span>Request Payout</span>
@@ -93,7 +93,7 @@ export const EarningsTab: React.FC<EarningsTabProps> = ({
         </div>
 
         {/* Current Available Balance */}
-        <div className="bg-[#161616] border border-amber-500/40 rounded-2xl p-5 bg-gradient-to-br from-amber-500/5 to-transparent">
+        <div className="bg-[#161616] border border-purple-600/40 rounded-2xl p-5 bg-gradient-to-br from-purple-600/5 to-transparent">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-bold text-[#FFB300] uppercase tracking-wider">
               Available Balance
@@ -325,7 +325,7 @@ export const EarningsTab: React.FC<EarningsTabProps> = ({
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           : w.status === 'rejected'
                           ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-purple-600/10 text-purple-400 border border-purple-600/20'
                       }`}>
                         {w.status || 'Pending'}
                       </span>

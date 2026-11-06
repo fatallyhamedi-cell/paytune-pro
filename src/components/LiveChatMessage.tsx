@@ -39,7 +39,7 @@ export const LiveChatMessage: React.FC<LiveChatMessageProps> = ({
       >
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-xs text-amber-900 dark:text-amber-300 truncate max-w-[140px]">
+            <span className="font-bold text-xs text-purple-900 dark:text-purple-300 truncate max-w-[140px]">
               {message.user_name || 'Supporter'}
             </span>
             <span 
@@ -65,7 +65,7 @@ export const LiveChatMessage: React.FC<LiveChatMessageProps> = ({
               {onBlock && message.user_id && (
                 <button
                   onClick={() => onBlock(message.user_id!, message.user_name)}
-                  className="p-1 hover:bg-black/10 rounded text-amber-700 transition-colors"
+                  className="p-1 hover:bg-black/10 rounded text-purple-700 transition-colors"
                   title="Block user"
                 >
                   <Ban className="w-3 h-3" />
@@ -75,7 +75,7 @@ export const LiveChatMessage: React.FC<LiveChatMessageProps> = ({
           )}
         </div>
 
-        <p className="text-xs font-semibold text-gray-900 dark:text-amber-100 leading-relaxed break-words">
+        <p className="text-xs font-semibold text-gray-900 dark:text-purple-100 leading-relaxed break-words">
           {message.message}
         </p>
       </div>
@@ -116,7 +116,7 @@ export const LiveChatMessage: React.FC<LiveChatMessageProps> = ({
           {onBlock && message.user_id && (
             <button
               onClick={() => onBlock(message.user_id!, message.user_name)}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-400 hover:text-amber-500 transition-colors"
+              className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-400 hover:text-purple-600 transition-colors"
               title="Block user"
             >
               <Ban className="w-3 h-3" />

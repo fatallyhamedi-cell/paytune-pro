@@ -49,7 +49,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
       {/* Top Header: Autoplay Switch */}
       <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-gray-800">
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-amber-500" /> Up Next
+          <Sparkles className="w-4 h-4 text-purple-600" /> Up Next
         </h3>
 
         <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
               onChange={(e) => onToggleAutoplay(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-8 h-4 bg-gray-300 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+            <div className="w-8 h-4 bg-gray-300 dark:bg-neutral-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
           </label>
         </div>
       </div>
@@ -72,7 +72,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
           onClick={() => setActiveFilter('all')}
           className={`px-3 py-1 rounded-full whitespace-nowrap font-semibold transition-all cursor-pointer ${
             activeFilter === 'all'
-              ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+              ? 'bg-purple-600 text-black font-extrabold shadow-sm'
               : 'bg-gray-100 dark:bg-[#181818] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#272727] border border-gray-200 dark:border-gray-800'
           }`}
         >
@@ -83,7 +83,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
           onClick={() => setActiveFilter('artist')}
           className={`px-3 py-1 rounded-full whitespace-nowrap font-semibold transition-all cursor-pointer ${
             activeFilter === 'artist'
-              ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+              ? 'bg-purple-600 text-black font-extrabold shadow-sm'
               : 'bg-gray-100 dark:bg-[#181818] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#272727] border border-gray-200 dark:border-gray-800'
           }`}
         >
@@ -94,7 +94,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
           onClick={() => setActiveFilter('category')}
           className={`px-3 py-1 rounded-full whitespace-nowrap font-semibold transition-all cursor-pointer ${
             activeFilter === 'category'
-              ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+              ? 'bg-purple-600 text-black font-extrabold shadow-sm'
               : 'bg-gray-100 dark:bg-[#181818] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-[#272727] border border-gray-200 dark:border-gray-800'
           }`}
         >
@@ -131,7 +131,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
                 className="group flex gap-3 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#181818] transition-colors"
               >
                 {/* Thumbnail Container */}
-                <div className="relative w-36 sm:w-40 aspect-video rounded-xl overflow-hidden bg-gray-200 dark:bg-neutral-800 flex-shrink-0 border border-gray-200 dark:border-gray-800 group-hover:border-amber-500/50 transition-colors">
+                <div className="relative w-36 sm:w-40 aspect-video rounded-xl overflow-hidden bg-gray-200 dark:bg-neutral-800 flex-shrink-0 border border-gray-200 dark:border-gray-800 group-hover:border-purple-600/50 transition-colors">
                   <img
                     src={item.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"}
                     alt={item.title}
@@ -147,7 +147,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
                   <span className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
                     isItemFree
                       ? 'bg-emerald-500 text-white font-extrabold'
-                      : 'bg-amber-500 text-black font-extrabold shadow-sm'
+                      : 'bg-purple-600 text-black font-extrabold shadow-sm'
                   }`}>
                     {isItemFree ? 'FREE' : `${item.price_rwf?.toLocaleString()} RWF`}
                   </span>
@@ -155,7 +155,7 @@ export const UpNextSidebar: React.FC<UpNextSidebarProps> = ({
 
                 {/* Video Info */}
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white line-clamp-2 group-hover:text-amber-500 transition-colors leading-snug">
+                  <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white line-clamp-2 group-hover:text-purple-600 transition-colors leading-snug">
                     {item.title}
                   </h4>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">

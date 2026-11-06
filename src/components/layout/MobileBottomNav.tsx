@@ -5,7 +5,7 @@ import {
   Flame, 
   PlusCircle,
   Users,
-  Library
+  UserCircle2
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -33,14 +33,14 @@ export default function MobileBottomNav() {
       isSpecial: true,
     },
     {
-      label: "Subscriptions",
-      path: user ? "/dashboard/following" : "/auth",
+      label: "Follows",
+      path: user ? "/follows" : "/auth",
       icon: Users,
     },
     {
-      label: "Library",
+      label: "Profile",
       path: user ? "/dashboard" : "/auth",
-      icon: Library,
+      icon: UserCircle2,
     }
   ];
 
@@ -59,10 +59,10 @@ export default function MobileBottomNav() {
               <Link
                 key={item.label}
                 to={item.path}
-                className="flex flex-col items-center justify-center p-1 text-gray-700 dark:text-gray-300 hover:text-amber-500 transition-colors"
+                className="flex flex-col items-center justify-center p-1 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors"
                 aria-label="Upload video"
               >
-                <div className="w-9 h-9 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-md">
+                <div className="w-9 h-9 rounded-full bg-purple-600 text-black flex items-center justify-center shadow-md">
                   <Icon className="w-5 h-5 stroke-[2.5]" />
                 </div>
               </Link>
@@ -75,7 +75,7 @@ export default function MobileBottomNav() {
               to={item.path}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors ${
                 isActive 
-                  ? "text-amber-500 font-bold" 
+                  ? "text-purple-600 font-bold" 
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium"
               }`}
             >

@@ -116,14 +116,14 @@ export default function ArtistSignup() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4 py-20">
       <div className="max-w-lg w-full">
         <div className="text-center mb-12">
-          <Link to="/" className="inline-flex bg-amber-500 p-3 rounded-2xl shadow-xl shadow-amber-100 mb-6 border border-amber-400/20">
+          <Link to="/" className="inline-flex bg-purple-600 p-3 rounded-2xl shadow-xl shadow-purple-100 mb-6 border border-purple-400/20">
             <Music className="w-8 h-8 text-white fill-white" />
           </Link>
           <h1 className="text-5xl font-black text-gray-900 tracking-tighter mb-4 italic">The Stage is Yours</h1>
-          <p className="text-amber-600 font-black uppercase tracking-widest text-xs mb-3">Join PAYTUNE as an Artist • Earn 70% Revenue • Rwanda to the World</p>
+          <p className="text-purple-700 font-black uppercase tracking-widest text-xs mb-3">Join PAYTUNE as an Artist • Earn 70% Revenue • Rwanda to the World</p>
           {detectedGeo && (
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
-              <Globe2 className="w-3.5 h-3.5 text-amber-600" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-xs text-purple-800 font-medium">
+              <Globe2 className="w-3.5 h-3.5 text-purple-700" />
               <span>
                 Detected Region: <strong>{detectedGeo.country_name}</strong> ({detectedGeo.currency_code})
               </span>
@@ -140,7 +140,7 @@ export default function ArtistSignup() {
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input 
                     placeholder="Mama C" 
-                    className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-amber-500/50 text-gray-900"
+                    className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-purple-500/50 text-gray-900"
                     value={formData.fullName}
                     onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                     required
@@ -153,7 +153,7 @@ export default function ArtistSignup() {
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input 
                     placeholder="0788..." 
-                    className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-amber-500/50 text-gray-900"
+                    className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-purple-500/50 text-gray-900"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                     required
@@ -169,7 +169,7 @@ export default function ArtistSignup() {
                 <Input 
                   type="email"
                   placeholder="artist@email.com" 
-                  className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-amber-500/50 text-gray-900"
+                  className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-purple-500/50 text-gray-900"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   required
@@ -184,7 +184,7 @@ export default function ArtistSignup() {
                 <Input 
                   type="password"
                   placeholder="••••••••" 
-                  className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-amber-500/50 text-gray-900"
+                  className="bg-gray-50 border-gray-200 h-12 pl-12 rounded-xl focus:border-purple-500/50 text-gray-900"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   required
@@ -194,9 +194,9 @@ export default function ArtistSignup() {
 
             <div className="h-px bg-gray-100 my-4" />
 
-            <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 space-y-5 shadow-sm">
+            <div className="p-6 bg-purple-50 rounded-3xl border border-purple-100 space-y-5 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
-                 <CreditCard className="w-4 h-4 text-amber-600" />
+                 <CreditCard className="w-4 h-4 text-purple-700" />
                  <span className="text-xs font-black text-gray-700 uppercase tracking-widest">Payout Information</span>
               </div>
               
@@ -217,7 +217,7 @@ export default function ArtistSignup() {
                 <Label className="text-[9px] font-bold uppercase text-gray-500 ml-1">Mobile Money Number (Must be registered)</Label>
                 <Input 
                   placeholder="Enter payout number" 
-                  className="bg-white border-gray-100 h-11 rounded-xl focus:border-amber-500/50 text-gray-900 font-black shadow-sm"
+                  className="bg-white border-gray-100 h-11 rounded-xl focus:border-purple-500/50 text-gray-900 font-black shadow-sm"
                   value={formData.momoCode}
                   onChange={(e) => setFormData({...formData, momoCode: e.target.value})}
                   required
@@ -234,7 +234,7 @@ export default function ArtistSignup() {
 
             <Button 
               disabled={loading}
-              className="w-full h-14 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-lg uppercase tracking-[0.1em] shadow-lg shadow-amber-200 border-none relative overflow-hidden group"
+              className="w-full h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl font-black text-lg uppercase tracking-[0.1em] shadow-lg shadow-purple-200 border-none relative overflow-hidden group"
             >
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                 <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export default function ArtistSignup() {
         
         <div className="mt-10 text-center">
            <Link to="/artist/login" className="text-sm font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest">
-              Already have an artist account? <span className="text-gray-900 font-black hover:underline decoration-amber-500 underline-offset-4">Artist Sign In</span>
+              Already have an artist account? <span className="text-gray-900 font-black hover:underline decoration-purple-600 underline-offset-4">Artist Sign In</span>
            </Link>
         </div>
       </div>

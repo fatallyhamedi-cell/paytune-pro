@@ -20,14 +20,14 @@ export default function ArtistFollowers() {
       </div>
 
       <div className="bg-[#161616] p-12 rounded-2xl border border-gray-800 text-center max-w-lg mx-auto shadow-xl">
-        <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-500 text-3xl">
+        <div className="w-20 h-20 rounded-full bg-purple-600/10 border border-purple-600/20 flex items-center justify-center mx-auto mb-4 text-purple-600 text-3xl">
           👥
         </div>
         {loading ? (
           <div className="text-gray-400">Counting followers...</div>
         ) : (
           <>
-            <p className="text-6xl font-black text-amber-400 tracking-tight">
+            <p className="text-6xl font-black text-purple-400 tracking-tight">
               {count.toLocaleString()}
             </p>
             <p className="text-gray-400 font-medium text-base mt-2">

@@ -60,12 +60,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {/* 1. Summary Cards (4 Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Earnings */}
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all group">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all group">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Total Earnings (70%)
             </span>
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-[#FFB300] group-hover:scale-110 transition-transform">
+            <div className="p-2.5 rounded-xl bg-purple-600/10 text-[#FFB300] group-hover:scale-110 transition-transform">
               <Wallet className="w-5 h-5" />
             </div>
           </div>
@@ -82,15 +82,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         {/* Card 2: Current Balance (Available for Withdrawal) */}
-        <div className="bg-[#161616] border border-amber-500/30 rounded-2xl p-5 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="bg-[#161616] border border-purple-600/30 rounded-2xl p-5 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/5 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-[#FFB300] uppercase tracking-wider">
               Available Balance
             </span>
             <button
               onClick={onOpenWithdraw}
-              className="px-2.5 py-1 rounded-lg bg-[#FFB300] text-black text-xs font-black hover:bg-[#ffc107] transition-all shadow-md shadow-amber-500/20 active:scale-95"
+              className="px-2.5 py-1 rounded-lg bg-[#FFB300] text-black text-xs font-black hover:bg-[#ffc107] transition-all shadow-md shadow-purple-600/20 active:scale-95"
             >
               Withdraw
             </button>
@@ -107,7 +107,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         {/* Card 3: Pending Balance */}
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all group">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all group">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Total Views
@@ -128,7 +128,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         {/* Card 4: Video Catalog */}
-        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-amber-500/20 transition-all group">
+        <div className="bg-[#161616] border border-white/5 rounded-2xl p-5 hover:border-purple-600/20 transition-all group">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Uploaded Releases
@@ -151,7 +151,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       {/* 2. Quick Actions Bar */}
       <div className="bg-gradient-to-r from-[#1A1A1A] to-[#141414] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/20 text-[#FFB300]">
+          <div className="p-2.5 rounded-xl bg-purple-600/20 text-[#FFB300]">
             <Sparkles className="w-6 h-6" />
           </div>
           <div>
@@ -163,7 +163,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             onClick={onOpenUpload}
-            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95"
+            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95"
           >
             <Upload className="w-4 h-4" />
             <span>Upload Release</span>
@@ -193,7 +193,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-lg text-white">Performance Trajectory</h3>
-              <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md uppercase">
+              <span className="text-[10px] font-bold text-purple-400 bg-purple-600/10 px-2 py-0.5 rounded-md uppercase">
                 Interactive
               </span>
             </div>
@@ -341,7 +341,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         className="w-14 h-9 object-cover rounded-md border border-white/10 shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-9 rounded-md bg-neutral-800 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
+                      <div className="w-14 h-9 rounded-md bg-neutral-800 flex items-center justify-center text-purple-400 text-xs font-bold shrink-0">
                         ▶
                       </div>
                     )}

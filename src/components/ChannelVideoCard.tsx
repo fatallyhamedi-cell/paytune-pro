@@ -126,7 +126,7 @@ export default function ChannelVideoCard({ video }: ChannelVideoCardProps) {
             }`}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-amber-950/60 flex items-center justify-center">
+          <div className="w-full h-full bg-gradient-to-tr from-neutral-900 via-neutral-800 to-purple-950/60 flex items-center justify-center">
             <Play className="w-8 h-8 text-[#FFB300] opacity-60" />
           </div>
         )}

@@ -60,7 +60,7 @@ export const MasterReports: React.FC = () => {
       <div className="p-4 rounded-2xl bg-[#161616] border border-neutral-800 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-amber-400" />
+            <BarChart3 className="w-5 h-5 text-purple-400" />
             <span>Platform Financial & Growth Analytics</span>
           </h2>
           <p className="text-xs text-neutral-400">
@@ -80,7 +80,7 @@ export const MasterReports: React.FC = () => {
           </div>
           <div className="p-4 rounded-2xl bg-[#161616] border border-neutral-800">
             <span className="text-xs text-neutral-400">Platform Net Retained (30%)</span>
-            <p className="text-xl font-black text-amber-400 mt-1">
+            <p className="text-xl font-black text-purple-400 mt-1">
               {Number(salesReport.summary.total_owner_commission).toLocaleString()} RWF
             </p>
           </div>
@@ -186,7 +186,7 @@ export const MasterReports: React.FC = () => {
                   <td className="p-3 font-bold text-white">{art.name}</td>
                   <td className="p-3 text-neutral-300">{art.videos_count}</td>
                   <td className="p-3 text-neutral-300">{Number(art.subscribers).toLocaleString()}</td>
-                  <td className="p-3 font-bold text-amber-400">
+                  <td className="p-3 font-bold text-purple-400">
                     {Number(art.total_earnings).toLocaleString()} RWF
                   </td>
                   <td className="p-3">

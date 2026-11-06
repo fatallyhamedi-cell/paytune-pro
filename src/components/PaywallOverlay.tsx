@@ -30,21 +30,21 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
       className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-black/85 backdrop-blur-md text-white text-center select-none animate-fadeIn"
     >
       {/* Icon Badge */}
-      <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-4 shadow-lg shadow-amber-500/10">
-        <Lock className="w-8 h-8 text-amber-400 animate-pulse" />
+      <div className="w-16 h-16 rounded-full bg-purple-600/20 border border-purple-600/40 flex items-center justify-center mb-4 shadow-lg shadow-purple-600/10">
+        <Lock className="w-8 h-8 text-purple-400 animate-pulse" />
       </div>
 
       {/* Primary Headline */}
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 mb-3">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-600/10 text-purple-400 border border-purple-600/30 mb-3">
         <Sparkles className="w-3.5 h-3.5" /> 30-Second Free Preview Ended
       </span>
 
       <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white max-w-xl">
-        Unlock Lifetime Access to <span className="text-amber-400">"{title}"</span>
+        Unlock Lifetime Access to <span className="text-purple-400">"{title}"</span>
       </h2>
 
       <p className="text-sm text-gray-300 mt-2 max-w-md">
-        By <span className="font-semibold text-white">{artistName}</span>. Pay once, own it forever in your private library.
+        By <span className="font-semibold text-white">{artistName}</span>. Pay once, own it forever in your private profile.
       </p>
 
       {/* Pricing Card */}
@@ -52,7 +52,7 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
         <div className="text-left">
           <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">One-Time Fee</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-amber-400">{priceRwf.toLocaleString()} RWF</span>
+            <span className="text-2xl font-black text-purple-400">{priceRwf.toLocaleString()} RWF</span>
             <span className="text-xs text-gray-400">(${priceUsd.toFixed(2)} USD)</span>
           </div>
         </div>
@@ -70,7 +70,7 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
           <Button
             id="paywall-buy-now-btn"
             onClick={onBuyNow}
-            className="w-full h-12 bg-amber-500 hover:bg-amber-400 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full h-12 bg-purple-600 hover:bg-purple-400 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer"
           >
             <Play className="w-4 h-4 fill-black" />
             Buy Now for {priceRwf.toLocaleString()} RWF
@@ -80,7 +80,7 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
           <Button
             id="paywall-login-btn"
             onClick={onLoginClick || onBuyNow}
-            className="w-full h-12 bg-amber-500 hover:bg-amber-400 text-black font-bold text-base rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full h-12 bg-purple-600 hover:bg-purple-400 text-black font-bold text-base rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <UserCheck className="w-4 h-4" />
             Login or Buy as Guest ({priceRwf.toLocaleString()} RWF)
@@ -93,9 +93,9 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
             type="button"
             id="paywall-request-phone-access-btn"
             onClick={onRequestPhoneAccess}
-            className="w-full py-2.5 px-4 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 border border-amber-500/30 hover:border-amber-500/60 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            className="w-full py-2.5 px-4 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 text-purple-400 hover:text-purple-300 border border-purple-600/30 hover:border-purple-600/60 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           >
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
             <span>Request Phone Approval to Watch</span>
           </button>
         )}
@@ -104,7 +104,7 @@ export const PaywallOverlay: React.FC<PaywallOverlayProps> = ({
       {/* Trust & Guarantee Badges */}
       <div className="flex items-center justify-center gap-4 mt-6 text-xs text-gray-400">
         <span className="inline-flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Lifetime access
+          <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> Lifetime access
         </span>
         <span>•</span>
         <span>MTN MoMo & Airtel</span>

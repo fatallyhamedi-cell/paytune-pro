@@ -211,7 +211,7 @@ export const AccessRequestsManager: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-800">
         <div>
           <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2.5">
-            <PhoneCall className="w-6 h-6 text-amber-500" />
+            <PhoneCall className="w-6 h-6 text-purple-600" />
             Phone Access Request & Approval Workflow
           </h2>
           <p className="text-xs md:text-sm text-neutral-400 mt-1">
@@ -227,14 +227,14 @@ export const AccessRequestsManager: React.FC = () => {
             disabled={refreshing}
             className="border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-amber-500' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-purple-600' : ''}`} />
             Refresh
           </Button>
 
           <Button
             onClick={() => setShowGrantModal(true)}
             size="sm"
-            className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
+            className="bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Grant Phone Access
@@ -274,11 +274,11 @@ export const AccessRequestsManager: React.FC = () => {
           <p className="text-xs text-neutral-400 font-semibold uppercase tracking-wider">Total Requests</p>
           <p className="text-2xl font-black text-white mt-1">{requests.length}</p>
         </div>
-        <div className="bg-[#141414] border border-amber-500/30 rounded-xl p-4">
-          <p className="text-xs text-amber-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+        <div className="bg-[#141414] border border-purple-600/30 rounded-xl p-4">
+          <p className="text-xs text-purple-400 font-semibold uppercase tracking-wider flex items-center gap-1">
             <Clock className="w-3.5 h-3.5" /> Pending Review
           </p>
-          <p className="text-2xl font-black text-amber-400 mt-1">{pendingCount}</p>
+          <p className="text-2xl font-black text-purple-400 mt-1">{pendingCount}</p>
         </div>
         <div className="bg-[#141414] border border-emerald-500/30 rounded-xl p-4">
           <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider flex items-center gap-1">
@@ -302,7 +302,7 @@ export const AccessRequestsManager: React.FC = () => {
             placeholder="Search by phone, requester name, or video title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#181818] border border-neutral-800 focus:border-amber-500 rounded-xl px-4 py-2 text-sm text-white placeholder-neutral-500 pl-10 outline-none transition-colors"
+            className="w-full bg-[#181818] border border-neutral-800 focus:border-purple-500 rounded-xl px-4 py-2 text-sm text-white placeholder-neutral-500 pl-10 outline-none transition-colors"
           />
           <Search className="w-4 h-4 text-neutral-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
         </div>
@@ -314,7 +314,7 @@ export const AccessRequestsManager: React.FC = () => {
               onClick={() => setStatusFilter(filter)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
                 statusFilter === filter
-                  ? 'bg-amber-500 text-neutral-950 shadow-md'
+                  ? 'bg-purple-600 text-neutral-950 shadow-md'
                   : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800'
               }`}
             >
@@ -328,7 +328,7 @@ export const AccessRequestsManager: React.FC = () => {
       <div className="bg-[#141414] border border-neutral-800 rounded-2xl overflow-hidden shadow-xl">
         {loading ? (
           <div className="p-12 text-center text-neutral-500 text-sm">
-            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-500 mb-2" />
+            <RefreshCw className="w-6 h-6 animate-spin mx-auto text-purple-600 mb-2" />
             Loading phone access requests...
           </div>
         ) : filteredRequests.length === 0 ? (
@@ -359,7 +359,7 @@ export const AccessRequestsManager: React.FC = () => {
                   <tr key={req.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-mono font-bold text-xs">
+                        <div className="w-8 h-8 rounded-full bg-purple-600/10 border border-purple-600/20 flex items-center justify-center text-purple-400 font-mono font-bold text-xs">
                           <PhoneCall className="w-4 h-4" />
                         </div>
                         <div>
@@ -391,7 +391,7 @@ export const AccessRequestsManager: React.FC = () => {
                         "{req.note || 'No custom note provided'}"
                       </p>
                       {req.decision_note && (
-                        <p className="text-[11px] text-amber-400 mt-0.5">
+                        <p className="text-[11px] text-purple-400 mt-0.5">
                           Admin: {req.decision_note}
                         </p>
                       )}
@@ -411,7 +411,7 @@ export const AccessRequestsManager: React.FC = () => {
                           <XCircle className="w-3 h-3" /> Declined
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-600/15 text-purple-400 border border-purple-600/30">
                           <Clock className="w-3 h-3 animate-pulse" /> Pending
                         </span>
                       )}
@@ -461,7 +461,7 @@ export const AccessRequestsManager: React.FC = () => {
                           variant="outline"
                           disabled={processingId === req.id}
                           onClick={() => handleApprove(req.id, 'Re-approved by Master Administrator')}
-                          className="border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-amber-400 text-xs h-7 px-2.5 rounded-lg cursor-pointer"
+                          className="border-neutral-800 bg-neutral-900 hover:bg-neutral-800 text-purple-400 text-xs h-7 px-2.5 rounded-lg cursor-pointer"
                         >
                           Re-Approve
                         </Button>
@@ -480,9 +480,9 @@ export const AccessRequestsManager: React.FC = () => {
       {/* Manual Grant Modal */}
       {showGrantModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md bg-[#181818] border border-amber-500/40 rounded-2xl p-6 text-white shadow-2xl space-y-4">
+          <div className="w-full max-w-md bg-[#181818] border border-purple-600/40 rounded-2xl p-6 text-white shadow-2xl space-y-4">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[11px] font-bold">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-600/10 text-purple-400 text-[11px] font-bold">
                 <ShieldCheck className="w-3.5 h-3.5" /> Direct Access Privilege
               </div>
               <h3 className="text-lg font-bold">Grant Phone Viewing Privilege</h3>
@@ -502,7 +502,7 @@ export const AccessRequestsManager: React.FC = () => {
                   value={grantPhone}
                   onChange={(e) => setGrantPhone(e.target.value)}
                   required
-                  className="w-full bg-[#121212] border border-neutral-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-sm text-white placeholder-neutral-500 outline-none"
+                  className="w-full bg-[#121212] border border-neutral-800 focus:border-purple-500 rounded-xl px-3.5 py-2 text-sm text-white placeholder-neutral-500 outline-none"
                 />
               </div>
 
@@ -514,7 +514,7 @@ export const AccessRequestsManager: React.FC = () => {
                   value={grantVideoId}
                   onChange={(e) => setGrantVideoId(e.target.value)}
                   required
-                  className="w-full bg-[#121212] border border-neutral-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-sm text-white outline-none"
+                  className="w-full bg-[#121212] border border-neutral-800 focus:border-purple-500 rounded-xl px-3.5 py-2 text-sm text-white outline-none"
                 >
                   {videosList.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -533,7 +533,7 @@ export const AccessRequestsManager: React.FC = () => {
                   placeholder="e.g. VIP Partner or Press Reviewer"
                   value={grantName}
                   onChange={(e) => setGrantName(e.target.value)}
-                  className="w-full bg-[#121212] border border-neutral-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-sm text-white placeholder-neutral-500 outline-none"
+                  className="w-full bg-[#121212] border border-neutral-800 focus:border-purple-500 rounded-xl px-3.5 py-2 text-sm text-white placeholder-neutral-500 outline-none"
                 />
               </div>
 
@@ -545,7 +545,7 @@ export const AccessRequestsManager: React.FC = () => {
                   type="text"
                   value={grantNote}
                   onChange={(e) => setGrantNote(e.target.value)}
-                  className="w-full bg-[#121212] border border-neutral-800 focus:border-amber-500 rounded-xl px-3.5 py-2 text-sm text-white outline-none"
+                  className="w-full bg-[#121212] border border-neutral-800 focus:border-purple-500 rounded-xl px-3.5 py-2 text-sm text-white outline-none"
                 />
               </div>
 
@@ -561,7 +561,7 @@ export const AccessRequestsManager: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={granting || !grantPhone.trim() || !grantVideoId}
-                  className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs cursor-pointer"
+                  className="bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs cursor-pointer"
                 >
                   {granting ? 'Granting Access...' : 'Grant Playback Access'}
                 </Button>
@@ -603,7 +603,7 @@ export const AccessRequestsManager: React.FC = () => {
                 rows={2}
                 value={decisionModal.note}
                 onChange={(e) => setDecisionModal((prev) => ({ ...prev, note: e.target.value }))}
-                className="w-full bg-[#121212] border border-neutral-800 focus:border-amber-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                className="w-full bg-[#121212] border border-neutral-800 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-white outline-none"
               />
             </div>
 

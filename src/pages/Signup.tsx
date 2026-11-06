@@ -55,7 +55,7 @@ export default function Signup() {
     <div className={`min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-white text-gray-900 transition-colors`}>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/" className="flex items-center justify-center gap-3 mb-10 group">
-          <div className="bg-amber-500 p-2.5 rounded-2xl group-hover:scale-110 transition-all shadow-lg shadow-amber-100 border border-amber-400">
+          <div className="bg-purple-600 p-2.5 rounded-2xl group-hover:scale-110 transition-all shadow-lg shadow-purple-100 border border-purple-400">
             <PlaySquare className="w-8 h-8 text-white fill-white" />
           </div>
           <span className="text-4xl font-black tracking-tighter italic text-gray-900">PAYTUNE</span>
@@ -63,7 +63,7 @@ export default function Signup() {
         <h2 className="text-center text-3xl font-black tracking-tight italic text-gray-900">Create your account</h2>
         <p className="mt-2 text-center text-sm text-gray-400 font-bold uppercase tracking-widest">
           Already have an account?{" "}
-          <Link to="/login" className="font-black text-amber-600 hover:text-amber-700 underline underline-offset-4 decoration-amber-200">
+          <Link to="/login" className="font-black text-purple-700 hover:text-purple-700 underline underline-offset-4 decoration-purple-200">
             Sign in
           </Link>
         </p>
@@ -82,7 +82,7 @@ export default function Signup() {
                   <input
                     required
                     type="text"
-                    className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-bold text-gray-900`}
+                    className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-500 transition-all text-sm font-bold text-gray-900`}
                     placeholder="John Doe"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
@@ -99,7 +99,7 @@ export default function Signup() {
                   <input
                     required
                     type="text"
-                    className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-bold text-gray-900`}
+                    className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-500 transition-all text-sm font-bold text-gray-900`}
                     placeholder="johndoe"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -117,7 +117,7 @@ export default function Signup() {
                 <input
                   required
                   type="email"
-                  className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-bold text-gray-900`}
+                  className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-500 transition-all text-sm font-bold text-gray-900`}
                   placeholder="you@email.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -134,7 +134,7 @@ export default function Signup() {
                 <input
                   required
                   type="password"
-                  className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-sm font-bold text-gray-900`}
+                  className={`block w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl leading-5 focus:outline-none focus:ring-2 focus:ring-purple-600/20 focus:border-purple-500 transition-all text-sm font-bold text-gray-900`}
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -153,7 +153,7 @@ export default function Signup() {
               <button
                 disabled={isLoading}
                 type="submit"
-                className="group relative w-full flex justify-center py-5 px-4 border border-transparent rounded-2xl shadow-xl shadow-amber-100 text-lg font-black text-white bg-amber-500 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-[0.2em]"
+                className="group relative w-full flex justify-center py-5 px-4 border border-transparent rounded-2xl shadow-xl shadow-purple-100 text-lg font-black text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-600 transition-all hover:scale-[1.02] active:scale-[0.98] uppercase tracking-[0.2em]"
               >
                 {isLoading ? <Loader2 className="w-7 h-7 animate-spin" /> : "Join PayTune"}
               </button>
@@ -164,7 +164,7 @@ export default function Signup() {
             <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest italic">"Support your favorite Rwandan artists directly."</p>
           </div>
           
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50/50 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50/50 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none" />
         </div>
       </div>
     </div>

@@ -304,7 +304,7 @@ export const LiveStudioTab: React.FC<LiveStudioTabProps> = ({ artist }) => {
               <h3 className="font-bold text-sm text-white">Live Chat & Tips</h3>
               <p className="text-[11px] text-gray-400">Pin messages & moderate fan chat</p>
             </div>
-            <span className="text-[11px] text-[#FFB300] font-bold bg-amber-500/10 px-2 py-0.5 rounded">
+            <span className="text-[11px] text-[#FFB300] font-bold bg-purple-600/10 px-2 py-0.5 rounded">
               Active Stream
             </span>
           </div>
@@ -316,7 +316,7 @@ export const LiveStudioTab: React.FC<LiveStudioTabProps> = ({ artist }) => {
                 key={msg.id}
                 className={`p-2.5 rounded-xl text-xs space-y-1 relative group transition-all ${
                   msg.isPinned
-                    ? 'bg-amber-500/10 border border-amber-500/30'
+                    ? 'bg-purple-600/10 border border-purple-600/30'
                     : msg.superChat > 0
                     ? 'bg-emerald-500/10 border border-emerald-500/20'
                     : 'bg-[#1A1A1A] border border-white/5'

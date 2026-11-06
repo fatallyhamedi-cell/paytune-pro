@@ -163,7 +163,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             handleSearchSubmit(e);
             setMobileSearchOpen(false);
           }} className="flex-1 flex items-center relative">
-            <div className="flex flex-1 items-center bg-gray-100 dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-full px-3.5 py-1.5 focus-within:border-amber-500">
+            <div className="flex flex-1 items-center bg-gray-100 dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-full px-3.5 py-1.5 focus-within:border-purple-600">
               <input
                 type="text"
                 autoFocus
@@ -188,7 +188,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             </div>
             <button
               type="submit"
-              className="p-2 ml-1 text-gray-600 dark:text-gray-300 hover:text-amber-500 cursor-pointer"
+              className="p-2 ml-1 text-gray-600 dark:text-gray-300 hover:text-purple-600 cursor-pointer"
               aria-label="Search"
             >
               <Search className="w-4 h-4" />
@@ -209,7 +209,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 >
                   <div className="flex items-center gap-2.5 truncate">
                     {s.type === "artist" ? (
-                      <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
                         A
                       </div>
                     ) : (
@@ -219,7 +219,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       {s.title}
                     </span>
                   </div>
-                  <span className="text-[10px] uppercase font-bold text-amber-500 px-1.5 py-0.5 rounded bg-amber-500/10">
+                  <span className="text-[10px] uppercase font-bold text-purple-600 px-1.5 py-0.5 rounded bg-purple-600/10">
                     {s.type}
                   </span>
                 </button>
@@ -250,7 +250,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             className="hidden md:flex flex-1 max-w-[540px] px-6 relative"
           >
             <form onSubmit={handleSearchSubmit} className="flex w-full relative">
-              <div className="flex flex-1 items-center bg-gray-100 dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-full px-4 py-1.5 focus-within:border-amber-500 overflow-hidden transition-all duration-200">
+              <div className="flex flex-1 items-center bg-gray-100 dark:bg-[#181818] border border-gray-200 dark:border-gray-700 rounded-full px-4 py-1.5 focus-within:border-purple-600 overflow-hidden transition-all duration-200">
                 <Search className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                 <input
                   id="desktop-search-input"
@@ -288,14 +288,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   >
                     <div className="flex items-center gap-3 truncate">
                       {s.type === "artist" ? (
-                        <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-purple-600/20 text-purple-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
                           A
                         </div>
                       ) : (
                         <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                       )}
                       <div className="truncate">
-                        <span className="font-semibold text-gray-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                        <span className="font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 transition-colors">
                           {s.title}
                         </span>
                         {s.artist_name && (
@@ -305,7 +305,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                         )}
                       </div>
                     </div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-amber-500 px-2 py-0.5 rounded bg-amber-500/10">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-purple-600 px-2 py-0.5 rounded bg-purple-600/10">
                       {s.type}
                     </span>
                   </button>
@@ -356,7 +356,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                       <span className="text-base">{c.flag_emoji}</span>
                       <span>{c.name}</span>
                     </span>
-                    <span className="font-mono font-bold text-amber-500">{c.currency_code}</span>
+                    <span className="font-mono font-bold text-purple-600">{c.currency_code}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -371,7 +371,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
               aria-label="Toggle theme"
             >
               {theme === "dark" ? (
-                <Sun className="w-4 h-4 text-amber-500" />
+                <Sun className="w-4 h-4 text-purple-600" />
               ) : (
                 <Moon className="w-4 h-4 text-gray-700" />
               )}
@@ -383,7 +383,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <DropdownMenuTrigger asChild>
                   <Button
                     id="header-create-btn"
-                    className="bg-[#FFB300] hover:bg-amber-500 text-black font-extrabold text-xs uppercase tracking-tight rounded-full px-3.5 h-9 hidden sm:flex border-none shadow-xs transition-all duration-200"
+                    className="bg-[#FFB300] hover:bg-purple-600 text-black font-extrabold text-xs uppercase tracking-tight rounded-full px-3.5 h-9 hidden sm:flex border-none shadow-xs transition-all duration-200"
                   >
                     <Plus className="w-4 h-4 mr-1 stroke-[3]" />
                     Create
@@ -397,7 +397,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     className="focus:bg-gray-100 dark:focus:bg-neutral-800 cursor-pointer rounded-xl py-2.5 gap-2.5"
                     onClick={() => navigate("/artist/upload")}
                   >
-                    <Video className="w-4 h-4 text-amber-500" />
+                    <Video className="w-4 h-4 text-purple-600" />
                     <span className="font-bold text-xs uppercase tracking-tight">Upload Video</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -420,13 +420,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <DropdownMenuTrigger asChild>
                   <button
                     id="header-user-avatar-btn"
-                    className="flex items-center rounded-full ring-2 ring-amber-500/50 hover:ring-amber-500 transition-all p-0.5"
+                    className="flex items-center rounded-full ring-2 ring-purple-600/50 hover:ring-purple-600 transition-all p-0.5"
                   >
                     <Avatar className="w-8 h-8">
                       {user?.user_metadata?.avatar_url ? (
                         <AvatarImage src={user.user_metadata.avatar_url} />
                       ) : null}
-                      <AvatarFallback className="bg-amber-500 text-black font-bold text-xs">
+                      <AvatarFallback className="bg-purple-600 text-black font-bold text-xs">
                         {user?.email?.charAt(0).toUpperCase() || "P"}
                       </AvatarFallback>
                     </Avatar>
@@ -438,14 +438,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 >
                   <DropdownMenuLabel className="px-2 py-1.5">
                     <p className="font-bold text-sm truncate">{user?.email || "PayTune Member"}</p>
-                    <p className="text-[11px] text-amber-500 font-semibold">70/30 Creator Monetization</p>
+                    <p className="text-[11px] text-purple-600 font-semibold">70/30 Creator Monetization</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-800 my-1" />
                   <DropdownMenuItem
                     className="cursor-pointer rounded-xl py-2 px-2.5 text-xs focus:bg-gray-100 dark:focus:bg-neutral-800"
                     onClick={() => navigate("/dashboard")}
                   >
-                    <LayoutDashboard className="w-4 h-4 mr-2 text-amber-500" />
+                    <LayoutDashboard className="w-4 h-4 mr-2 text-purple-600" />
                     <span>My Dashboard</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -475,7 +475,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             ) : (
               <Link
                 to="/auth"
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-amber-500/60 hover:border-amber-500 text-amber-600 dark:text-amber-500 hover:bg-amber-500/10 text-xs font-bold transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-purple-600/60 hover:border-purple-600 text-purple-700 dark:text-purple-600 hover:bg-purple-600/10 text-xs font-bold transition-all cursor-pointer"
               >
                 <User className="w-3.5 h-3.5" />
                 <span>Sign in</span>

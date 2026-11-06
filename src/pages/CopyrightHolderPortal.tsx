@@ -98,7 +98,7 @@ export default function CopyrightHolderPortal() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-6">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-purple-600/10 text-purple-600 flex items-center justify-center">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider">
@@ -118,7 +118,7 @@ export default function CopyrightHolderPortal() {
               href="/dmca"
               className="px-4 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs font-bold text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex items-center gap-2"
             >
-              <FileCheck className="w-4 h-4 text-amber-500" />
+              <FileCheck className="w-4 h-4 text-purple-600" />
               File DMCA Takedown
             </a>
           </div>
@@ -130,7 +130,7 @@ export default function CopyrightHolderPortal() {
             <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Protected Catalog</span>
             <div className="text-2xl font-black text-gray-900 dark:text-white flex items-center justify-between">
               <span>{dashboardData.financials?.catalogTracksCount || 6} Masters</span>
-              <Music className="w-5 h-5 text-amber-500" />
+              <Music className="w-5 h-5 text-purple-600" />
             </div>
             <p className="text-[11px] text-emerald-500 font-medium">Automatic Content ID protection active</p>
           </div>
@@ -146,11 +146,11 @@ export default function CopyrightHolderPortal() {
 
           <div className="p-5 rounded-2xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-1">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Revenue in Escrow</span>
-            <div className="text-2xl font-black text-amber-500 flex items-center justify-between">
+            <div className="text-2xl font-black text-purple-600 flex items-center justify-between">
               <span>{(dashboardData.financials?.escrowRevenue || 665).toLocaleString()} RWF</span>
-              <Clock className="w-5 h-5 text-amber-500" />
+              <Clock className="w-5 h-5 text-purple-600" />
             </div>
-            <p className="text-[11px] text-amber-500/80 font-medium">Held pending dispute resolutions</p>
+            <p className="text-[11px] text-purple-600/80 font-medium">Held pending dispute resolutions</p>
           </div>
 
           <div className="p-5 rounded-2xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-1">
@@ -165,7 +165,7 @@ export default function CopyrightHolderPortal() {
 
         {/* Feedback Alert */}
         {feedback && (
-          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold flex items-center justify-between">
+          <div className="p-4 rounded-xl bg-purple-600/10 border border-purple-600/20 text-purple-700 dark:text-purple-400 text-xs font-bold flex items-center justify-between">
             <span>{feedback}</span>
             <button onClick={() => setFeedback(null)} className="text-xs underline">Dismiss</button>
           </div>
@@ -177,7 +177,7 @@ export default function CopyrightHolderPortal() {
             onClick={() => setActiveTab('claims')}
             className={`pb-3 border-b-2 transition-all cursor-pointer ${
               activeTab === 'claims'
-                ? 'border-amber-500 text-amber-500'
+                ? 'border-purple-600 text-purple-600'
                 : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
@@ -187,20 +187,20 @@ export default function CopyrightHolderPortal() {
             onClick={() => setActiveTab('disputes')}
             className={`pb-3 border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'disputes'
-                ? 'border-amber-500 text-amber-500'
+                ? 'border-purple-600 text-purple-600'
                 : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             <span>Disputes ({dashboardData.disputes?.length || 0})</span>
             {dashboardData.disputes?.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
             )}
           </button>
           <button
             onClick={() => setActiveTab('register')}
             className={`pb-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'register'
-                ? 'border-amber-500 text-amber-500'
+                ? 'border-purple-600 text-purple-600'
                 : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
@@ -227,7 +227,7 @@ export default function CopyrightHolderPortal() {
                           <h4 className="text-sm font-bold text-gray-900 dark:text-white">{claim.video_title || 'Video'}</h4>
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                             claim.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                            claim.status === 'disputed' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                            claim.status === 'disputed' ? 'bg-purple-600/10 text-purple-600 border border-purple-600/20' :
                             'bg-gray-500/10 text-gray-400'
                           }`}>
                             {claim.status}
@@ -237,7 +237,7 @@ export default function CopyrightHolderPortal() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Matched Track: <strong className="text-gray-700 dark:text-gray-300">{claim.detected_track_title}</strong> by {claim.detected_artist_name} • Confidence: <span className="font-mono text-amber-400">{claim.match_confidence}%</span>
+                          Matched Track: <strong className="text-gray-700 dark:text-gray-300">{claim.detected_track_title}</strong> by {claim.detected_artist_name} • Confidence: <span className="font-mono text-purple-400">{claim.match_confidence}%</span>
                         </p>
                         <p className="text-[11px] text-gray-400">
                           Uploader: {claim.uploader_name} • Match segment: {claim.match_start_seconds || 0}s - {claim.match_end_seconds || 120}s
@@ -260,8 +260,8 @@ export default function CopyrightHolderPortal() {
         {/* TAB 2: DISPUTES RESOLUTION CENTER (YouTube style 7-day clock) */}
         {activeTab === 'disputes' && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 text-xs text-gray-650 dark:text-gray-300 flex items-center gap-3">
-              <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+            <div className="p-4 rounded-2xl bg-purple-600/5 border border-purple-600/20 text-xs text-gray-650 dark:text-gray-300 flex items-center gap-3">
+              <Clock className="w-5 h-5 text-purple-600 flex-shrink-0" />
               <span>
                 <strong>7-Day Response Requirement:</strong> Claimants have 7 calendar days to respond to uploader disputes. If no action is taken before the countdown expires, the claim is released automatically and escrow is restored to the uploader.
               </span>
@@ -281,16 +281,16 @@ export default function CopyrightHolderPortal() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-amber-500">{disp.id}</span>
+                            <span className="font-mono text-xs font-bold text-purple-600">{disp.id}</span>
                             <h4 className="text-sm font-bold text-gray-900 dark:text-white">{disp.video_title}</h4>
                           </div>
                           <p className="text-xs text-gray-400">
-                            Dispute Reason: <strong className="text-amber-400">{disp.reason}</strong> • Uploader: {disp.uploader_name}
+                            Dispute Reason: <strong className="text-purple-400">{disp.reason}</strong> • Uploader: {disp.uploader_name}
                           </p>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <div className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold flex items-center gap-1.5">
+                          <div className="px-3 py-1 rounded-xl bg-purple-600/10 border border-purple-600/30 text-purple-600 text-xs font-bold flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5" />
                             <span>{remainingDays} Days Left to Respond</span>
                           </div>
@@ -316,7 +316,7 @@ export default function CopyrightHolderPortal() {
                         <button
                           disabled={actionLoading === disp.id}
                           onClick={() => handleDisputeAction(disp.id, 'uphold')}
-                          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-black text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <XCircle className="w-4 h-4" />
                           Uphold Claim (Keep 70% Share)
@@ -336,7 +336,7 @@ export default function CopyrightHolderPortal() {
             <form onSubmit={handleRegisterTrack} className="space-y-6">
               <div className="border-b border-gray-100 dark:border-gray-800 pb-4">
                 <h3 className="text-lg font-bold text-gray-950 dark:text-white flex items-center gap-2">
-                  <Music className="w-5 h-5 text-amber-500" />
+                  <Music className="w-5 h-5 text-purple-600" />
                   Register Master Audio into Content ID
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -355,7 +355,7 @@ export default function CopyrightHolderPortal() {
                     value={trackTitle}
                     onChange={(e) => setTrackTitle(e.target.value)}
                     placeholder="e.g. Slowly (Acoustic Master)"
-                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-purple-500"
                   />
                 </div>
                 <div>
@@ -368,7 +368,7 @@ export default function CopyrightHolderPortal() {
                     value={trackArtist}
                     onChange={(e) => setTrackArtist(e.target.value)}
                     placeholder="e.g. Meddy"
-                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-purple-500"
                   />
                 </div>
                 <div>
@@ -380,7 +380,7 @@ export default function CopyrightHolderPortal() {
                     value={trackIsrc}
                     onChange={(e) => setTrackIsrc(e.target.value)}
                     placeholder="e.g. RW-KGL-2024-0012"
-                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-purple-500"
                   />
                 </div>
                 <div>
@@ -392,7 +392,7 @@ export default function CopyrightHolderPortal() {
                     value={trackLabel}
                     onChange={(e) => setTrackLabel(e.target.value)}
                     placeholder="e.g. 1K Entertainment Africa"
-                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-amber-500"
+                    className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:border-purple-500"
                   />
                 </div>
               </div>
@@ -407,7 +407,7 @@ export default function CopyrightHolderPortal() {
                     onClick={() => setTrackPolicy('monetize')}
                     className={`p-3.5 rounded-2xl border text-left transition-all ${
                       trackPolicy === 'monetize'
-                        ? 'border-amber-500 bg-amber-500/10 text-amber-500'
+                        ? 'border-purple-600 bg-purple-600/10 text-purple-600'
                         : 'border-gray-200 dark:border-gray-800 text-gray-400'
                     }`}
                   >
@@ -422,7 +422,7 @@ export default function CopyrightHolderPortal() {
                     onClick={() => setTrackPolicy('block')}
                     className={`p-3.5 rounded-2xl border text-left transition-all ${
                       trackPolicy === 'block'
-                        ? 'border-amber-500 bg-amber-500/10 text-amber-500'
+                        ? 'border-purple-600 bg-purple-600/10 text-purple-600'
                         : 'border-gray-200 dark:border-gray-800 text-gray-400'
                     }`}
                   >
@@ -437,7 +437,7 @@ export default function CopyrightHolderPortal() {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  className="px-8 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shadow-md transition-all cursor-pointer"
+                  className="px-8 py-3 rounded-xl bg-purple-600 hover:bg-purple-400 text-black font-bold text-xs shadow-md transition-all cursor-pointer"
                 >
                   Register Master Fingerprint
                 </button>

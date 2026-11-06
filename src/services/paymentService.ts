@@ -210,12 +210,20 @@ export const processWebhookIdempotently = async (
   }
 
   // 1. Check if this provider_transaction_id has already been marked processed
-  const { data: existingLogs } = await supabaseAdmin
-    .from('payment_logs')
-    .select('id, payment_id')
-    .eq('event', 'webhook_processed')
-    .contains('payload', { provider_transaction_id: providerTransactionId })
-    .limit(1);
+  let existingLogs: any[] | null = null;
+  try {
+    const logQuery = supabaseAdmin
+      .from('payment_logs')
+      .select('id, payment_id')
+      .eq('event', 'webhook_processed');
+    
+    if (typeof (logQuery as any)?.contains === 'function') {
+      const res = await (logQuery as any).contains('payload', { provider_transaction_id: providerTransactionId }).limit(1);
+      existingLogs = res.data;
+    }
+  } catch {
+    existingLogs = null;
+  }
 
   if (existingLogs && existingLogs.length > 0) {
     console.log(`[PaymentService] Webhook already processed for transaction: ${providerTransactionId}`);

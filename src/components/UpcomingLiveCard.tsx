@@ -109,27 +109,27 @@ export default function UpcomingLiveCard({ stream, onReminderChange }: UpcomingL
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-600/30 to-purple-900/40 p-4 text-center">
-            <Radio className="w-8 h-8 text-amber-500 mb-2 animate-pulse" />
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-700/30 to-purple-900/40 p-4 text-center">
+            <Radio className="w-8 h-8 text-purple-600 mb-2 animate-pulse" />
             <span className="text-xs font-bold text-gray-300">Upcoming Live Broadcast</span>
           </div>
         )}
 
         {/* Live Status Badge */}
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/80 backdrop-blur-xs text-white text-[11px] font-bold border border-white/10 uppercase tracking-wide">
-          <Calendar className="w-3 h-3 text-amber-400" />
+          <Calendar className="w-3 h-3 text-purple-400" />
           <span>Scheduled</span>
         </div>
 
         {/* Countdown Pill */}
         <div className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-md bg-black/85 backdrop-blur-xs text-white text-[11px] font-semibold flex items-center gap-1.5 border border-white/10">
-          <Clock className="w-3 h-3 text-amber-400" />
+          <Clock className="w-3 h-3 text-purple-400" />
           <span>{getTimeRemaining(stream.scheduled_start)}</span>
         </div>
 
         {/* Paid Stream Badge */}
         {stream.is_paid && (
-          <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-amber-500 text-black text-[11px] font-extrabold flex items-center gap-1 shadow-sm">
+          <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-purple-600 text-black text-[11px] font-extrabold flex items-center gap-1 shadow-sm">
             <Ticket className="w-3 h-3" />
             <span>{stream.price_rwf ? `${stream.price_rwf.toLocaleString()} RWF` : "Ticketed"}</span>
           </div>
@@ -149,7 +149,7 @@ export default function UpcomingLiveCard({ stream, onReminderChange }: UpcomingL
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-amber-500/20 text-amber-500">
+                <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-purple-600/20 text-purple-600">
                   {(stream.artist_name || "P")[0]}
                 </div>
               )}
@@ -157,13 +157,13 @@ export default function UpcomingLiveCard({ stream, onReminderChange }: UpcomingL
 
             <div className="flex-1 min-w-0">
               <Link to={`/live/${stream.id}`}>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white line-clamp-2 hover:text-amber-500 transition-colors leading-snug">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white line-clamp-2 hover:text-purple-600 transition-colors leading-snug">
                   {stream.title}
                 </h3>
               </Link>
               <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 <span className="truncate">{stream.artist_name || "PAYTUNE Creator"}</span>
-                <CheckCircle className="w-3 h-3 text-amber-500 fill-amber-500/20 flex-shrink-0" />
+                <CheckCircle className="w-3 h-3 text-purple-600 fill-purple-600/20 flex-shrink-0" />
               </div>
             </div>
           </div>
@@ -183,15 +183,15 @@ export default function UpcomingLiveCard({ stream, onReminderChange }: UpcomingL
             disabled={isSubmitting}
             className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
               isReminded
-                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
-                : "bg-gray-100 dark:bg-[#252525] hover:bg-amber-500 hover:text-black text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                ? "bg-purple-600/15 text-purple-700 dark:text-purple-400 border border-purple-600/30 hover:bg-purple-600/25"
+                : "bg-gray-100 dark:bg-[#252525] hover:bg-purple-600 hover:text-black text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
             }`}
           >
             {isSubmitting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : isReminded ? (
               <>
-                <BellRing className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <BellRing className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
                 <span>Reminder Set</span>
               </>
             ) : (
@@ -205,7 +205,7 @@ export default function UpcomingLiveCard({ stream, onReminderChange }: UpcomingL
 
         {/* Toast confirmation feedback */}
         {toastMessage && (
-          <div className="text-[11px] font-semibold text-center text-amber-500 animate-fade-in">
+          <div className="text-[11px] font-semibold text-center text-purple-600 animate-fade-in">
             {toastMessage}
           </div>
         )}

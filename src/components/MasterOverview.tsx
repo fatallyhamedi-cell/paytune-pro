@@ -86,7 +86,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
       {/* Top Banner / Quick Action Bar */}
       <div className="p-4 rounded-2xl bg-gradient-to-r from-neutral-900 via-[#1A1A1A] to-neutral-900 border border-neutral-800 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+          <div className="p-2.5 rounded-xl bg-purple-600/10 border border-purple-600/20 text-purple-400">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
@@ -113,7 +113,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
             <button
               id="btn-overview-batch-withdraw"
               onClick={onBatchProcessWithdrawals}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-md transition-all cursor-pointer"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-md transition-all cursor-pointer"
             >
               <ArrowDownCircle className="w-3.5 h-3.5" />
               <span>Disburse Withdrawals ({stats.pending_withdrawals})</span>
@@ -130,7 +130,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                   : "bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-white"
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <Zap className="w-3.5 h-3.5 text-purple-400" />
               <span>Auto-Approval: {stats?.auto_approve_artists ? "ON" : "OFF"}</span>
             </button>
           )}
@@ -140,12 +140,12 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
       {/* Platform Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Platform Views (Video Analytics) */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-amber-500/30 hover:border-amber-500 transition-all shadow-sm">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-purple-600/30 hover:border-purple-600 transition-all shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">
               Total Platform Views
             </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+            <div className="p-2 rounded-xl bg-purple-600/10 text-purple-600">
               <Eye className="w-4 h-4" />
             </div>
           </div>
@@ -161,16 +161,16 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         </div>
 
         {/* 1. Total Platform Revenue (Owner Share) */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-neutral-800/80 hover:border-amber-500/30 transition-all shadow-sm">
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#161616] border border-gray-200 dark:border-neutral-800/80 hover:border-purple-600/30 transition-all shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-gray-500 dark:text-neutral-400">Net Platform Revenue</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+            <div className="p-2 rounded-xl bg-purple-600/10 text-purple-600">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <p className="mt-2 text-2xl font-black tracking-tight text-gray-900 dark:text-white">
             {stats ? Number(stats.total_revenue).toLocaleString() : "0"}{" "}
-            <span className="text-xs font-bold text-amber-500">RWF</span>
+            <span className="text-xs font-bold text-purple-600">RWF</span>
           </p>
           <div className="mt-2 flex items-center text-xs text-gray-500 dark:text-neutral-400">
             <span className="text-emerald-500 font-bold mr-1">30%</span> owner net commission
@@ -197,10 +197,10 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         {/* 3. Total Artists */}
         <div
           onClick={() => onNavigateTab("artists")}
-          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-amber-500/30 transition-all cursor-pointer group"
+          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-purple-600/30 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400 group-hover:text-amber-400 transition-colors">
+            <span className="text-xs font-medium text-neutral-400 group-hover:text-purple-400 transition-colors">
               Total Artists
             </span>
             <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
@@ -211,7 +211,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
             {stats ? stats.total_artists : 0}
           </p>
           <div className="mt-2 flex items-center text-xs text-neutral-400">
-            <span className="text-amber-400 font-medium mr-1 flex items-center">
+            <span className="text-purple-400 font-medium mr-1 flex items-center">
               Manage <ArrowUpRight className="w-3 h-3 ml-0.5" />
             </span>
           </div>
@@ -220,10 +220,10 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         {/* 4. Total Users */}
         <div
           onClick={() => onNavigateTab("users")}
-          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-amber-500/30 transition-all cursor-pointer group"
+          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-purple-600/30 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400 group-hover:text-amber-400 transition-colors">
+            <span className="text-xs font-medium text-neutral-400 group-hover:text-purple-400 transition-colors">
               Registered Users
             </span>
             <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
@@ -241,10 +241,10 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         {/* 5. Total Videos */}
         <div
           onClick={() => onNavigateTab("videos")}
-          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-amber-500/30 transition-all cursor-pointer group"
+          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-purple-600/30 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400 group-hover:text-amber-400 transition-colors">
+            <span className="text-xs font-medium text-neutral-400 group-hover:text-purple-400 transition-colors">
               Total Videos
             </span>
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
@@ -262,10 +262,10 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         {/* 6. Total Purchases */}
         <div
           onClick={() => onNavigateTab("payments")}
-          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-amber-500/30 transition-all cursor-pointer group"
+          className="p-4 rounded-2xl bg-[#161616] border border-neutral-800/80 hover:border-purple-600/30 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400 group-hover:text-amber-400 transition-colors">
+            <span className="text-xs font-medium text-neutral-400 group-hover:text-purple-400 transition-colors">
               Total Purchases
             </span>
             <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
@@ -285,22 +285,22 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
           onClick={() => onNavigateTab("artists")}
           className={`p-4 rounded-2xl border transition-all cursor-pointer group ${
             stats && stats.pending_approvals > 0
-              ? "bg-amber-500/5 border-amber-500/40 hover:border-amber-400 shadow-md shadow-amber-500/5"
+              ? "bg-purple-600/5 border-purple-600/40 hover:border-purple-400 shadow-md shadow-purple-600/5"
               : "bg-[#161616] border-neutral-800/80"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400 group-hover:text-amber-400 transition-colors">
+            <span className="text-xs font-medium text-neutral-400 group-hover:text-purple-400 transition-colors">
               Pending Artist Approvals
             </span>
-            <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400">
+            <div className="p-2 rounded-xl bg-purple-600/15 text-purple-400">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-black tracking-tight text-amber-400">
+          <p className="mt-2 text-2xl font-black tracking-tight text-purple-400">
             {stats ? stats.pending_approvals : 0}
           </p>
-          <div className="mt-2 flex items-center text-xs font-semibold text-amber-400">
+          <div className="mt-2 flex items-center text-xs font-semibold text-purple-400">
             {stats && stats.pending_approvals > 0 ? "Action required →" : "All artists up to date"}
           </div>
         </div>
@@ -351,7 +351,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                   onClick={() => onChangePeriod(period)}
                   className={`px-3 py-1 rounded-lg capitalize font-medium transition-all cursor-pointer ${
                     revenuePeriod === period
-                      ? "bg-amber-500 text-neutral-950 font-bold shadow"
+                      ? "bg-purple-600 text-neutral-950 font-bold shadow"
                       : "text-neutral-400 hover:text-white"
                   }`}
                 >
@@ -455,7 +455,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
               <h3 className="text-sm font-bold text-white">Top Best-Selling Videos</h3>
               <button
                 onClick={() => onNavigateTab("videos")}
-                className="text-xs text-amber-400 hover:underline cursor-pointer"
+                className="text-xs text-purple-400 hover:underline cursor-pointer"
               >
                 View all
               </button>
@@ -476,7 +476,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                       <p className="text-[10px] text-neutral-400 truncate">{v.artist_name}</p>
                     </div>
                   </div>
-                  <span className="font-bold text-amber-400 ml-2 whitespace-nowrap">
+                  <span className="font-bold text-purple-400 ml-2 whitespace-nowrap">
                     {Number(v.earnings || v.views * 300).toLocaleString()} RWF
                   </span>
                 </div>
@@ -490,7 +490,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
               <h3 className="text-sm font-bold text-white">Top Artists by Earnings</h3>
               <button
                 onClick={() => onNavigateTab("artists")}
-                className="text-xs text-amber-400 hover:underline cursor-pointer"
+                className="text-xs text-purple-400 hover:underline cursor-pointer"
               >
                 View all
               </button>
@@ -525,7 +525,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
               <h3 className="text-sm font-bold text-white">Top Supporters & Fans</h3>
               <button
                 onClick={() => onNavigateTab("users")}
-                className="text-xs text-amber-400 hover:underline cursor-pointer"
+                className="text-xs text-purple-400 hover:underline cursor-pointer"
               >
                 View all
               </button>
@@ -540,7 +540,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                       <p className="text-[10px] text-neutral-400 truncate">{u.email}</p>
                     </div>
                   </div>
-                  <span className="font-bold text-amber-400 ml-2 whitespace-nowrap">
+                  <span className="font-bold text-purple-400 ml-2 whitespace-nowrap">
                     {Number(u.total_spent).toLocaleString()} RWF
                   </span>
                 </div>
@@ -555,7 +555,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div>
             <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Eye className="w-4 h-4 text-amber-500" />
+              <Eye className="w-4 h-4 text-purple-600" />
               Platform Video Analytics (Views per Video)
             </h3>
             <p className="text-xs text-gray-500 dark:text-neutral-400">
@@ -564,7 +564,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
           </div>
           <button
             onClick={() => onNavigateTab("videos")}
-            className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-purple-700 dark:text-purple-400 hover:underline flex items-center gap-1"
           >
             Manage Videos <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
@@ -614,7 +614,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         v.is_free
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400'
+                          : 'bg-purple-100 text-purple-800 dark:bg-purple-600/20 dark:text-purple-400'
                       }`}>
                         {v.is_free ? 'Free' : 'Pay-Per-View'}
                       </span>

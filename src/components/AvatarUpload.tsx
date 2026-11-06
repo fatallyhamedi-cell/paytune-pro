@@ -57,13 +57,13 @@ export default function AvatarUpload({
     <div className="flex flex-col items-center gap-2">
       <div
         onClick={pick}
-        className="w-24 h-24 rounded-full bg-[#2A2A2A] border-2 border-amber-500 overflow-hidden cursor-pointer relative group hover:border-amber-400 transition-colors shadow-lg"
+        className="w-24 h-24 rounded-full bg-[#2A2A2A] border-2 border-purple-600 overflow-hidden cursor-pointer relative group hover:border-purple-400 transition-colors shadow-lg"
         title="Click to change avatar"
       >
         {preview ? (
           <img src={preview} className="w-full h-full object-cover" alt="Avatar" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-2xl text-amber-400 font-bold bg-[#1f1f1f]">
+          <div className="w-full h-full flex items-center justify-center text-2xl text-purple-400 font-bold bg-[#1f1f1f]">
             +
           </div>
         )}
@@ -72,14 +72,14 @@ export default function AvatarUpload({
         </div>
         {loading && (
           <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
       <button
         type="button"
         onClick={pick}
-        className="text-amber-500 hover:text-amber-400 text-xs font-semibold cursor-pointer"
+        className="text-purple-600 hover:text-purple-400 text-xs font-semibold cursor-pointer"
       >
         {loading ? 'Uploading...' : 'Change Avatar'}
       </button>

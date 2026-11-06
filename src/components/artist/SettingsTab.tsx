@@ -152,7 +152,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
         <button
           type="submit"
           disabled={saving}
-          className="px-6 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 self-start sm:self-auto"
+          className="px-6 py-2.5 rounded-xl bg-[#FFB300] text-black font-black text-xs hover:bg-[#ffc107] transition-all flex items-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95 self-start sm:self-auto"
         >
           <Save className="w-4 h-4" />
           <span>{saving ? 'Saving Settings...' : 'Save Settings'}</span>
@@ -198,7 +198,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-r from-neutral-900 via-neutral-800 to-amber-950/40 flex items-center justify-center text-neutral-600">
+            <div className="w-full h-full bg-gradient-to-r from-neutral-900 via-neutral-800 to-purple-950/40 flex items-center justify-center text-neutral-600">
               <ImageIcon className="w-8 h-8 opacity-40" />
             </div>
           )}
@@ -237,7 +237,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center text-black font-black text-xl">
+                <div className="w-full h-full bg-gradient-to-tr from-purple-700 to-purple-400 flex items-center justify-center text-black font-black text-xl">
                   {fullName ? fullName.charAt(0).toUpperCase() : 'A'}
                 </div>
               )}
@@ -321,7 +321,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className={`p-4 rounded-xl border transition-all ${
-            primaryPayout === 'mtn' ? 'border-[#FFB300] bg-amber-500/5' : 'border-white/10 bg-[#1A1A1A]'
+            primaryPayout === 'mtn' ? 'border-[#FFB300] bg-purple-600/5' : 'border-white/10 bg-[#1A1A1A]'
           }`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-white flex items-center gap-2">
@@ -350,7 +350,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
           </div>
 
           <div className={`p-4 rounded-xl border transition-all ${
-            primaryPayout === 'airtel' ? 'border-[#FFB300] bg-amber-500/5' : 'border-white/10 bg-[#1A1A1A]'
+            primaryPayout === 'airtel' ? 'border-[#FFB300] bg-purple-600/5' : 'border-white/10 bg-[#1A1A1A]'
           }`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-white flex items-center gap-2">

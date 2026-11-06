@@ -160,7 +160,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ summary, videos }) =
 
         <div className="bg-[#161616] border border-white/5 rounded-2xl p-4">
           <div className="flex items-center gap-2 text-xs font-bold text-gray-400 mb-1">
-            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <TrendingUp className="w-4 h-4 text-purple-400" />
             <span>Avg View Duration</span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black text-white">{avgDuration}</h3>
@@ -282,7 +282,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ summary, videos }) =
                   <span className="font-semibold text-white block">{geo.country}</span>
                   <span className="text-gray-500 text-[11px]">{geo.views.toLocaleString()} views</span>
                 </div>
-                <span className="font-bold text-[#FFB300] bg-amber-500/10 px-2 py-0.5 rounded">
+                <span className="font-bold text-[#FFB300] bg-purple-600/10 px-2 py-0.5 rounded">
                   {geo.share}
                 </span>
               </div>
@@ -307,7 +307,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ summary, videos }) =
                   </div>
                   <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-amber-500 rounded-full"
+                      className="h-full bg-purple-600 rounded-full"
                       style={{ width: `${d.percent}%` }}
                     />
                   </div>

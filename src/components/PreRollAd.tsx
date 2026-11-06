@@ -191,14 +191,14 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
 
       {/* Top Banner: Ad identification */}
       <div className="absolute top-4 left-4 z-40 flex items-center gap-2.5">
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-amber-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-md">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-purple-600 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-md">
           <span>{adPlacement === 'midroll' ? 'Mid-Roll Ad' : 'Ad'}</span>
           <span className="text-neutral-900 font-normal opacity-80">
             {adPlacement === 'midroll' ? '• Mid-Video Break' : '• 1 of 1'}
           </span>
         </div>
         <div className="bg-black/70 backdrop-blur-md px-3 py-1 rounded-md border border-neutral-700/60 text-white text-xs font-medium flex items-center gap-2 shadow-md">
-          <span className="font-semibold text-amber-400">{ad.advertiser_name}</span>
+          <span className="font-semibold text-purple-400">{ad.advertiser_name}</span>
           <span className="text-neutral-400 text-[11px] hidden sm:inline">({secondsLeft}s)</span>
         </div>
       </div>
@@ -208,7 +208,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
         {/* Progress bar */}
         <div className="w-full bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
           <div
-            className="h-full bg-amber-500 transition-all duration-200"
+            className="h-full bg-purple-600 transition-all duration-200"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -231,7 +231,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
               className="p-2 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-white transition-colors cursor-pointer"
               title={isMuted ? "Unmute" : "Mute"}
             >
-              {isMuted ? <VolumeX className="w-4 h-4 text-amber-400" /> : <Volume2 className="w-4 h-4" />}
+              {isMuted ? <VolumeX className="w-4 h-4 text-purple-400" /> : <Volume2 className="w-4 h-4" />}
             </button>
 
             {ad.click_url && (
@@ -241,7 +241,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md border border-white/10 transition-all cursor-pointer"
               >
                 <span>Visit Advertiser</span>
-                <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
               </button>
             )}
           </div>
@@ -252,7 +252,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
               <button
                 id="btn-ad-skip"
                 onClick={handleSkip}
-                className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-lg transition-all transform active:scale-95 cursor-pointer"
+                className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-lg transition-all transform active:scale-95 cursor-pointer"
               >
                 <span>Skip Ad</span>
                 <SkipForward className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -262,7 +262,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
                 id="ad-skip-countdown-pill"
                 className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-black/80 backdrop-blur-md border border-neutral-700/60 text-neutral-300 text-xs font-semibold shadow-md"
               >
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <div className="w-2 h-2 rounded-full bg-purple-600 animate-ping" />
                 <span>Skip in {skipCountdown}s</span>
               </div>
             )}
