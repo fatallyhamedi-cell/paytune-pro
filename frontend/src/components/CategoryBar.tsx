@@ -33,12 +33,7 @@ export default function CategoryBar({
   };
 
   return (
-    /* 
-      sticky top-14: Sticks right below the 56px (h-14) header 
-      z-40: Keeps it above video cards but below modals
-      backdrop-blur-md bg-white/95: Adds a nice glass effect
-    */
-    <div className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-colors">
+    <div className="bg-white border-b border-gray-100 transition-colors">
       {/* Scrollable Container */}
       <div className="flex gap-3 overflow-x-auto px-4 py-3 scrollbar-hide w-full">
         {categories.map((cat) => (

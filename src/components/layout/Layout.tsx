@@ -10,6 +10,11 @@ export default function Layout() {
   const location = useLocation();
   const isMasterRoute = location.pathname.startsWith("/master");
 
+  // Prevent double header: Master dashboard provides its own complete MasterDashboardLayout
+  if (isMasterRoute) {
+    return <Outlet />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0F0F0F] text-gray-900 dark:text-white transition-colors duration-200 antialiased selection:bg-purple-600 selection:text-black">
       <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />

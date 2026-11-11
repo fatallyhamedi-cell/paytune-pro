@@ -121,7 +121,7 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
     { label: 'Shorts', path: '/shorts', icon: PlaySquare },
     { label: 'Following', path: '/follows', icon: Star, hasFollowedList: true },
     { label: 'Studio', path: '/artist/dashboard', icon: BarChart3 },
-    { label: 'Settings', path: '/dashboard/settings', icon: Settings },
+    { label: 'Settings', path: '/settings', icon: Settings },
     { label: profileLabel, path: '/dashboard', icon: UserCircle2, isProfile: true },
   ];
 

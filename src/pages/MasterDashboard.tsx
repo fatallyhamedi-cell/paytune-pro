@@ -16,6 +16,7 @@ import { MasterReports } from "../components/MasterReports";
 import { AdminLogs } from "../components/AdminLogs";
 import { MasterDiagnostics } from "../components/MasterDiagnostics";
 import { MasterCategoryManager } from "../components/MasterCategoryManager";
+import MasterMonetization from "../components/master/MasterMonetization";
 import { MasterLogin } from "./MasterLogin";
 
 import { useMasterStats } from "../hooks/useMasterStats";
@@ -71,6 +72,7 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
         "categories",
         "access_requests",
         "ads",
+        "monetization",
         "payments",
         "withdrawals",
         "copyright",
@@ -402,6 +404,8 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
         {activeTab === "access_requests" && <AccessRequestsManager />}
 
         {activeTab === "ads" && <MasterAdsManager />}
+
+        {activeTab === "monetization" && <MasterMonetization />}
 
         {activeTab === "payments" && (
           <PaymentManagement

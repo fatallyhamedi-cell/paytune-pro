@@ -30,6 +30,7 @@ const ArtistAnalytics = lazy(() => import("./pages/Artist/Analytics"));
 const ArtistEarnings = lazy(() => import("./pages/Artist/Earnings"));
 const ArtistFollowers = lazy(() => import("./pages/Artist/Followers"));
 const ArtistProfile = lazy(() => import("./pages/Artist/Profile"));
+const PartnerProgram = lazy(() => import("./pages/Artist/PartnerProgram"));
 const VideoUpload = lazy(() => import("./pages/VideoUpload"));
 const Earnings = lazy(() => import("./pages/Earnings"));
 const MasterDashboard = lazy(() => import("./pages/MasterDashboard"));
@@ -88,6 +89,10 @@ function App() {
                     <Route path="/copyright/holder" element={<CopyrightHolderPortal />} />
                     <Route path="/artist/:id" element={<ArtistChannel />} />
                     
+                    {/* Settings Routes */}
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/dashboard/settings" element={<SettingsPage />} />
+
                     {/* Protected User Routes */}
                     <Route element={<ProtectedRoute />}>
                        <Route path="/dashboard/*" element={<Dashboard />} />
@@ -157,7 +162,9 @@ function App() {
                     <Route path="profile" element={<ArtistProfile />} />
                     <Route path="live" element={<LiveDashboard />} />
                     <Route path="membership" element={<MembershipDashboard />} />
+                    <Route path="monetization" element={<PartnerProgram />} />
                   </Route>
+                  <Route path="/artist/monetization" element={<Navigate to="/artist/dashboard/monetization" replace />} />
 
                   {/* Direct Artist URLs for Quick Access */}
                   <Route path="/artist/videos" element={<Navigate to="/artist/dashboard/videos" replace />} />

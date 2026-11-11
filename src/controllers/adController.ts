@@ -158,17 +158,89 @@ export const recordAdImpression = async (req: Request, res: Response) => {
     store.ad_impressions.push(newImpression);
 
     // Update ad spent budget (e.g. standard 5 RWF per ad display)
+    const adCost = 5;
     const ad = (store.ads || []).find((a: any) => String(a.id) === String(ad_id));
     if (ad) {
-      ad.spent_rwf = Number(ad.spent_rwf || 0) + 5;
+      ad.spent_rwf = Number(ad.spent_rwf || 0) + adCost;
       ad.updated_at = new Date().toISOString();
     }
+
+    // Revenue distribution rule:
+    // Only artists who are approved in the PayTune Partner Program (monetization_status === 'approved_monetized')
+    // receive an advertising revenue share. Otherwise, 100% of the ad revenue goes to PayTune platform wallet.
+    let artistShare = 0;
+    let platformShare = adCost;
+    let isMonetizedPartner = false;
+
+    if (video_id) {
+      const video = (store.videos || []).find((v: any) => String(v.id) === String(video_id));
+      if (video && (video.artist_id || video.user_id)) {
+        const creatorId = String(video.artist_id || video.user_id);
+        const artist = (store.artists || []).find(
+          (a: any) => String(a.id) === creatorId || String(a.user_id) === creatorId
+        );
+
+        if (artist && artist.monetization_status === 'approved_monetized') {
+          isMonetizedPartner = true;
+          const rules = store.partner_program_rules || { artist_ad_share_pct: 40 };
+          const sharePct = rules.artist_ad_share_pct || 40;
+          artistShare = Math.round(adCost * (sharePct / 100));
+          platformShare = adCost - artistShare;
+
+          // Credit artist's wallet & ad earnings tracker
+          if (!store.artist_wallets) store.artist_wallets = [];
+          let wallet = store.artist_wallets.find(
+            (w: any) => String(w.artist_id) === String(artist.id) || String(w.artist_id) === String(artist.user_id)
+          );
+          if (!wallet) {
+            wallet = {
+              id: `wallet-${artist.id}`,
+              artist_id: artist.id,
+              balance_rwf: 0,
+              pending_clearance_rwf: 0,
+              total_withdrawn_rwf: 0,
+              currency: 'RWF',
+              updated_at: new Date().toISOString()
+            };
+            store.artist_wallets.push(wallet);
+          }
+
+          wallet.balance_rwf = Number(wallet.balance_rwf || 0) + artistShare;
+          wallet.updated_at = new Date().toISOString();
+
+          artist.ad_earnings_rwf = Number(artist.ad_earnings_rwf || 0) + artistShare;
+          artist.ad_impressions_count = Number(artist.ad_impressions_count || 0) + 1;
+        }
+      }
+    }
+
+    // Credit platform wallet
+    if (!store.platform_wallet) {
+      store.platform_wallet = {
+        escrow_balance_rwf: 0,
+        revenue_balance_rwf: 0,
+        vat_collected_rwf: 0,
+        total_settled_rwf: 0,
+        currency: 'RWF',
+        updated_at: new Date().toISOString()
+      };
+    }
+    store.platform_wallet.revenue_balance_rwf =
+      Number(store.platform_wallet.revenue_balance_rwf || 0) + platformShare;
+    store.platform_wallet.updated_at = new Date().toISOString();
+
+    (newImpression as any).monetized = isMonetizedPartner;
+    (newImpression as any).artist_share_rwf = artistShare;
+    (newImpression as any).platform_share_rwf = platformShare;
 
     notifyMutation();
 
     return res.json({
       success: true,
       impression_id: impressionId,
+      monetized: isMonetizedPartner,
+      artist_share_rwf: artistShare,
+      platform_share_rwf: platformShare,
       message: "Ad impression recorded"
     });
   } catch (err: any) {

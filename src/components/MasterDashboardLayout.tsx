@@ -22,7 +22,8 @@ import {
   Scale,
   Megaphone,
   PhoneCall,
-  Tag
+  Tag,
+  Sparkles
 } from "lucide-react";
 import Logo from "./Logo";
 
@@ -34,6 +35,7 @@ export type MasterTab =
   | "categories"
   | "access_requests"
   | "ads"
+  | "monetization"
   | "payments"
   | "withdrawals"
   | "copyright"
@@ -78,7 +80,8 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
     { id: "videos" as MasterTab, label: "Videos", icon: Video },
     { id: "categories" as MasterTab, label: "Categories", icon: Tag },
     { id: "access_requests" as MasterTab, label: "Access Requests", icon: PhoneCall },
-    { id: "ads" as MasterTab, label: "Ads & Monetization", icon: Megaphone },
+    { id: "ads" as MasterTab, label: "Ads & Campaigns", icon: Megaphone },
+    { id: "monetization" as MasterTab, label: "Partner Program (PPP)", icon: Sparkles },
     { id: "payments" as MasterTab, label: "Payments", icon: CreditCard },
     {
       id: "withdrawals" as MasterTab,
@@ -107,7 +110,8 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
       case "videos": return "Video Catalog & Visibility Control";
       case "categories": return "Category Discovery Management";
       case "access_requests": return "Phone Access Requests & Viewer Approvals";
-      case "ads": return "Video Ads & Monetization Center";
+      case "ads": return "Video Ads & Campaigns Center";
+      case "monetization": return "Creator Monetization & Partner Program Controls";
       case "payments": return "Revenue & Financial Transactions";
       case "withdrawals": return "Mobile Money Payout Requests";
       case "copyright": return "Copyright Protection & DMCA Center";

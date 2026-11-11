@@ -42,6 +42,7 @@ import copyrightRouter, { dmcaRouter } from "./src/routes/copyrightRoutes";
 import adRouter from "./src/routes/adRoutes";
 import accessRequestRouter from "./src/routes/accessRequestRoutes";
 import edgeFunctionRoutes from "./src/routes/edgeFunctionRoutes";
+import partnerProgramRouter from "./src/routes/partnerProgramRoutes";
 import { processAndUploadVideo } from "./src/services/videoService";
 import { processPurchase } from "./src/services/paymentSplitter";
 import { supabaseAdmin, isSupabaseConfigured, supabaseProjectInfo } from "./src/config/supabase";
@@ -461,6 +462,8 @@ app.use("/api/dmca", dmcaRouter);
 app.use("/api/edge-functions", edgeFunctionRoutes);
 app.use("/functions/v1", edgeFunctionRoutes);
 app.use("/api/access-requests", accessRequestRouter);
+app.use("/api/partner-program", partnerProgramRouter);
+app.use("/api", partnerProgramRouter);
 
 // --- User Dashboard API Endpoints ---
 app.use("/api/user/playlists", playlistRouter);

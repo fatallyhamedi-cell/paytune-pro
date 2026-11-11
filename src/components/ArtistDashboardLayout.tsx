@@ -7,6 +7,7 @@ const tabs = [
   { path: '/artist/dashboard/upload', label: '+ Upload Media' },
   { path: '/artist/dashboard/analytics', label: 'Analytics' },
   { path: '/artist/dashboard/earnings', label: 'Earnings & MoMo' },
+  { path: '/artist/dashboard/monetization', label: 'Monetization & Ads' },
   { path: '/artist/dashboard/followers', label: 'Followers' },
   { path: '/artist/dashboard/live', label: 'Live Stream' },
   { path: '/artist/dashboard/membership', label: 'Memberships' },

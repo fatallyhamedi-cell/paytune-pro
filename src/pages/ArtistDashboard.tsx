@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import axios from "axios";
-import { ArtistDashboardLayout } from "../components/artist/ArtistDashboardLayout";
+import { ArtistDashboardLayout, ArtistStudioTab } from "../components/artist/ArtistDashboardLayout";
 import { OverviewTab } from "../components/artist/OverviewTab";
 import { VideosTab } from "../components/artist/VideosTab";
 import { EarningsTab } from "../components/artist/EarningsTab";
@@ -20,7 +20,7 @@ export default function ArtistDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const activeTab = searchParams.get("tab") || "overview";
+  const activeTab = (searchParams.get("tab") as ArtistStudioTab) || "overview";
 
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ export default function ArtistDashboard() {
     fetchDashboard();
   }, [user]);
 
-  const handleTabChange = (tabId: string) => {
+  const handleTabChange = (tabId: ArtistStudioTab) => {
     setSearchParams({ tab: tabId });
   };
 

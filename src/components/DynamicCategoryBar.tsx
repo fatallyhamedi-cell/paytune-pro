@@ -116,7 +116,7 @@ export default function DynamicCategoryBar({
   return (
     <div
       id="dynamic-category-bar-wrapper"
-      className="sticky top-14 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-colors"
+      className="bg-white border-b border-gray-100 transition-colors"
     >
       <div className="relative max-w-[1920px] mx-auto px-2 sm:px-4 py-2.5 flex items-center">
         {/* Left Arrow Button */}

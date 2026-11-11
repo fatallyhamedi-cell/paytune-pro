@@ -1,0 +1,1877 @@
+no analyse whole file and read careful line by line.
+You're right. I have now checked the newer file, “Pasted text(1).txt,” rather than relying on my earlier description. It is not simply a YouTube feature guide. It begins with “PAYTUNE: MASTER PROJECT SCOPE & SPECIFICATION” and defines your own PayTune platform.
+
+The file contains 2,954 lines. I’m treating it as your project document and reviewing its actual requirements, technical instructions, code, and decisions—not assuming that every feature from YouTube belongs in PayTune.
+
+1. What your document actually defines
+PayTune is a video and audio marketplace where customers pay once for individual content and keep permanent access. It is designed around Rwandan artists, local buyers, and people in the Rwandan diaspora.
+
+Its central business model is:
+
+Artists upload original music videos, audio tracks, and short videos.
+Buyers can browse free content and preview paid videos for 30 seconds.
+Buyers pay to unlock a paid video permanently.
+Artists receive 70% of the amount remaining after the specified 5% VAT deduction.
+PayTune receives the other 30%.
+The platform owner controls artist approvals, content approvals, payments, withdrawals, advertising, and platform settings.
+The tagline is “Pay Once, Tune Forever.” The specified stack is React with TypeScript, Express.js, Supabase PostgreSQL and Storage, and Tailwind CSS.
+
+This is a much more specific product than a YouTube clone. You are using some familiar YouTube interface and discovery ideas, but the actual business is a pay-per-view marketplace with artist accounts, permanent purchases, and revenue distribution.
+
+2. Complete feature analysis
+A. Business model and payments
+Feature	What it does in PayTune	Importance
+Pay once, watch forever	A successful purchase creates a permanent entitlement to the video.	Essential
+Free videos	Users can watch without purchasing.	Essential
+Paid videos	Users must purchase access after the preview.	Essential
+30-second preview	Allows users to sample a paid video before buying.	Essential
+VAT calculation	Deducts the specified 5% before splitting revenue.	Essential, subject to tax verification
+Artist revenue share	Credits 70% of the post-VAT amount to the artist.	Essential
+Platform revenue share	Credits 30% of the post-VAT amount to PayTune.	Essential
+Escrow	Holds payment funds before distribution.	Essential to the proposed financial design
+RWF pricing	Displays local prices in Rwandan francs.	Essential
+USD pricing	Displays diaspora prices in US dollars.	Essential
+MTN MoMo	Supports local mobile-money payments.	Essential
+Airtel Money	Supports another local mobile-money payment method.	Essential
+Stripe	Supports card payments for international buyers.	Essential
+Unique transaction token	Identifies a payment attempt.	Essential
+Payment confirmation	Confirms a payment before granting permanent access.	Essential
+Payment receipt	Records the completed purchase.	Essential
+Artist wallet	Stores the artist's available earnings.	Essential
+Platform wallet	Stores PayTune's share.	Essential
+Withdrawal requests	Allows artists to request their earnings.	Essential
+Minimum withdrawal	Sets the stated minimum at 5,000 RWF.	Essential
+Admin payout processing	Allows the Master Admin to process withdrawals.	Essential
+The financial calculation in your document
+
+For a purchase of 1,000 RWF:
+
+Calculation	Amount
+Purchase price	1,000 RWF
+5% VAT	50 RWF
+Remaining amount	950 RWF
+Artist receives 70%	665 RWF
+PayTune receives 30%	285 RWF
+The example is mathematically consistent with the rule in your document. However, the 5% VAT rate and how it applies to your transactions must be verified with the appropriate tax and payment professionals before launch.
+
+B. Authentication and user roles
+Your document defines four access levels:
+
+1. Guest / Public
+
+Browse available videos.
+Watch free videos.
+Preview paid videos for 30 seconds.
+Cannot purchase, like, comment, follow, or create playlists without an account.
+2. Registered User / Buyer
+
+Purchase videos.
+Watch purchased videos permanently.
+Like and comment.
+Rate videos.
+Follow artists.
+Create playlists.
+View purchase history and personal library.
+3. Artist / Creator
+
+Register and verify a phone number using OTP.
+Wait for Master Admin approval.
+Upload videos and audio after approval.
+Manage their artist profile.
+View their content statistics.
+View earnings and wallet balance.
+Request withdrawals.
+4. Master Admin
+
+Approve, reject, or block artists.
+Approve or reject uploaded videos.
+Review platform statistics.
+View artist and user information.
+Manage withdrawals and payouts.
+Manage advertising.
+Change financial settings.
+Control maintenance mode.
+The distinction between these roles is important. An artist should not automatically become an approved creator simply by registering.
+
+C. Artist Studio
+This is the artist's private workspace.
+
+Feature	Function
+Dashboard overview	Displays video count, views, followers, purchases, earnings, and available balance.
+Video upload	Lets artists select files from their devices.
+Drag and drop	Makes selecting files easier.
+Upload progress	Shows the progress of a file upload.
+Copyright declaration	Requires the artist to declare ownership of the content.
+AI-content declaration	Requires the artist to confirm the content is not AI-generated, according to the current specification.
+Stolen-content declaration	Requires confirmation that the content is not stolen.
+Standard video	Supports the specified 16:9 format.
+Shorts	Supports the specified 9:16 format, with a maximum duration of 50 seconds and free-only distribution.
+Audio upload	Allows artists to publish audio content.
+Analytics	Shows views, watch time, earnings, and demographic information.
+Wallet	Shows the artist's earnings.
+Withdrawal	Allows eligible artists to request payment.
+Profile management	Allows an artist to update their avatar, banner, and biography.
+Important distinction: The three upload declarations are requirements in your specification. They are not proof that a video is original or that the artist actually owns its rights. You still need a reporting, review, and copyright-dispute process.
+
+The AI-generated-content restriction is also a product policy, not a technical capability that the three checkboxes can verify.
+
+D. Video watch page
+This is one of the most important parts of PayTune because it connects content, customer experience, and payment.
+
+Your document describes:
+
+A video player.
+A 30-second preview for paid videos.
+A purchase overlay after the preview ends.
+A Buy Now action.
+A like and unlike button.
+Comments and replies.
+A 1–5-star rating.
+Super Thanks tips.
+Video sharing.
+Ads on free videos only.
+No ads on paid videos.
+Saving playback position every five seconds.
+Resuming playback after an internet interruption.
+The intended customer journey is:
+
+Open a video
+
+Check whether it is free or paid
+
+(Free)
+
+Play full video
+
+(Paid)
+
+Play 30-second preview
+
+Purchase and confirm payment
+
+(Permanent entitlement)
+
+Unlock the complete video
+
+The permanent purchase is especially important: the system should check the purchase record whenever a user tries to play a paid video. It should not rely only on whether the user has previously visited the watch page.
+
+E. Master Admin dashboard
+Your Master Admin dashboard is the control center for the entire business.
+
+Its documented responsibilities include:
+
+Total registered users.
+Total videos.
+Total platform revenue.
+Artist approvals.
+Artist blocking.
+Video review queue.
+Video approval and rejection.
+Withdrawal processing.
+Advertising management.
+VAT and commission configuration.
+Minimum withdrawal configuration.
+Maintenance mode.
+There is also a later request in the file that expands Master Admin analytics: the Master should see the views of every video, total views across the platform, and statistics across all artists.
+
+That later requirement should be treated as part of the current project scope, not ignored because the first dashboard code was simpler.
+
+F. Buyer dashboard and library
+Your buyer dashboard is intended to give every registered customer a personal content area.
+
+It includes:
+
+My Library: all permanently purchased videos.
+Watch History: videos previously watched.
+Continue Watching: videos started but not completed.
+Playlists: personal collections, such as Gospel Favorites.
+Following: new uploads from artists the user follows.
+This is a useful distinction: the library stores owned content, while watch history records activity. They should not be treated as the same database feature.
+
+G. Engagement and community
+Your document includes:
+
+Likes and unlikes.
+Comments.
+Threaded replies.
+Comment deletion by the author.
+Comment moderation by the artist on their content.
+Star ratings from 1 to 5.
+Following artists.
+Sharing video links.
+Super Thanks tips.
+These features help artists develop an audience and help users interact with the platform.
+
+H. Discovery and homepage
+The homepage is intended to show:
+
+Trending videos.
+New releases.
+Approved and publicly visible videos.
+Artist names and avatars.
+Video thumbnails.
+View counts.
+Links to watch videos.
+The document also includes a search and discovery phase, but the supplied code mainly implements trending by view count and new releases by upload date. A full search system, categories, and personalized recommendations are not yet implemented in the supplied code.
+
+I. Advertising
+The advertising model has a clear restriction:
+
+Ads may play before free videos.
+Paid videos must remain ad-free.
+Ads may be skipped after five seconds.
+The Master Admin creates ads.
+Ads can be assigned globally or to a particular free video.
+Admins can configure ad budgets.
+This is a separate revenue stream from video purchases. It should have its own reporting, impressions, clicks, budget controls, and payment records.
+
+J. Live streaming — future phase
+The document explicitly puts live streaming in a future phase.
+
+Its intended features are:
+
+Artists create live-stream rooms.
+OBS sends video through RTMP.
+Viewers receive the stream through HLS.
+Live chat uses WebSockets or Socket.io.
+Viewers can send Super Thanks.
+Tips can highlight messages in live chat.
+This is a substantial system, not just another video upload. It will need streaming infrastructure, moderation, live viewer tracking, and payment integration.
+
+K. Technical architecture
+Layer	Technology in your document	Responsibility
+Frontend	React + TypeScript + Vite	Website interface
+Styling	Tailwind CSS	Responsive visual design
+Routing	React Router	Public and protected pages
+State	React Context API	Authentication and theme
+Data fetching	TanStack React Query	Caching and server data
+Backend	Node.js + Express	Business logic and API
+Authentication	Custom JWT + bcrypt	Login and role verification
+Database	Supabase PostgreSQL	Users, purchases, videos, payments, and other records
+File storage	Supabase Storage	Video, audio, image, and banner files
+Video playback	HTML5 + HLS.js	Video playback and streaming
+Live communication	Socket.io / WebSockets	Live chat
+The document explicitly says not to use Supabase Auth for the planned custom authentication system.
+
+L. Database entities
+The file's master build prompt lists these database tables:
+
+users, artist_profiles, artist_otp_logs, videos, video_fingerprints, payments, purchases, artist_wallet, platform_wallet, withdrawal_requests, follows, user_likes, user_ratings, user_comments, playlists, playlist_videos, watch_history, watch_progress, live_streams, live_chat_messages, live_viewers, membership_tiers, memberships, super_thanks, ads, ad_assignments, notifications, reports, and admin_logs.
+
+These tables cover most of the major feature areas, but the document does not provide a complete, consistent SQL definition for every table in the text I reviewed. A table name alone does not establish its columns, constraints, indexes, relationships, or security policies.
+
+3. Important problems I found in the actual code
+This is the most important part of my analysis. Your document has a good product design, but the code included in it does not yet implement all the features it claims to implement.
+
+I found the following issues.
+
+3.1 Master Admin login — critical
+The file contains an example SQL command with a password hash that is presented as a placeholder. It is not a dependable bcrypt hash for the stated password.
+
+There are also inconsistencies between:
+
+The original generic login controller.
+The later Master Login page.
+The Master authentication middleware.
+The database role assigned to the Master account.
+The document's proposed SQL uses ON CONFLICT (email), which requires a unique constraint on the email column.
+
+What needs to be fixed:
+
+Create or securely promote a Master account in the users table.
+Generate a real bcrypt hash for its password.
+Authenticate against the custom users table.
+Check that the returned role is exactly master.
+Issue a JWT with the correct role.
+Store and retrieve the Master token consistently.
+Protect every Master API and frontend route.
+The example hash should not be copied into your production database. Also, a default JWT secret such as 'secret' must never be used in production.
+
+3.2 Payments — critical
+(Not production-ready)
+
+The payment code generates a token, inserts a pending payment, and returns the token to the frontend.
+
+However, the actual MTN MoMo and Airtel Money payment requests are not implemented. The code even contains a TODO for triggering the provider API.
+
+The webhook code is also incomplete:
+
+It trusts a simulated SUCCESSFUL status in the request body.
+It does not verify the provider's webhook signature.
+It does not verify the actual amount received.
+It does not verify the currency.
+It does not safely prevent simultaneous duplicate webhook processing.
+It does not atomically create the purchase and update wallets.
+It credits the artist wallet but does not credit the platform wallet's 30% share.
+It does not properly implement the escrow process.
+It does not implement Stripe payment processing.
+This means the payment code is a starting example, not a functioning financial system.
+
+My recommendation: Build the payment engine around verified provider transactions, database transactions, idempotency, and an immutable financial ledger. Never grant permanent access merely because someone submits a matching token.
+
+3.3 Upload system — critical
+The specification supports standard videos, Shorts, and audio, but the supplied upload controller primarily handles video uploads.
+
+Other missing or incomplete validations include:
+
+Audio upload handling.
+Shorts maximum duration of 50 seconds.
+Shorts 9:16 aspect ratio.
+Standard video 16:9 aspect ratio.
+Mandatory RWF and USD pricing for paid videos.
+Positive and valid prices.
+Duplicate fingerprint checking against existing uploads.
+Proper storage cleanup when a database insert fails.
+There is also a difference between the specification and the implementation: the specification says direct device-to-Supabase uploads, while the supplied code sends files through Express using Multer memory storage before uploading them to Supabase.
+
+That approach can consume substantial server memory with large uploads.
+
+3.4 Video security and the 30-second preview
+The specification says video URLs must not be exposed directly and that playback should use short-lived access tokens.
+
+But the supplied code uses getPublicUrl() and returns video_url to the frontend.
+
+That conflicts with the security requirement.
+
+The 30-second player implementation also uses an alert when the preview ends. It does not provide a complete purchase overlay or secure playback restriction. A viewer may attempt to seek beyond the preview unless the server also controls playback access.
+
+The correct design needs:
+
+Private video storage.
+Authenticated playback authorization.
+Short-lived playback URLs or streaming tokens.
+Server-side entitlement checks.
+Preview restrictions that cannot be bypassed simply by seeking.
+Permanent access after a verified purchase.
+3.5 Master analytics and artist analytics
+Your later request is important: the Master must analyze all video views, and each artist must analyze views for individual videos as well as their total views.
+
+The original code has only basic statistics.
+
+Master Admin analytics — required
+
+Total platform views
+
+All videos
+Total videos
+
+All artists
+Total purchases
+
+Platform-wide
+Revenue
+
+Platform share
+Master should also see:
+
+Individual views for every video.
+Artist-by-artist performance.
+Most-viewed videos.
+Least-viewed videos.
+Free versus paid video performance.
+Purchase counts and conversion rates.
+Views over time.
+Earnings over time.
+Artist analytics — required
+
+Total views across their videos.
+Individual views for every uploaded video.
+Total purchases.
+Earnings per video.
+Followers.
+Watch time.
+Video performance over time.
+Pending, approved, and rejected video counts.
+One important technical correction: the current recordView code increments a video counter every time the player starts. That is not a reliable unique-view measurement. A proper analytics system needs defined view-counting rules, duplicate-view protection, and event records. The dashboards should calculate their statistics from those records.
+
+3.6 Other incomplete features
+Feature	What the document promises	What the supplied code actually does
+Artist approval	Approve, reject, block artists	No complete artist approval management
+OTP	Send and verify OTP	Generates and logs OTP; verification endpoint is missing
+Artist authorization	Only approved artists upload	Approval is not consistently enforced
+Withdrawal	Request and process payments	Request example exists; full payout processing is missing
+Platform wallet	Receive 30% share	Webhook does not credit it
+Library	Purchased videos	Basic library endpoint and page
+Watch history	Chronological history	Basic history endpoint
+Continue Watching	Resume unfinished videos	Progress-saving foundation only
+Playlists	Create and manage collections	Database table listed; complete CRUD missing
+Following	Follow artists and view their uploads	Not fully implemented
+Ratings	1–5 stars	Not implemented
+Threaded comments	Replies and deletion	Basic comment creation and listing only
+Super Thanks	Tips to creators	Not implemented
+Search	Find videos and artists	Search implementation missing
+Categories	Discover by category	Not fully implemented
+Notifications	Notify users and artists	Database table listed; notification system missing
+Reports	Report content and users	Database table listed; reporting system missing
+Live streaming	RTMP, HLS, chat, tips	Basic stream record creation only
+Ad analytics	Track advertising performance	Basic ad retrieval only
+These differences are visible in the implementation sections of your file.
+
+4. Cross-platform compatibility and responsiveness
+Your later instructions correctly change the interface requirements.
+
+The original specification says dark mode by default, but your later instruction says:
+
+(Current design requirement) White / light mode by default.
+
+I would therefore use:
+
+White page backgrounds.
+Light-gray cards and borders.
+Dark text.
+Amber #FFB300 as the PayTune brand color.
+An optional dark-mode switch.
+Your responsive layout section also describes:
+
+Device	Expected interface
+Small phones	Compact header, mobile menu, bottom navigation
+Large phones	Mobile navigation and responsive video cards
+Tablets	Collapsible sidebar and wider grids
+Laptops	Full sidebar and multi-column content
+Desktop monitors	Full layout with wider video cards
+Smart TVs	A separate TV-friendly interface if TV support is later required
+The file specifically includes playsInline for mobile video playback, responsive video grids, mobile-friendly payment modals, and a stacked watch-page layout.
+
+One issue: the different grid examples are not entirely consistent about whether mobile should show one or two columns. This should be standardized in the design system. Also, the provided responsive Watch page contains placeholders for recommendations and comments, so it is not a complete implementation.
+
+5. The biggest inconsistencies in the document
+These are the decisions that need to be reconciled before building more code.
+
+Issue	Earlier specification	Later material	What I recommend
+Default theme	Dark	White	White by default
+Video storage	Tokenized/private playback	Public URLs in code	Private storage
+Payment providers	MTN, Airtel, Stripe	MTN example only	Implement all three properly
+Upload method	Direct device upload	Express memory upload	Choose a secure, scalable upload architecture
+Shorts	Free, maximum 50 seconds	Validation not implemented	Enforce on backend
+Master analytics	General statistics	All-video views requested later	Add full platform analytics
+Artist analytics	Total earnings and views	Individual video views requested later	Add per-video analytics
+Live streaming	Future phase	Basic database setup	Keep as a future phase
+Master account	Hardcoded super-user description	Custom database login	Use a database-backed Master role with secure provisioning
+There is another important point: the file includes both the original project specification and generated AI instructions/code. They should not all be treated as equally authoritative. The master project scope defines the intended product; later direct requirements, such as white mode and expanded analytics, update that scope; generated code is an implementation attempt that must be checked against both.
+
+6. What should be built first
+I recommend organizing PayTune into these development priorities.
+
+Foundation — must work first (Priority 1)
+
+Database schema and security policies.
+
+User, Artist, and Master authentication.
+
+OTP and artist approval.
+
+Secure file upload and storage.
+
+Video review and approval.
+
+Secure video playback and permanent purchase entitlements.
+
+Business operations (Priority 2)
+
+MTN MoMo, Airtel Money, and Stripe.
+
+VAT and revenue splitting.
+
+Artist and platform wallets.
+
+Withdrawal and payout processing.
+
+Master financial dashboard.
+
+Platform experience (Priority 3)
+
+Buyer library and watch history.
+
+Artist dashboard and per-video analytics.
+
+Likes, comments, ratings, and follows.
+
+Search, categories, trending, and homepage.
+
+Responsive design and light/dark themes.
+
+Growth and advanced features (Priority 4)
+
+Advertising system.
+
+Notifications and reports.
+
+Live streaming and chat.
+
+Super Thanks and advanced analytics.
+
+Production testing, security review, and deployment.
+
+7. My overall assessment
+Strong project concept
+Your document establishes a clear business model and a good starting architecture. It also identifies the main people who will use PayTune and the responsibilities of each role.
+
+But I would not call the supplied code production-ready or the entire platform complete.
+
+The most serious risks are:
+
+Payment security: Real payment verification and safe revenue distribution are not complete.
+Video protection: Public storage URLs conflict with the private playback requirement.
+Access control: Artist approval and Master permissions need stronger enforcement.
+Analytics accuracy: Simple view counters are not enough for reliable financial and performance reporting.
+Missing functionality: Several features exist only as database table names or written requirements, not working code.
+Master login: The example password hash cannot be trusted.
+The best approach is to preserve the features you specified, correct the contradictions, and build each phase against the actual database schema. Do not add fake videos or mock statistics to make dashboards look complete.
+
+My conclusion: PayTune should be developed as its own Rwandan video-and-audio marketplace, not as a direct copy of YouTube. The YouTube-style layout is useful, but permanent purchases, creator earnings, secure payments, and Master Admin control are the defining features of your platform.
+
+i need upgrade to be african , not rwandan. focus on"
+
+Strong project concept
+Your document establishes a clear business model and a good starting architecture. It also identifies the main people who will use PayTune and the responsibilities of each role.
+
+But I would not call the supplied code production-ready or the entire platform complete.
+
+The most serious risks are:
+
+Payment security: Real payment verification and safe revenue distribution are not complete.
+Video protection: Public storage URLs conflict with the private playback requirement.
+Access control: Artist approval and Master permissions need stronger enforcement.
+Analytics accuracy: Simple view counters are not enough for reliable financial and performance reporting.
+Missing functionality: Several features exist only as database table names or written requirements, not working code.
+Master login: The example password hash cannot be trusted.
+The best approach is to preserve the features you specified, correct the contradictions, and build each phase against the actual database schema. Do not add fake videos or mock statistics to make dashboards look complete.
+
+My conclusion: PayTune should be developed as its own Rwandan video-and-audio marketplace, not as a direct copy of YouTube. The YouTube-style layout is useful, but permanent purchases, creator earnings, secure payments, and Master Admin control are the defining features of your platform.
+
+".         analyse and read all files i gave you follow my paytune purpose to make professional features no mock
+
+…
+
+
+
+
+
+
+
+
+I understand the direction now: PayTune must be an African platform, not a Rwanda-only platform. Rwanda can be its starting market, but the product, architecture, currencies, payments, languages, artist onboarding, and administration must support expansion across African countries.
+
+I found two uploaded project files in your PayTune materials:
+
+Pasted text.txt — 2,703 lines covering YouTube's pages, viewing, discovery, creator tools, monetization, privacy, safety, copyright, live streaming, and other features. This is the feature-research reference.
+Pasted text(1).txt — 2,954 lines containing the PayTune master specification, business rules, technical architecture, development phases, code examples, responsive UI, Master Admin login troubleshooting, and analytics requirements.
+I have inspected both files. The second file is the authority for PayTune's purpose; the first is a source of feature ideas. I will not turn every YouTube feature into a PayTune requirement when it conflicts with your pay-per-view business model.
+
+PAYTUNE — Pan-African professional upgrade
+PayTune: Africa's Video & Audio Marketplace
+Pay Once, Tune Forever.
+
+Proposed product direction based on both uploaded documents, with your Africa-wide requirement applied.
+
+1. The correct PayTune purpose
+The original document describes a platform tailored to Rwanda and its diaspora. That must change.
+
+Updated purpose:
+
+PayTune is a Pan-African digital video and audio marketplace that connects African artists, filmmakers, musicians, educators, and other content creators with audiences across Africa and internationally. Creators publish original content and earn money when customers purchase it. Customers can also enjoy free content, discover creators, build libraries, and support artists.
+
+The defining business model remains:
+
+Buy individual content.
+Pay once.
+Receive permanent purchase access.
+Earn revenue for the creator.
+Share revenue with PayTune.
+Support African creators across country borders.
+This is not simply a video-sharing website. It is a multi-country digital content marketplace.
+
+2. What must change from Rwanda-focused to Pan-African
+These are mandatory changes to the existing specification.
+
+Existing specification	Updated Pan-African requirement
+Rwanda as the main market	All African countries supported by country configuration
+RWF and USD only	Multiple African and international currencies
+MTN MoMo and Airtel Money	Country-specific mobile-money and payment integrations
+Stripe for diaspora	International card/payment provider integrations
+5% fixed VAT	Country-specific configurable tax rules
+Minimum withdrawal 5,000 RWF	Country- and currency-specific withdrawal thresholds
+Artist MoMo details	Multiple supported creator payout methods
+Rwanda-based discovery	Country, regional, and continental discovery
+English and Kinyarwanda assumptions	Multilingual African and international interface
+One Master Admin	Master Admin plus permission-controlled regional and country teams
+Important financial correction: The existing 70% artist / 30% PayTune split should remain the proposed business rule, but the 5% VAT must not be applied automatically across Africa. Tax rules differ between jurisdictions. PayTune must calculate the applicable tax according to the transaction's relevant country and legal requirements.
+
+3. Professional feature set for PayTune
+I have taken the feature categories from your first file and evaluated them against the actual PayTune business model in your second file.
+
+A. Homepage and African content discovery
+The homepage should include:
+
+Trending across Africa.
+Trending in the selected country.
+New releases.
+Popular African artists.
+Popular music videos.
+Popular audio tracks.
+Free videos.
+Paid videos.
+Recently added content.
+Recommended content.
+Featured artists.
+Featured countries.
+African music categories.
+Recently watched videos.
+Continue watching.
+Popular Shorts.
+Upcoming premieres.
+Live streams when available.
+Professional upgrade: Add country and regional discovery filters.
+
+For example, a visitor should be able to discover music from Ghana, Nigeria, Kenya, South Africa, Rwanda, Tanzania, Uganda, Senegal, and other supported markets without changing their account.
+
+Recommendations must be based on actual platform activity and content metadata, not a hardcoded video list.
+
+B. Search and Explore
+The search system should search across:
+
+Video titles.
+Audio titles.
+Artist names.
+Albums.
+Genres.
+Countries.
+Languages.
+Categories.
+Hashtags.
+Descriptions.
+Playlists.
+Live streams.
+Professional search features:
+
+Search suggestions.
+Recent searches.
+Search history controls.
+Filters for video, audio, Shorts, artist, and live.
+Country and language filters.
+Free and paid filters.
+Price range.
+Newest and most popular sorting.
+Search within an artist's page.
+Search within a playlist.
+C. Video and audio playback
+Your original 30-second preview remains important for paid videos.
+
+The professional playback system should include:
+
+Feature	Function
+Video player	Plays free and purchased videos
+Audio player	Plays free and purchased audio
+30-second preview	Samples paid videos
+Purchase overlay	Appears when the preview ends
+Fullscreen	Expands the player
+Playback speed	Adjusts playback speed
+Quality selection	Selects an available video quality
+Captions	Displays subtitles
+Multiple languages	Allows available subtitle tracks to be selected
+Chapters	Jumps to sections of a video
+Resume playback	Restores the last saved position
+Mini-player	Keeps content playing while browsing
+Picture-in-picture	Uses supported browser/device capabilities
+Autoplay	Plays a suitable next item
+Share timestamp	Shares a link starting at a specific moment
+Watch progress	Saves progress to the database
+Security rule: A purchased video must be unlocked through a verified purchase entitlement, not by exposing a permanent public storage URL.
+
+For audio, the platform should also have an independent music experience with artist discographies, albums, singles, playlists, and audio playback.
+
+D. Shorts and short-form content
+Your second file already specifies free Shorts with a maximum duration of 50 seconds.
+
+Keep that rule unless you decide to change it.
+
+Professional Shorts features:
+
+Vertical 9:16 playback.
+Swipe navigation.
+Likes.
+Comments.
+Artist profile links.
+Sharing.
+Related full videos.
+Related audio.
+Captions.
+Views and engagement analytics.
+Content reporting.
+Moderation.
+The backend must actually enforce duration, aspect ratio, file type, and free-only pricing. A frontend checkbox is not sufficient.
+
+E. Artist profiles and creator pages
+Each African artist should have a public profile containing:
+
+Artist name.
+Profile photo.
+Banner.
+Biography.
+Country.
+City or region, where the artist chooses to provide it.
+Supported languages.
+Music genres.
+Videos.
+Audio releases.
+Albums.
+Singles.
+Shorts.
+Playlists.
+Followers.
+Total views.
+Popular content.
+Upcoming premieres.
+Live events.
+Contact and social links, subject to moderation.
+Artists must be able to reach audiences across borders.
+
+For example, an artist in Nigeria should be discoverable by a buyer in Kenya, and a Ghanaian artist should be able to sell content to an audience in South Africa.
+
+F. Buyer account and personal library
+The original library requirements should remain.
+
+Add:
+
+Purchased videos.
+Purchased audio.
+Watch history.
+Listening history.
+Continue watching.
+Continue listening.
+Watch Later.
+Saved content.
+Liked content.
+Playlists.
+Followed artists.
+Purchase receipts.
+Payment history.
+Notification preferences.
+Country and language preferences.
+Account security settings.
+Privacy settings.
+Purchased content must remain available through the user's account on supported devices, subject to the platform's service availability and legal terms.
+
+G. Artist Studio
+This should be a full creator-management system, not just an upload page.
+
+Artist overview
+
+Total videos.
+Total audio tracks.
+Total views.
+Total watch time.
+Total listening time.
+Total followers.
+Total purchases.
+Total earnings.
+Available balance.
+Pending balance.
+Withdrawal history.
+Content management
+
+Upload video.
+Upload audio.
+Upload Shorts.
+Create album.
+Create playlist.
+Edit title and description.
+Edit thumbnail and artwork.
+Set free or paid.
+Set prices in supported currencies.
+Save drafts.
+Submit for review.
+Schedule publication.
+View approval status.
+Edit or remove eligible content.
+Individual content analytics
+
+Each video and audio track should have its own analytics:
+
+Total views or plays.
+Unique viewers/listeners.
+Watch or listening time.
+Average duration.
+Completion rate.
+Purchases.
+Revenue.
+Country distribution.
+Language distribution where reliably available.
+Daily, weekly, and monthly performance.
+The artist should also see total statistics across all their content.
+
+H. Master Admin and regional management
+This is one of the most important upgrades.
+
+The Master Admin must be able to control the whole African platform.
+
+Global overview
+
+Total registered users.
+Total artists.
+Approved artists.
+Pending artists.
+Blocked artists.
+Total videos.
+Total audio.
+Total Shorts.
+Total views.
+Total purchases.
+Total revenue.
+PayTune revenue.
+Artist earnings.
+Pending withdrawals.
+Completed withdrawals.
+Active countries.
+Payment success and failure rates.
+Video analytics
+
+Views of every video.
+Total views across all videos.
+Most-viewed videos.
+Least-viewed videos.
+Most-purchased videos.
+Free versus paid performance.
+Revenue by video.
+Video performance by country.
+Video performance by artist.
+Daily and monthly view trends.
+Artist management
+
+Approve artists.
+Reject artists.
+Suspend artists.
+Block artists.
+Review artist documents.
+View artist content.
+View artist earnings.
+View artist performance.
+Review complaints.
+Country management
+
+Enable or disable a supported market.
+Configure local currency.
+Configure payment providers.
+Configure payout providers.
+Configure applicable tax rules.
+Configure minimum withdrawals.
+Configure language availability.
+Configure content availability.
+View country-specific performance.
+Staff permissions
+
+The original single Master Admin role should be expanded into permission-controlled roles:
+
+Role	Responsibility
+Platform Owner / Super Admin	Full platform control
+Global Admin	Platform-wide operational management
+Country Admin	Manages assigned country
+Content Moderator	Reviews content and reports
+Finance Admin	Payments, settlements, withdrawals
+Support Admin	Customer support and account issues
+Artist	Manages own content and earnings
+Buyer	Purchases and manages personal library
+A country administrator must not be able to access financial or personal records outside their authorized permissions.
+
+I. Payments and financial system
+This needs the most serious architectural upgrade.
+
+Pan-African payment architecture
+
+Buyer chooses country and currency
+
+PayTune selects an available payment provider
+
+Provider confirms payment through verified webhook
+
+Backend creates permanent purchase entitlement
+
+Ledger records tax, artist share, and PayTune share
+
+Potential payment integrations to investigate and support through provider adapters include:
+
+MTN Mobile Money.
+Airtel Money.
+M-Pesa.
+Orange Money.
+Wave.
+Bank cards.
+International card processing.
+Other country-specific mobile-money providers.
+These are integration candidates, not a claim that every provider operates in every African country or supports the same API. Each country needs its own verified provider configuration.
+
+Professional payment features
+
+Multiple currencies.
+Country-specific payment methods.
+Secure payment initiation.
+Unique transaction references.
+Verified webhooks.
+Idempotency protection.
+Payment status tracking.
+Payment reconciliation.
+Refund processing.
+Chargeback handling.
+Multi-currency wallets.
+Artist payouts.
+Platform revenue accounting.
+Exchange-rate records.
+Tax records.
+Financial audit logs.
+Receipts and invoices.
+The 70/30 revenue split can remain the starting commercial rule, but the financial engine needs configurable tax and processor-fee handling. It must also record the actual transaction currency so that different currencies are never incorrectly added together.
+
+J. Community and artist engagement
+Adopt the social features from your first file:
+
+Follow artists.
+Like and unlike videos.
+Like audio tracks.
+Comment.
+Reply to comments.
+Pin comments.
+Delete own comments.
+Moderate comments.
+Report content.
+Share content.
+Create playlists.
+Publish artist announcements.
+Create polls.
+Notify followers about new content.
+Notify followers about upcoming live streams.
+Community posts and polls are useful additions because they help African artists communicate with audiences between releases.
+
+K. Live streaming and premieres
+Keep live streaming as a later development phase, as your specification already says.
+
+The complete feature should eventually support:
+
+Artist-created live rooms.
+RTMP ingest.
+HLS playback.
+Real-time chat.
+Moderators.
+Slow mode.
+Viewer counts.
+Polls.
+Q&A.
+Scheduled streams.
+Reminders.
+Replays.
+Paid live events if you later choose to support them.
+Super Thanks.
+Live analytics.
+Premieres can support scheduled releases with countdowns, reminders, and live discussion.
+
+L. Advertising and monetization
+Keep the original rule:
+
+Free videos may display advertisements.
+Paid videos must remain ad-free.
+Shorts remain free under the current specification.
+Upgrade the advertising system with:
+
+Global campaigns.
+Country-targeted campaigns.
+Video-specific campaigns.
+Advertiser accounts.
+Campaign budgets.
+Campaign scheduling.
+Impression tracking.
+Click tracking.
+Video completion tracking.
+Advertiser reports.
+Admin approval of advertisements.
+Fraud detection.
+Super Thanks can be retained as optional fan support.
+
+I would not introduce a mandatory PayTune monthly subscription because that conflicts with your original pay-once business model. The membership_tiers and memberships tables listed in the document need a clear decision before implementation.
+
+M. Safety, privacy, and copyright
+Your first file has a large amount of material that is valuable for PayTune.
+
+Adopt:
+
+Copyright declarations.
+Copyright complaint submission.
+Copyright review.
+Content takedown.
+Appeals.
+Duplicate upload detection.
+User reporting.
+Artist blocking.
+Comment moderation.
+Restricted content controls.
+Age-related content restrictions.
+Parental/supervised account options where appropriate.
+Privacy settings.
+Search and watch history controls.
+Account security.
+Two-factor authentication for privileged accounts.
+Admin activity logs.
+Suspicious payment detection.
+I would also add moderation support for different African languages. A system that only detects inappropriate English text will not adequately moderate a Pan-African platform.
+
+The original rule that an artist declares content is not AI-generated can remain a product policy if that is your decision. However, declarations alone cannot verify originality. PayTune needs actual reporting, review, and enforcement procedures.
+
+N. Accessibility and cross-platform experience
+PayTune should work well on:
+
+Windows.
+macOS.
+Linux.
+Android.
+iPhone.
+iPad.
+Tablets.
+Desktop monitors.
+Laptops.
+Professional requirements:
+
+Responsive layouts.
+Mobile navigation.
+Tablet navigation.
+Desktop sidebar.
+Keyboard navigation.
+Screen-reader labels.
+Captions.
+Multiple subtitle tracks.
+Accessible color contrast.
+Adaptive video quality.
+Mobile-friendly payment flows.
+Proper playback recovery after network interruptions.
+Optional dark mode.
+(Default theme) White / light mode, as your latest instruction specifies. Amber #FFB300 remains the main brand accent, with dark mode as an optional user preference.
+
+4. Features from your first file that should not be copied directly
+Your first file describes YouTube, but PayTune needs its own business identity.
+
+YouTube feature	PayTune decision
+Home and Explore	Adopt and adapt
+Search and filters	Adopt and expand for African markets
+Video player	Adopt and secure
+Shorts	Adopt with your 50-second/free-only rules
+Subscriptions	Adapt to artist following
+Personal library	Adopt
+Playlists	Adopt
+Watch history	Adopt
+Likes and comments	Adopt
+Creator pages	Adopt and expand
+Community posts	Adopt
+Live streaming	Later phase
+Premieres	Later phase
+YouTube Studio	Build PayTune Artist Studio
+Analytics	Adopt and expand
+YouTube advertising	Build PayTune's own ad system
+Channel memberships	Not core; needs a separate business decision
+Super Thanks	Adapt to PayTune tips
+YouTube Premium	Do not copy as a mandatory subscription
+YouTube Music	Adapt into PayTune's audio marketplace
+YouTube Kids	Adapt safety and parental controls
+Copyright Content ID	Build rights management and reporting first
+YouTube Shopping	Defer; unrelated to the core content purchase model
+Educational tools	Adopt captions, transcripts, chapters, and learning playlists
+Cross-device playback	Adopt
+Recommendations	Build using real PayTune activity
+This is how you use YouTube's strengths without losing PayTune's purpose.
+
+5. Technical architecture changes required
+Your original stack is a reasonable starting point:
+
+React + TypeScript + Vite.
+Express.js.
+Supabase PostgreSQL.
+Supabase Storage.
+Tailwind CSS.
+React Query.
+React Router.
+I recommend retaining it for the first implementation, but upgrading the architecture.
+
+Proposed PayTune architecture
+Web application
+
+React · TypeScript · Vite · Tailwind
+
+API and authentication
+
+Express · JWT · RBAC · Validation
+
+Core services
+
+Accounts
+Artists
+Content
+Discovery
+Analytics
+Business services
+
+Payments
+Tax
+Wallets
+Payouts
+Advertising
+Media services
+
+Uploads
+Transcoding
+Streaming
+Captions
+Playback
+Platform services
+
+Moderation
+Notifications
+Localization
+Reports
+Audit logs
+Supabase PostgreSQL + private media storage
+
+Relational database · RLS · migrations · secure storage
+
+Database upgrade
+The existing document lists 30 tables, including users, artists, videos, payments, purchases, wallets, withdrawals, engagement, playlists, history, live streams, memberships, advertisements, notifications, reports, and admin logs.
+
+Those are a starting point, not a complete Pan-African database.
+
+I recommend adding these entities:
+
+New table or domain	Purpose
+countries	Supported African and international markets
+currencies	Currency codes and minor-unit rules
+country_payment_providers	Providers enabled per market
+country_payout_providers	Creator payout methods
+tax_rules	Applicable country-specific tax rules
+exchange_rates	Auditable currency conversion rates
+artist_payout_accounts	Artist payout destinations
+financial_ledger	Immutable financial transactions
+payment_reconciliations	Provider settlement matching
+refunds	Refund and reversal records
+content_languages	Content language metadata
+translations	Localized titles and descriptions
+video_view_events	Reliable view-event records
+audio_play_events	Reliable audio-play records
+content_reports	Copyright and safety reports
+admin_roles	Granular administration
+admin_permissions	Permission definitions
+admin_role_permissions	Role-to-permission relationships
+country_admin_assignments	Limits administrators to their assigned markets
+notification_preferences	User-controlled notification settings
+Also, your original files list tables but do not contain the actual complete CREATE TABLE, constraints, indexes, database migrations, or RLS policy definitions. These must be created and tested before the database can be considered fully built.
+
+6. Critical corrections before any production launch
+These are issues I found in the actual code, not hypothetical improvements.
+
+(Must fix)
+
+Problem in the uploaded code	Required correction
+Public video URLs are generated using getPublicUrl()	Private storage and secure playback authorization
+Payment webhook trusts request status	Verify provider signatures and transaction status
+Payment processing lacks full atomic financial handling	Database transaction and immutable ledger
+Platform 30% wallet credit is incomplete	Implement both sides of the revenue split
+OTP uses Math.random()	Cryptographically secure OTP and real SMS integration
+OTP is returned as devCode	Remove development OTP disclosure
+OTP verification route is missing	Implement full verification and expiry
+Artist approval is not consistently enforced	Enforce approval on every artist operation
+JWT defaults to 'secret'	Require a strong environment secret
+Master account hash is a placeholder	Secure Master account provisioning
+Master route lacks consistent route protection	Enforce frontend and backend permissions
+localStorage is used for authentication tokens	Move to a safer session design, such as secure HttpOnly cookies
+CORS uses origin: true	Explicit production origin allowlist
+500 MB Multer memory uploads	Resumable/direct-to-storage uploads with limits
+View counter increments on player start	Real analytics events with duplicate protection
+Artist wallet balance is checked before a separate withdrawal insert	Atomic balance reservation to prevent double withdrawals
+Like count is read and updated separately	Atomic database operations
+Audio upload is not fully implemented	Separate audio upload and playback workflow
+Live stream only creates a database record	Real streaming infrastructure and lifecycle
+Search and several engagement features are missing	Implement complete APIs and frontend functionality
+Another significant problem: the Master dashboard in the uploaded code shows basic users, videos, and revenue cards. It does not yet deliver the complete platform-wide video analytics that your later instructions request.
+
+The artist dashboard sums a simple views field, but does not provide reliable individual performance analytics. Those must be redesigned.
+
+No-mock-data development rule
+I will treat this as a strict project rule:
+
+No hardcoded videos.
+No fake artists.
+No fake purchases.
+No invented wallet balances.
+No simulated payment success.
+No fake analytics.
+No fabricated view counts.
+No hardcoded dashboard totals.
+No pretending that an external provider is connected when it is not.
+No placeholder functions presented as completed functionality.
+If a database has no videos, display a real empty state. If the payment provider is not configured, display that the payment method is unavailable. If an analytics query fails, display an error and retry option—not invented statistics.
+
+Local development seed data can be used only when explicitly identified as test data, isolated from production, and never presented as real users or revenue.
+
+7. Updated development roadmap
+I would expand the original 12 phases into 16 professional phases to accommodate the African requirements without building everything as one enormous, unreliable codebase.
+
+Phase	Development work	Priority
+1	Architecture, environment, database migrations, RLS	Critical
+2	Multi-country, currency, language and regional configuration	Critical
+3	Authentication, OTP, roles and permissions	Critical
+4	Artist onboarding, KYC and approval	Critical
+5	Secure video, audio and Shorts upload	Critical
+6	Media processing, storage, streaming and playback	Critical
+7	Permanent purchase entitlement and 30-second preview	Critical
+8	Multi-country payment integrations	Critical
+9	Tax, ledger, artist wallets and payouts	Critical
+10	Master Admin and country administration	Critical
+11	Artist Studio and complete analytics	Critical
+12	Buyer library, history and playlists	High
+13	Likes, comments, follows and notifications	High
+14	Search, homepage, recommendations and discovery	High
+15	Advertising, reports, moderation and safety	High
+16	Live streaming, premieres, advanced analytics and deployment	Later
+Testing and security reviews must happen throughout all phases, not only at the end.
+
+8. The decisions I will preserve as the PayTune project requirements
+PAYTUNE — updated project principles
+Pan-African marketplace, not Rwanda-only.
+Pay once, tune forever remains the central purchase model.
+Support video, audio, and free Shorts.
+30-second preview for paid videos.
+70% artist / 30% platform as the proposed net-revenue split, with configurable local tax handling.
+Multi-country currencies, payments, and payouts.
+Real Master Admin and artist analytics, including every video's views.
+White/light mode as the default, amber brand color.
+Responsive desktop, tablet, and mobile experience.
+Secure media, payments, authentication, and administration.
+Real database data and real integrations; no fake production data.
+9. One important question before configuring the African payment system
+The platform can be designed for all African countries from the beginning, but payment integrations, taxes, and payouts must be configured for actual launch markets.
+
+Which countries should PayTune launch in first?
+
+For example, you could begin with Nigeria, Ghana, Kenya, South Africa, and Rwanda, while keeping the architecture ready for other African markets. You can choose a different group.
+
+Once the first markets are established, the next technical deliverable should be the PayTune Africa database schema and country/payment architecture, before writing more dashboard or payment code.
+
+web app design customize layout like rumble
+We can redesign PayTune’s web app with a Rumble-inspired layout, while keeping PayTune’s own branding, African creator marketplace features, and your white-and-amber theme.
+
+Proposed PayTune layout
+1. Main homepage
+Top navigation: PayTune logo, search bar, upload button, notifications, profile.
+Left sidebar: Home, Explore, Trending, Music, Shorts, Live, Categories, History, Library.
+Main content: Featured videos, trending African creators, recommended videos, music and Shorts.
+Right side: Trending topics and recommended creators on larger screens.
+2. Video watch page
+Large video player.
+Title, views, likes and creator information.
+Buy button for paid content.
+30-second preview for non-purchased paid videos.
+Comments and recommended videos.
+3. Creator profile
+Cover image and profile information.
+Videos, music, Shorts and playlists.
+Follow button and creator statistics.
+4. Artist Studio
+Upload content.
+Manage videos and audio.
+Sales, earnings and views analytics.
+Withdrawal and payout management.
+5. Design direction
+White background by default.
+Amber #FFB300 for PayTune highlights.
+Dark mode optional.
+Responsive desktop, tablet and mobile layouts.
+One question: Do you want me to start with a visual design of the entire PayTune homepage, or build the actual React + TypeScript interface?
+
+i need help artist to earning mone from different way
+Absolutely. PayTune should help artists earn money in several ways, not depend only on video views. The goal should be to give musicians, filmmakers, podcasters, educators and other African creators multiple income streams from one platform.
+
+I recommend building an Artist Monetization System inside PayTune, inspired by creator platforms such as Rumble and YouTube, but designed around PayTune's own marketplace model: “Pay Once, Tune Forever.”
+
+1. Different ways artists can earn
+1. Sell videos and music
+
+Artists set a price for music, albums, films, documentaries, tutorials and other premium content. Buyers pay once and keep permanent access.
+
+(Core PayTune income)
+
+2. Fan support and tips
+
+Fans send voluntary tips to support artists, either on their profiles, videos, music or livestreams.
+
+3. Brand sponsorships
+
+Companies pay artists to promote products, services or campaigns. PayTune can connect brands with creators and track sponsorship agreements.
+
+4. Advertising revenue
+
+Artists earn a share of eligible advertising revenue from free content. Paid videos remain ad-free, consistent with PayTune's model.
+
+5. Paid courses and tutorials
+
+Creators sell music lessons, filmmaking courses, software tutorials, educational videos and downloadable learning materials.
+
+6. Paid livestreams and virtual events
+
+Artists can sell access to online concerts, workshops, exclusive performances and special events.
+
+7. Merchandise sales
+
+Artists sell T-shirts, hoodies, posters, CDs and other branded products through their PayTune profiles.
+
+8. Licensing and royalties
+
+Artists license music, beats and video content for films, advertisements, games and other productions, with agreements and royalty records.
+
+9. Exclusive fan experiences
+
+Artists can offer behind-the-scenes videos, early releases, private sessions and exclusive content. Keep this optional rather than making subscriptions mandatory.
+
+2. Artist earnings dashboard
+Every artist should have an Earnings section in Artist Studio.
+
+Artist Studio — Earnings (Example layout)
+
+Total earnings
+
+$1,250.00
+Illustrative amount
+
+Available balance
+
+$840.00
+Illustrative amount
+
+Pending payments
+
+$210.00
+Lifetime sales
+
+356
+Income sources
+
+Content sales $500
+
+Tips and fan support $150
+
+Advertising $200
+
+Sponsorships $250
+
+Courses and events $150
+
+All figures above are illustrative UI examples, not real PayTune earnings or transaction data.
+
+Artists should also be able to:
+
+View earnings by income source, country, currency and date.
+See every transaction and its status.
+Request withdrawals to supported local payment methods.
+Download earnings statements.
+See platform fees, taxes, refunds and net earnings separately.
+3. How PayTune should calculate earnings
+Each income source needs its own accounting rules.
+
+Income source	How the artist earns
+Content sales	Agreed share of each completed purchase
+Tips	Tip amount less disclosed fees and applicable taxes
+Advertising	Share of verified eligible ad revenue
+Sponsorships	Contracted amount after agreed fees
+Courses	Share of completed course purchases
+Livestreams	Share of paid access and eligible tips
+Merchandise	Share of completed product sales
+Licensing	Agreed licensing or royalty amount
+Important: Do not apply the same 70/30 split to every income type automatically. Each stream should have a transparent revenue agreement. Tax rates, payment fees and payout rules must be configurable by country.
+
+4. Database and backend features
+To make this real rather than a mock dashboard, PayTune needs:
+
+monetization_products — paid content, courses, events and merchandise.
+creator_income_sources — the types of income each artist can activate.
+creator_transactions — actual purchases, tips, sponsorship payments and other earnings.
+ad_campaigns and ad_impressions — verified advertising activity.
+sponsorship_contracts — brand and artist agreements.
+licensing_agreements — permissions, terms and royalty rates.
+creator_wallets — balances separated by currency.
+financial_ledger — immutable records of every financial movement.
+payout_requests — withdrawal requests and provider references.
+refunds — refunds and reversals.
+Every payment must be verified by the payment provider. Never create earnings because a frontend button was clicked. Never show invented views, purchases, tips or balances.
+
+5. Recommended development order
+Phase 1 — Content sales and artist wallets
+
+Build permanent purchases, real transaction records, earnings statements and withdrawals.
+
+Phase 2 — Tips and fan support
+
+Add tipping to artist profiles and content pages.
+
+Phase 3 — Advertising
+
+Add campaign management, verified impressions, advertiser billing and artist revenue sharing.
+
+Phase 4 — Sponsorships and licensing
+
+Build brand-to-creator opportunities, contracts and royalty tracking.
+
+Phase 5 — Courses, livestreams and merchandise
+
+Add additional commerce products and payment flows.
+
+My recommendation
+Make these the first five income streams available to PayTune artists:
+
+Content sales.
+Fan tips and support.
+Advertising revenue.
+Brand sponsorships.
+Paid courses and exclusive content.
+Then introduce licensing, livestreams and merchandise as the platform grows.
+
+The key principle: an artist should be able to earn from their audience even when their videos do not receive millions of views. PayTune should reward creativity, direct sales, fan relationships and commercial opportunities—not views alone.
+
+how can me as master owner of paytune earned
+
+Worked for 8s
+As the Master Owner of PayTune, you earn money from the transactions and services happening on your platform. Artists earn from creating content, while you earn from providing the marketplace, technology, payment infrastructure and business opportunities.
+
+My recommendation is to make PayTune a business with several revenue streams, rather than depending on one source of income.
+
+1. Eight ways you can earn as PayTune owner
+1. Commission on content sales
+
+Take an agreed percentage whenever someone purchases an artist's video, song, album or film.
+
+(Primary revenue stream)
+
+2. Advertising revenue
+
+Businesses pay PayTune to advertise. You retain the platform's agreed share after creator revenue sharing and applicable costs.
+
+3. Sponsorship marketplace fees
+
+Connect African brands with artists. Charge a transparent commission or service fee when sponsorship deals are completed through PayTune.
+
+4. Tips transaction fees
+
+Fans support artists financially. PayTune can retain a small disclosed service fee, with the remaining amount going to the artist after applicable charges.
+
+5. Courses and digital products
+
+Take a marketplace commission from paid courses, tutorials and digital products sold by creators.
+
+6. Event ticketing
+
+Earn a service fee on paid online concerts, livestreams, workshops and virtual events.
+
+7. Licensing marketplace commission
+
+Earn commission when creators license music, beats, films or other content to businesses and producers.
+
+8. Business services
+
+Offer optional paid tools to professional creators, labels, distributors and advertisers, such as advanced analytics, campaign management and team accounts.
+
+2. How your 30% platform commission works
+Your existing PayTune specification proposes a 70% artist / 30% platform split after tax.
+
+Here is an example using the original 5% tax assumption purely for illustration:
+
+Example: Customer purchases content for 1,000 RWF
+
+1,000 RWF
+Artist — 70%
+
+665 RWF
+PayTune — 30%
+
+285 RWF
+Illustrative tax (5%) 50 RWF
+
+Amount remaining 950 RWF
+
+Actual tax, payment-provider fees and revenue-sharing rules must be configured for each country. The 285 RWF is platform revenue before PayTune's operating expenses, not net profit.
+
+3. Example: How much could PayTune make?
+Suppose PayTune processes 10,000 content purchases in one month, with an average purchase of 1,000 RWF.
+
+Using the illustrative 5% tax and 30% platform split:
+
+Calculation	Amount
+Total sales	10,000,000 RWF
+Illustrative tax	500,000 RWF
+Artist earnings	6,650,000 RWF
+PayTune platform revenue	2,850,000 RWF
+(2,850,000 RWF) Illustrative monthly platform revenue
+
+This is not profit. You must still pay for hosting, video streaming, storage, payment processing, staff, marketing, customer support, security and other expenses.
+
+4. Build a Master Owner financial dashboard
+I recommend adding a dedicated Master Owner → Business & Revenue section, separate from the ordinary Master Admin dashboard.
+
+PayTune — Owner Dashboard (Proposed design)
+
+Total platform revenue
+
+RWF 0
+Operating expenses
+
+RWF 0
+Net operating profit
+
+RWF 0
+Artist payouts
+
+RWF 0
+Revenue sources
+
+Content commissions
+
+Advertising revenue
+
+Sponsorship commissions
+
+Tips service fees
+
+Course and event commissions
+
+Licensing commissions
+
+Business services
+
+Owner controls
+
+Configure revenue-sharing agreements.
+
+View revenue by country and currency.
+
+View payment-provider fees and tax liabilities.
+
+Review refunds, chargebacks and outstanding payouts.
+
+Manage operating expenses and financial reports.
+
+Zero values represent an empty proposed dashboard, not actual PayTune financial records.
+
+5. Important business rule
+As owner, you should not confuse these four amounts:
+
+Gross transaction value: all money customers pay.
+Platform revenue: PayTune's earned commissions and service fees.
+Operating profit: platform revenue minus operating expenses.
+Owner profit: profit remaining after business obligations, taxes and any retained reserves.
+Artist money, tax money and money owed to payment providers must never be treated as your personal income.
+
+6. My recommended PayTune business model
+I would build three financial systems:
+
+Artist Economy: helps creators earn money.
+PayTune Revenue Engine: calculates the platform's commissions and fees.
+Master Owner Finance: shows the actual financial health and profitability of PayTune across African countries.
+This separation will make PayTune easier to audit, scale and manage internationally.
+
+One important decision
+How do you want PayTune to make money from artists' content sales?
+
+Choose your platform commission model
+
+30% PayTune / 70% Artist
+
+Higher platform commission, lower artist share.
+
+20% PayTune / 80% Artist
+
+More attractive to creators.
+
+15% PayTune / 85% Artist
+
+Creator-first marketplace.
+
+Custom percentage
+
+I want to choose my own commission.
+
+[Continue with this model]
+
+as master must make ads to free video. and i can earning money from google ads. and others ads
+Yes. This should be a major part of PayTune's business model.
+
+As Master Owner, you should control advertising on free videos and earn revenue from Google advertising and other advertising partners. Artists can also receive an agreed share of advertising revenue generated by their eligible content.
+
+I recommend a system called PayTune Ad Manager.
+
+It should support two types of advertising:
+
+Google ads: Connect PayTune to Google's advertising ecosystem.
+Direct advertising: Allow African and international companies to buy advertising space directly from PayTune.
+The important distinction is that PayTune owns and manages the advertising platform, while artists can earn a share under transparent monetization agreements.
+
+1. How advertising should work on PayTune
+PayTune advertising ecosystem
+Master Owner / PayTune Ad Manager
+
+Controls inventory, pricing, partners and revenue rules
+
+Google
+
+Google Ad Manager / eligible Google demand
+
+Direct advertisers
+
+Brands, agencies and companies
+
+Other ad networks
+
+Approved third-party ad partners
+
+Sponsored content
+
+Paid campaigns and brand partnerships
+
+PayTune video player
+
+Eligible free videos display ads; paid videos remain ad-free
+
+PayTune revenue
+
+Artist revenue share
+
+Google integration: an important distinction
+For video advertising, I recommend investigating Google Ad Manager and its video advertising integration using the Interactive Media Ads (IMA) SDK, rather than assuming an ordinary AdSense website ad unit will automatically monetize video playback.
+
+Google documents IMA as a way to request and play video ads, and its video monetization requirements include having the rights to monetize the content or written permission from the owner.
+
+Google approval and eligibility must be confirmed before treating this as an available revenue source.
+
+2. Types of ads you should support
+Pre-roll ads
+
+An advertisement before a free video starts.
+
+Mid-roll ads
+
+Advertisements during longer free videos, at suitable breaks.
+
+Post-roll ads
+
+Advertisements after a free video finishes.
+
+Display ads
+
+Banner advertisements around the video player, homepage and discovery pages.
+
+Sponsored content
+
+Companies pay PayTune or creators for clearly disclosed sponsored placements.
+
+3. Master Owner → Ad Manager dashboard
+I recommend these sections:
+
+Section	What you control
+Ad overview	Impressions, fill rate, revenue and performance
+Google integration	Ad account connection and ad configuration
+Ad networks	Other approved advertising providers
+Direct advertisers	Company accounts and advertising deals
+Campaign manager	Create, approve, pause and stop campaigns
+Ad placements	Pre-roll, mid-roll, post-roll and banners
+Artist revenue share	Configure creator participation
+Ad policies	Block categories and unsafe advertisers
+Payments	Advertiser invoices and payments
+Reports	Revenue by country, network and campaign
+You should also be able to choose which free videos are eligible for monetization. An artist's content should only enter revenue-sharing arrangements under clear creator terms.
+
+4. How you and artists earn
+For example, imagine PayTune generates 1,000,000 RWF in finalized advertising revenue.
+
+Illustrative advertising revenue allocation
+
+1,000,000 RWF
+Assumed finalized advertising revenue after the advertising provider's deductions, before applicable taxes and operating expenses.
+
+PayTune — 60%
+
+600,000 RWF
+Artists — 40%
+
+400,000 RWF
+Example only. You choose the contractual revenue-sharing rules. Artist allocation should be based on eligible, verified monetized activity, not simply total video views.
+
+For direct advertisers, PayTune can negotiate its own campaign prices and artist participation agreements.
+
+5. Other advertising networks
+Do not depend entirely on Google. Build an advertising adapter system so PayTune can integrate other providers where they accept your business and inventory.
+
+Potential providers to evaluate include:
+
+Google Ad Manager — advertising management and eligible programmatic demand.
+Equativ — advertising technology.
+Magnite — programmatic advertising.
+Direct brand advertising — African brands, telecom companies, banks and businesses.
+These are potential integrations, not confirmed PayTune partners or guaranteed sources of demand.
+
+6. Important protection against losing your Google advertising account
+PayTune must have:
+
+Copyright verification and content moderation.
+Advertising eligibility checks for each video.
+Accurate video metadata and ad placement declarations.
+Privacy disclosures and appropriate consent management.
+Protection against artificial views, repeated ad requests and fraudulent clicks.
+Advertiser category controls and brand safety.
+Google explicitly prohibits invalid traffic, including artificial impressions and clicks. Its publisher policies also apply to user-generated content, comments, advertisements and links on your pages.
+
+Never encourage viewers to click advertisements to support PayTune or an artist.
+
+7. What I recommend building first
+Build the following real modules before adding more advertising features:
+
+PayTune Ad Manager backend.
+Google IMA video player integration.
+Direct advertiser campaign management.
+Ad placement management for free videos.
+Artist advertising revenue-sharing engine.
+Advertising transaction ledger and owner reports.
+Country-specific advertiser and payment configuration.
+No fake impressions, fake ad revenue or simulated Google earnings. If Google is not connected or does not return an eligible ad, the player should continue normally without pretending an ad was served.
+
+One additional opportunity: I can monitor Google video-advertising policy and integration changes monthly so PayTune's advertising architecture stays aligned with current requirements.
+
+Monitor Google video ad requirements monthly
+
+all money from ads not  goes directly to artist members without earning through video free views, check follow, hours viewd of all your video that are on your acccount
+
+Worked for 9s
+I understand your business rule now. Artists must qualify for PayTune's advertising monetization program before they can receive advertising revenue. Simply creating an account, uploading videos or gaining followers does not automatically make an artist eligible to earn from ads.
+
+This is a much better model for controlling advertising costs and rewarding creators who build genuine audiences.
+
+1. PayTune Creator Monetization Program
+I recommend introducing a system called PayTune Partner Program (PPP).
+
+An artist must meet all the eligibility requirements before PayTune activates advertising monetization on their account.
+
+Creator monetization eligibility
+1. Followers (Required)
+
+The artist must reach the minimum number of genuine followers.
+
+2. Public video views (Required)
+
+The artist must receive a minimum number of valid views on eligible free videos.
+
+3. Watch hours (Required)
+
+The artist must accumulate the required watch hours across eligible free videos on their account.
+
+4. Account verification (Required)
+
+Artist identity, account status and payment information must be verified.
+
+5. Content policy (Required)
+
+The account must follow PayTune's copyright, community and advertising policies.
+
+2. How artists qualify
+The system should calculate these metrics automatically:
+
+Requirement	What PayTune measures
+Followers	Total genuine followers
+Views	Valid views on eligible free videos
+Watch hours	Valid viewing time across eligible free videos
+Account age	How long the account has existed
+Policy status	Copyright and community violations
+Important: Followers do not directly generate advertising income. They help determine whether an artist qualifies. Watch time and valid monetized advertising activity help determine revenue.
+
+Paid video purchases should not count as free-video advertising eligibility metrics.
+
+3. How the system should work
+Artist creates PayTune account
+
+Uploads free public videos and gains followers
+
+PayTune tracks valid views, followers and watch hours
+
+Eligibility verification
+
+Qualified
+
+Apply for monetization approval
+
+Not qualified
+
+Continue growing the audience
+
+Approved for advertising monetization
+
+Eligible free videos can generate creator advertising earnings
+
+4. Artist Studio: Monetization progress
+Every artist should see their progress toward qualification.
+
+PayTune Partner Program (Not yet eligible)
+
+Illustrative dashboard only — these are not real account statistics or final PayTune thresholds.
+
+Monetization application Locked until requirements are met
+
+5. Master Owner controls
+Under Master Admin, add a section called Monetization Rules.
+
+You should be able to configure:
+
+Minimum follower requirement.
+Minimum valid free video views.
+Minimum accumulated watch hours.
+Measurement period (for example, the previous 12 months).
+Minimum account age.
+Countries where monetization is available.
+Content eligibility rules.
+Artist advertising revenue share.
+Application approval and suspension.
+All measurements must come from genuine server-side viewing events, with duplicate-view protection and anti-fraud checks. Watch hours should be calculated across all eligible videos on the artist's account, not just one video.
+
+6. One important decision: set your qualification thresholds
+I suggest making these thresholds configurable rather than hardcoding them into PayTune.
+
+Proposed PayTune Partner Program rules
+
+Minimum followers
+
+500
+
+1,000
+
+2,000
+
+5,000
+
+Minimum valid free video views
+
+10,000
+
+30,000
+
+50,000
+
+100,000
+
+Minimum watch hours
+
+500 hours
+
+1,000 hours
+
+3,000 hours
+
+4,000 hours
+
+Measurement period
+
+Previous 90 days
+
+Previous 6 months
+
+Previous 12 months
+
+[Use these proposed rules]
+
+My recommendation is to keep monetization separate from ordinary artist membership: every approved artist can publish content, but only qualifying and approved artists can earn advertising revenue.
+
