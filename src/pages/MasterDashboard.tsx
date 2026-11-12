@@ -17,6 +17,7 @@ import { AdminLogs } from "../components/AdminLogs";
 import { MasterDiagnostics } from "../components/MasterDiagnostics";
 import { MasterCategoryManager } from "../components/MasterCategoryManager";
 import MasterMonetization from "../components/master/MasterMonetization";
+import MasterLiveControl from "../components/master/MasterLiveControl";
 import { MasterLogin } from "./MasterLogin";
 
 import { useMasterStats } from "../hooks/useMasterStats";
@@ -69,6 +70,7 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
         "artists",
         "users",
         "videos",
+        "live",
         "categories",
         "access_requests",
         "ads",
@@ -398,6 +400,8 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
             }}
           />
         )}
+
+        {activeTab === "live" && <MasterLiveControl />}
 
         {activeTab === "categories" && <MasterCategoryManager />}
 

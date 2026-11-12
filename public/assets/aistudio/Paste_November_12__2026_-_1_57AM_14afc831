@@ -1,0 +1,1592 @@
+PAYTUNE — Complete website responsiveness and cross-platform compatibility
+PAYTUNE should be designed as one complete responsive platform that works professionally on desktop, laptop, tablet, and mobile devices, not simply a desktop website that has been squeezed to fit a phone screen.
+
+The same features, accounts, permissions, payments, media, creator tools, and administration functions should work consistently across supported devices. The layout should adapt to the screen, while the functionality remains consistent.
+One platform. Every screen.
+Desktop
+
+Full navigation, expanded player, multi-column content and complete dashboards.
+
+Tablet
+
+Compact navigation, adaptive grids and touch-friendly controls.
+
+Mobile
+
+Single-column feeds, mobile navigation and full-screen media experiences.
+
+Creator Studio
+
+Responsive upload tools, analytics, earnings and account management.
+1. Devices and screen sizes to support
+Use these as starting breakpoints, not rigid device categories. Components should also adapt to their available container width.
+Screen width	Target	Layout
+320–374 px	Small phones	Compact single column
+375–599 px	Smartphones	Mobile layout
+600–767 px	Large phones	Expanded mobile layout
+768–1023 px	Tablets	Compact navigation and adaptive grids
+1024–1439 px	Laptops	Desktop layout
+1440–1919 px	Desktop	Expanded desktop layout
+1920 px+	Large displays	Fluid content with maximum widths
+
+
+Important: Never require horizontal scrolling for the normal website layout at supported screen widths. Wide tables, timelines, and specialist editing tools can use their own controlled scrolling areas.
+2. Every PAYTUNE section must be responsive
+The responsive system must cover the entire application.
+
+A. Homepage and video discovery
+- Responsive video-card grids.
+- Featured content and trending sections.
+- Category navigation and search.
+- African country and language discovery.
+- Recommendations without oversized cards on mobile.
+B. Video watching and Shorts
+- Adaptive video player and quality selection.
+- Full-screen playback and captions.
+- Responsive comments and related videos.
+- Vertical Shorts experience on mobile.
+- Paid-content access and purchase controls.
+C. Music and audio
+- Responsive album and track layouts.
+- Compact mobile audio player.
+- Artwork and artist information.
+- Playlist, purchase and playback controls.
+- Audio queue and background playback behavior.
+D. Creator and Artist Studio
+- Video, Shorts and audio uploads.
+- Thumbnail and artwork editors.
+- YouTube-style 2560 × 1440 channel banner editor.
+- Analytics, followers, earnings and monetization.
+- Content management and moderation status.
+E. Community
+- Text and image posts.
+- Comments, reactions and sharing.
+- Image galleries and reporting.
+- Responsive user profiles and activity feeds.
+F. Payments and purchases
+- One-time video and audio purchases.
+- Checkout and payment confirmation.
+- Purchase history and permanent entitlements.
+- Responsive transaction and receipt pages.
+G. Administration and advertising
+- Master Owner and Global Admin dashboards.
+- Country administration and moderation.
+- Advertiser business accounts and campaigns.
+- Ad performance, billing and reports.
+- Responsive data tables and audit logs.
+Also include authentication, registration, password recovery, notifications, messaging, settings, help, support, search results and all other account pages.
+3. Responsive navigation system
+Do not use the same navigation arrangement on every screen.
+
+Desktop navigation
+- Top navigation with PAYTUNE logo, search, create/upload, notifications and profile.
+- Expandable left sidebar.
+- Main content area with adaptive grids.
+  Tablet navigation
+- Collapsed or expandable sidebar.
+- Search and primary actions remain accessible.
+- Two-column content where space allows.
+  Mobile navigation
+- Compact top header.
+- Bottom navigation for key destinations.
+- Search accessible without opening a desktop-style sidebar.
+- Upload and account actions easy to reach.
+Suggested mobile bottom navigation:
+
+Home | Shorts | Create | Music | Profile
+
+Keep the mobile menu consistent throughout the application. Role-specific destinations can be available through the profile or Studio area.
+4. Responsive media and banner system
+Every media type needs its own presentation rules.
+Media type	Recommended source	Responsive behavior
+Profile picture	1024 × 1024	Circular or square crop
+Channel/business cover	2560 × 1440	Wide responsive crop with safe area
+Video thumbnail	1280 × 720	16:9
+Standard video	1920 × 1080	Adaptive playback
+Shorts	1080 × 1920	Vertical 9:16
+Audio artwork	3000 × 3000	Square artwork
+Community image	1200 × 900	Flexible aspect ratio
+
+
+For the channel banner, retain the YouTube-inspired design we established:
+- Upload canvas: 2560 × 1440 px.
+- Initial central safe-area guide: approximately 1546 × 423 px.
+- Desktop, tablet and mobile previews.
+- Focal-point repositioning and zoom.
+- Artist avatar overlapping the lower banner edge.
+- Keep important text, logos and faces inside the safe area.
+Do not stretch images to fit. Use responsive image variants, appropriate object-fit, object-position, and optimized image delivery.
+5. Technical architecture for responsive development
+Keep one shared component system rather than building three separate websites.
+
+Suggested frontend organization:
+frontend/src/
+├── app/
+│   ├── App.tsx
+│   ├── routes/
+│   └── providers/
+│
+├── components/
+│   ├── layout/
+│   │   ├── AppShell.tsx
+│   │   ├── DesktopSidebar.tsx
+│   │   ├── MobileNavigation.tsx
+│   │   ├── TabletNavigation.tsx
+│   │   └── ResponsiveHeader.tsx
+│   │
+│   ├── media/
+│   │   ├── MediaUploader.tsx
+│   │   ├── ResponsiveImage.tsx
+│   │   ├── VideoPlayer.tsx
+│   │   ├── AudioPlayer.tsx
+│   │   ├── ShortsPlayer.tsx
+│   │   ├── ImageCropEditor.tsx
+│   │   └── CoverBannerEditor.tsx
+│   │
+│   ├── ui/
+│   │   ├── ResponsiveDialog.tsx
+│   │   ├── ResponsiveGrid.tsx
+│   │   ├── ResponsiveTable.tsx
+│   │   └── ResponsiveForm.tsx
+│   │
+│   └── common/
+│
+├── hooks/
+│   ├── useResponsiveLayout.ts
+│   └── useMediaQuery.ts
+│
+├── styles/
+│   ├── tokens.css
+│   ├── responsive.css
+│   └── accessibility.css
+│
+└── services/
+    ├── mediaService.ts
+    └── uploadService.ts
+
+Recommended implementation principles:
+- React + TypeScript.
+- Tailwind CSS with shared design tokens.
+- CSS Grid and Flexbox.
+- Container queries for reusable components.
+- Fluid typography and spacing using clamp().
+- Shared navigation and layout components.
+- TanStack Query for server data.
+- Lazy loading and code splitting for large application areas.
+- Keep business rules and authorization on the backend.
+Example responsive grid:
+<div className="
+  grid
+  grid-cols-1
+  min-[600px]:grid-cols-2
+  lg:grid-cols-3
+  2xl:grid-cols-4
+  gap-4
+">
+  {videos.map((video) => (
+    <VideoCard key={video.id} video={video} />
+  ))}
+</div>
+
+This is a layout example, not a replacement for implementing and testing the actual PAYTUNE components.
+6. Cross-platform browser and operating-system compatibility
+PAYTUNE should be a responsive web application accessible through supported browsers without requiring users to install a separate application.
+Platform	Browser support
+Windows 10/11	Chrome, Edge, Firefox
+macOS	Safari, Chrome, Firefox
+Android	Chrome, Firefox
+iPhone	Safari, Chrome
+iPad	Safari, Chrome
+Linux	Chrome, Firefox
+
+
+Test the actual browser engines and devices. Chrome and Safari, for example, can behave differently with video playback, file uploads, fullscreen, cookies and touch interactions.
+
+Important compatibility requirements:
+- HTML5 video and audio playback.
+- HLS adaptive streaming with appropriate browser support and fallback.
+- Mobile autoplay restrictions handled correctly.
+- Fullscreen and picture-in-picture where supported.
+- File selection from desktop storage and mobile galleries.
+- Resumable uploads after network interruptions.
+- Correct handling of iOS Safari backgrounding and expired upload sessions.
+- Payment flows that work on mobile and desktop.
+- Safe-area support for phones with notches and home indicators.
+- Keyboard, mouse, touch and screen-reader support.
+7. Performance and accessibility
+A responsive website should also remain fast and usable on slower African mobile networks.
+
+Performance requirements
+1. Compress and optimize images automatically.
+2. Use WebP or AVIF where supported, with fallbacks.
+3. Load thumbnails before full media.
+4. Use srcset and responsive image sizes.
+5. Lazy-load content outside the visible screen.
+6. Use adaptive video quality according to network conditions.
+7. Avoid loading the entire application on the initial page.
+8. Cache public assets appropriately.
+9. Avoid unnecessary JavaScript and expensive animations.
+10. Monitor upload failures, buffering, bandwidth and storage costs.
+Accessibility target: WCAG 2.2 AA
+- Visible keyboard focus.
+- Sufficient text and interface contrast.
+- Accessible labels for every form control.
+- Captions and subtitles for supported video content.
+- Alternative text for meaningful images.
+- Screen-reader announcements for upload progress and errors.
+- Touch targets preferably at least 44 × 44 CSS pixels.
+- Reduced-motion support.
+- No feature that depends exclusively on hovering.
+8. Testing and quality assurance
+Do not consider a page responsive simply because it looks correct in one desktop browser.
+
+Use:
+- Playwright: browser-based responsive and cross-browser tests.
+- Vitest: frontend component and utility tests.
+- API integration tests: backend behavior and permissions.
+- Real devices: Android phones, iPhones, tablets and desktop computers.
+- Network testing: slow connections, interrupted uploads and reconnecting.
+- Accessibility testing: automated checks plus keyboard and screen-reader testing.
+PAYTUNE release acceptance checklist
+
+of  completed (%)
+9. Final implementation rules
+These should become mandatory engineering rules for the PAYTUNE development team:
+1. No desktop-only pages.
+2. No mobile-only replacement website with missing features.
+3. No fixed-width layouts that break on smaller screens.
+4. No fake upload progress or simulated processing results.
+5. No controls that are inaccessible on touch devices.
+6. No untested browser-specific assumptions.
+7. No horizontal overflow in normal page layouts.
+8. No loss of user data when rotating a device or resizing the screen.
+9. No different security or payment rules on mobile versus desktop.
+10. Every new feature must pass responsive and cross-platform testing before release.
+My recommendation: Build a shared PAYTUNE responsive design system first, then migrate every existing module to it. This avoids having the homepage, artist studio, admin dashboard, advertiser portal and media uploader each develop their own inconsistent responsive behavior.
+
+The next implementation step is to inspect the actual PAYTUNE frontend and backend files, map every existing route and component against this specification, and produce a prioritized implementation plan with complete replacement files where needed. I can work through that using your current project repository rather than inventing an implementation that may not match your code.
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+discuss full features of live stream
+
+
+
+
+
+
+
+
+
+
+
+
+
+PAYTUNE — Complete Live Streaming Feature Plan
+Live streaming should become one of PAYTUNE's major features, allowing African musicians, content creators, educators, churches, event organizers, businesses and media companies to broadcast live to audiences across Africa and internationally.
+
+I recommend building it as a complete Live Studio + Live Viewer + Live Monetization + Live Management system.
+
+The objective is not simply to add a button that starts a live video. PAYTUNE should support professional broadcasts, real-time audience interaction, revenue generation, moderation, event scheduling and recorded replays.
+PAYTUNE LIVE
+Broadcast live. Connect audiences. Build communities. Earn from your content.
+
+(Live video) (Live audio) (Real-time chat) (Creator earnings)
+1. Types of live streaming
+PAYTUNE should support several broadcast formats.
+
+1. Live video
+
+Musicians, vloggers, journalists, influencers and other creators broadcast themselves using a camera, microphone or streaming software.
+2. Live audio
+
+Audio-only broadcasts, music sessions, radio shows, interviews, podcasts and discussions. Viewers can listen with lower bandwidth consumption.
+3. Mobile vertical live
+
+Portrait broadcasts for mobile-first audiences, with vertical chat and mobile-friendly controls.
+4. Professional live production
+
+Support OBS Studio and compatible broadcasting software through secure RTMP or SRT ingest, with multiple scenes, overlays and external cameras.
+5. Live events and webinars
+
+Training, conferences, education, product launches, interviews and online events with scheduled starting times and optional paid admission.
+2. Creator Live Studio
+Every eligible creator should have a dedicated Live Studio in their Artist or Creator Dashboard.
+Before going live
+Creators should be able to:
+- Create a live broadcast title and description.
+- Upload a live thumbnail or promotional poster.
+- Select a category and language.
+- Select the audience country or target region.
+- Choose public, unlisted or private access.
+- Choose free or paid admission.
+- Schedule a broadcast for a future date.
+- Enable or disable live chat.
+- Enable audience participation and guest requests.
+- Select video or audio-only mode.
+- Select camera and microphone.
+- Test microphone and camera before broadcasting.
+- Select stream quality and latency mode.
+- Configure recording and replay availability.
+- Add moderators.
+- Set age restrictions and content warnings.
+- Set broadcast rights and music-use declarations.
+During a live broadcast
+Creators need a control room containing:
+Feature	Function
+Stream preview	See exactly what the audience receives
+Live status	Display connection and broadcast health
+Viewer count	Show current concurrent viewers
+Live chat	Read and respond to audience messages
+Moderation	Block, mute and remove inappropriate users
+Stream quality	Monitor bitrate, frame rate and resolution
+Microphone	Mute and unmute audio
+Camera	Enable or disable video
+Screen sharing	Share presentations or desktop
+Scene controls	Switch between production scenes
+Guest controls	Accept, reject and remove guests
+End broadcast	Finish and close the live session
+
+
+After the broadcast
+The creator should receive:
+- Total views and unique viewers.
+- Peak concurrent viewers.
+- Average watch duration.
+- Total watch time.
+- Viewer retention.
+- Followers gained during the stream.
+- Chat and interaction statistics.
+- Eligible advertising revenue.
+- Gifts, tips and paid access revenue.
+- Processing status of the recording.
+- Replay management and download options where permitted.
+Important: a live session ending is not the same as a replay being ready. Recording, transcoding, moderation and publication must have their own verified processing states.
+3. Live viewer experience
+The audience should have a professional live watching experience.
+Viewer features
+1. Watch the broadcast in real time.
+2. Change video quality when supported.
+3. Switch to full-screen mode.
+4. View live chat.
+5. Send reactions and emojis.
+6. Follow the creator.
+7. Share the live stream.
+8. Receive notifications when followed creators go live.
+9. View the creator profile.
+10. Report inappropriate broadcasts or messages.
+11. Purchase paid access where applicable.
+12. View the replay after the broadcast if the creator permits it.
+Live chat
+Chat should support:
+- Text messages.
+- Emoji and reactions.
+- Creator announcements.
+- Pinned messages.
+- Moderator messages.
+- Slow mode.
+- Subscriber or paid-access-only chat where configured.
+- Message deletion.
+- User timeout and blocking.
+- Spam and repeated-message detection.
+- Language-aware moderation.
+For African audiences, moderation must account for English, French, Portuguese, Arabic and African languages, including Kinyarwanda, Swahili, Hausa, Yoruba, Amharic and others. Automated moderation should support human review rather than automatically assuming every language is understood correctly.
+4. Multi-guest live streaming
+Allow creators to invite other people into a broadcast.
+
+Features:
+- Invite a guest using a private invitation link.
+- Request to join a live session.
+- Accept or reject guest requests.
+- Host controls for removing guests.
+- Multiple participant layouts.
+- Individual microphone and camera controls.
+- Guest connection quality monitoring.
+- Guest permissions and consent.
+- Recording of the broadcast, subject to participant consent.
+I recommend launching with a host plus up to three guests, then expanding based on technical capacity.
+5. Live monetization — how creators earn
+This is particularly important for PAYTUNE.
+
+Creators should have several ways to earn, while PAYTUNE earns from the platform services and eligible advertising.
+
+A. Virtual gifts and tips
+
+Viewers purchase digital gifts or send tips to creators. Show the gift animation during the broadcast and record the transaction in the creator's wallet.
+B. Paid live events
+
+Creators charge for admission to concerts, exclusive performances, masterclasses, conferences and special broadcasts.
+C. Fan memberships
+
+Support recurring memberships with exclusive live sessions, member badges and special community access. Membership billing must be separately implemented.
+D. Sponsorships and direct advertising
+
+Brands sponsor broadcasts, display approved advertisements or sponsor an event. PAYTUNE should manage advertiser contracts, campaign delivery and reporting.
+E. Platform advertising
+
+Eligible free live streams can display approved advertising. PAYTUNE earns advertising revenue and distributes the creator's eligible share according to its partner rules.
+F. Merchandise and digital products
+
+Creators can promote approved merchandise, music, digital products and other offerings during a broadcast.
+Example revenue structure
+The following is an illustrative calculation, not a proposed final PAYTUNE commission schedule.
+
+Example: paid live event
+$1,000
+Gross event ticket revenue
+Ticket sales $1,000
+
+Payment processing (illustrative) −$30
+
+PAYTUNE platform fee (illustrative 15%) −$150
+Creator proceeds
+$820
+Actual payout rules should account for taxes, refunds, chargebacks, payment-provider fees and country-specific regulations.
+Important separation of earnings
+PAYTUNE should maintain separate accounting for:
+- Live gifts and tips.
+- Paid event tickets.
+- Membership revenue.
+- Direct sponsorships.
+- Eligible live advertising revenue.
+- Recorded replay sales.
+Do not automatically treat all viewers or all live watch time as monetized. Advertising revenue must be based on actual eligible ad delivery and verified revenue.
+
+For consistency with the existing PAYTUNE Partner Program, apply the approved creator eligibility and account-standing rules to advertising revenue. Gifts, tips and paid event sales can have separate eligibility rules.
+6. Scheduled live events and discovery
+PAYTUNE should have a dedicated Live section accessible from the main navigation.
+
+Suggested sections:
+- Live Now: broadcasts currently running.
+- Upcoming: scheduled broadcasts.
+- Recommended Live: based on viewer interests and followed creators.
+- Music Live: concerts, performances and music sessions.
+- Education Live: classes and tutorials.
+- News & Discussions: interviews, journalism and discussions.
+- Events: conferences, festivals and special events.
+- Recently Ended: available recordings and replays.
+Scheduling features
+Creators should be able to:
+- Publish an upcoming event page.
+- Set a date, start time and time zone.
+- Share the event link.
+- Allow viewers to set reminders.
+- Notify followers when the event starts.
+- Reschedule or cancel an event.
+- Display an event poster and description.
+- Set ticket prices and admission limits.
+- Configure replay availability.
+For a Pan-African audience, display event times in the viewer's local time zone, while retaining the original event time in the database.
+7. Live moderation and safety
+Live broadcasts create risks that ordinary video uploads do not. PAYTUNE needs moderation while the broadcast is happening, not only after it ends.
+
+Creator moderation controls
+- Appoint and remove moderators.
+- Mute or remove chat participants.
+- Block users from a channel.
+- Enable slow mode.
+- Restrict links and repeated messages.
+- Set chat to followers-only or paid-attendees-only.
+- End a broadcast immediately.
+- Disable guest participation.
+- Report suspected copyright infringement.
+Platform moderation controls
+- Global and country-specific moderation teams.
+- Live stream monitoring and incident reporting.
+- Copyright complaints and takedown procedures.
+- Harassment, hate speech and dangerous-content policies.
+- Age restrictions and content warnings.
+- Emergency broadcast termination.
+- Evidence preservation and moderation audit logs.
+- Appeals and review procedures.
+The Master Owner should be able to suspend a live session or creator when there is a serious policy violation. All such actions should be logged.
+8. Master Owner and administrator controls
+The Master Owner needs a dedicated PAYTUNE Live Control Center.
+Admin capability	Description
+Live monitoring	View active broadcasts and health status
+Creator management	Approve, restrict or suspend live access
+Country management	Enable live features by supported country
+Revenue management	Monitor gifts, tickets, ads and commissions
+Advertiser management	Approve sponsorships and campaigns
+Moderation	Investigate reports and violations
+Stream configuration	Configure limits and quality policies
+Analytics	View viewers, watch time and revenue
+Cost management	Monitor bandwidth, storage and processing
+Audit history	Record administrative actions
+
+
+The Master Owner should be able to configure:
+- Maximum broadcast duration.
+- Maximum resolution and bitrate.
+- Maximum concurrent guests.
+- Creator eligibility requirements.
+- Maximum audience limits according to infrastructure capacity.
+- Free and paid broadcast availability.
+- Country-specific payment and payout settings.
+- Advertising formats and revenue-sharing rules.
+- Recording retention periods.
+Do not give country administrators unrestricted access to global financial settings.
+9. Technical architecture
+This is one of the most important decisions. Live streaming cannot be implemented efficiently by simply uploading a video through the existing media uploader.
+
+I recommend a dedicated live-streaming subsystem connected to PAYTUNE's existing authentication, user, creator, payment, notification and moderation systems.
+Recommended broadcast architecture
+Creator devices and software
+
+Browser camera · Mobile camera · OBS Studio · External production tools
+
+Secure stream ingestion
+
+RTMP / SRT ingest · Stream keys · Authentication
+
+Live media processing
+
+Transcoding · Adaptive bitrate · Audio processing · Recording
+
+Media delivery network
+
+CDN · HLS / Low-Latency HLS · Regional delivery
+
+PAYTUNE viewers
+
+Desktop · Tablet · Android · iPhone · Smart-compatible browsers
+Separate supporting services
+- Live session API and database.
+- Real-time chat and moderation.
+- Notifications and reminders.
+- Ticket access and entitlement verification.
+- Gifts, payments and accounting ledger.
+- Analytics, recording and replay processing.
+Streaming technology choices
+Technology	Purpose
+RTMP	Common OBS and professional encoder ingestion
+SRT	Reliable contribution from supported encoders over unstable networks
+WebRTC	Interactive, low-latency guest conversations
+HLS	Broad device and browser playback compatibility
+Low-Latency HLS	Reduced playback delay for supported delivery infrastructure
+WebSockets	Live chat, reactions and session events
+
+
+My recommendation: Use RTMP/SRT for professional broadcast ingestion, HLS or Low-Latency HLS for scalable audience delivery, and WebRTC for interactive multi-guest experiences.
+
+Do not force WebRTC to deliver every large public broadcast. Its infrastructure and bandwidth costs can become substantial as the audience grows.
+Suggested backend structure
+backend/src/modules/live/
+├── live.routes.js
+├── live.controller.js
+├── live.service.js
+├── live.repository.js
+├── live.validation.js
+├── live.authorization.js
+│
+├── sessions/
+│   ├── session.service.js
+│   └── session.lifecycle.js
+│
+├── streaming/
+│   ├── ingest.service.js
+│   ├── streamKey.service.js
+│   ├── playback.service.js
+│   └── streamHealth.service.js
+│
+├── chat/
+│   ├── chat.gateway.js
+│   ├── chat.service.js
+│   └── chatModeration.service.js
+│
+├── guests/
+│   ├── guest.service.js
+│   └── guestInvitation.service.js
+│
+├── monetization/
+│   ├── liveAds.service.js
+│   ├── liveGifts.service.js
+│   ├── liveTickets.service.js
+│   └── liveRevenue.service.js
+│
+├── recording/
+│   ├── recording.service.js
+│   └── replay.service.js
+│
+├── moderation/
+│   └── liveModeration.service.js
+│
+└── analytics/
+    └── liveAnalytics.service.js
+
+Suggested database entities
+- live_sessions
+- live_stream_keys
+- live_session_settings
+- live_viewers
+- live_chat_messages
+- live_chat_moderators
+- live_guest_invitations
+- live_guests
+- live_recordings
+- live_replays
+- live_events
+- live_event_tickets
+- live_gifts
+- live_gift_transactions
+- live_ad_impressions
+- live_revenue_records
+- live_reports
+- live_moderation_actions
+- live_analytics_snapshots
+Use the existing PAYTUNE user and payment systems rather than creating separate user accounts or an independent wallet.
+10. Security and paid-content protection
+This is essential for a platform selling permanent access to content and paid live events.
+- Never expose a creator's permanent stream key publicly.
+- Give every creator a revocable, securely stored stream key.
+- Authenticate and authorize every broadcast.
+- Use short-lived playback tokens for private and paid streams.
+- Check ticket purchases and entitlements on the backend.
+- Prevent unauthorized direct access to paid stream playlists.
+- Rate-limit chat, reactions and guest requests.
+- Protect webhook endpoints with signature verification.
+- Use idempotency for gifts, payments and refunds.
+- Prevent duplicate gift transactions and duplicate ticket purchases.
+- Encrypt sensitive secrets and protect financial records.
+- Keep a complete audit trail.
+- Prevent replay publication before processing and moderation checks are complete.
+A signed playback URL alone is not a complete entitlement system. The backend must verify that the viewer is entitled to watch the actual event.
+11. Responsive live experience across devices
+The live system should adapt to the device without removing important capabilities.
+Feature	Desktop	Tablet	Mobile
+Broadcast studio	Full control room	Compact control room	Guided broadcast interface
+Live player	Large landscape	Adaptive landscape	Portrait or landscape
+Chat	Side panel	Collapsible panel	Below player or chat tab
+Guest layout	Multiple panels	Adaptive grid	Focused speaker layout
+Stream analytics	Full dashboard	Compact dashboard	Summary cards
+Camera selection	Multiple devices	Available devices	Device camera switching
+Screen sharing	Supported browsers	Where supported	Limited by OS/browser
+Gifts	Overlay and panel	Compact panel	Touch-friendly gift panel
+
+
+On mobile, the creator should be able to start and manage a live broadcast without needing a desktop. However, some professional controls such as complex scene production will be better supported through OBS and desktop software.
+
+The system must also handle poor connectivity: show clear connection status, recover playback, and prevent a temporary network interruption from incorrectly marking the entire event as successfully completed.
+12. Live streaming states and lifecycle
+Every broadcast needs a reliable lifecycle so that the creator, viewers and administrators see the same actual status.
+State	Meaning
+draft	Broadcast is being configured
+scheduled	Broadcast has a scheduled start time
+preparing	Creator is connecting and testing
+live	Broadcast is actively streaming
+interrupted	Temporary connection interruption
+ending	Broadcast is being closed
+processing	Recording and replay are being processed
+pending_review	Content requires moderation review
+ended	Broadcast has finished
+ready	Replay is ready for permitted viewing
+failed	Broadcast or processing failed
+cancelled	Scheduled broadcast was cancelled
+suspended	Platform has suspended the session
+
+
+The system should use real ingest and processing events to change states. It must not use a frontend timer to pretend a broadcast is live.
+13. Live advertising rules
+PAYTUNE should distinguish between free live broadcasts and paid broadcasts.
+Broadcast type	Advertising recommendation
+Free live	Approved advertising may be displayed
+Paid live event	No intrusive ads during paid viewing
+Sponsored live	Clearly identify the sponsor
+Free replay	Eligible advertising may be displayed
+Paid replay	Ad-free playback by default
+
+
+Potential advertising formats:
+- Pre-roll advertisements before free live playback.
+- Optional mid-roll breaks controlled by the broadcast format.
+- Sponsored event banners.
+- Sponsor logos and approved overlays.
+- Post-stream replay advertising.
+- Advertiser-sponsored creator events.
+Do not insert disruptive ads in the middle of a live performance without the creator's configured permission. Track actual ad impressions and verified revenue rather than estimating revenue from viewer counts.
+14. African market requirements
+PAYTUNE should be designed for different countries, networks, languages and payment environments.
+
+Important requirements:
+- English, French, Portuguese, Arabic and African-language support.
+- Localized dates, time zones and currencies.
+- Country-specific payment and payout methods.
+- Adaptive playback for slower connections.
+- Low-bandwidth audio-only options.
+- Multiple video quality levels.
+- Mobile-friendly broadcast creation.
+- Country-specific content and advertising rules.
+- Reliable delivery across African regions and international audiences.
+Do not enable payment or monetization in a country until the necessary payment provider, payout method, legal and operational requirements have been verified.
+15. Development roadmap
+I would not launch every advanced feature at once. Live streaming can be expensive and technically demanding, so build it in stages.
+
+(Phase 1 — Core launch)
+
+Basic professional live streaming
+- Creator Live Studio.
+- Camera and microphone broadcasting.
+- OBS support.
+- Public free broadcasts.
+- Live viewer and playback.
+- Real-time chat.
+- Basic moderation.
+- Broadcast recording and replay.
+(Phase 2 — Monetization)
+
+Creator earnings
+- Virtual gifts and tips.
+- Paid live events.
+- Ticket verification.
+- Sponsorship management.
+- Eligible live advertising.
+- Creator earnings dashboard.
+- Refunds and transaction history.
+(Phase 3 — Advanced live)
+
+Professional interaction
+- Multi-guest broadcasts.
+- WebRTC conversations.
+- Screen sharing.
+- Advanced scenes and overlays.
+- Live audio rooms.
+- Audience participation.
+(Phase 4 — Pan-African scale)
+
+Regional expansion
+- Regional media delivery.
+- Multi-country payment support.
+- Advanced recommendation system.
+- Advanced advertising marketplace.
+- Large event support.
+- Cost optimization and capacity management.
+16. Important decisions before implementation
+My proposed defaults are below. These are product recommendations, not features already implemented.
+Area	Recommended starting decision
+Public live streaming	Available to approved creators
+OBS streaming	Supported
+Mobile broadcasting	Supported
+Free live streams	Supported
+Paid live events	Supported with verified payment
+Live gifts	Supported after wallet safeguards
+Live audio	Supported
+Multi-guest	Host + 3 guests initially
+Live replay	Creator-controlled
+Live advertising	Eligible free broadcasts
+Chat	Moderated, configurable
+Country availability	Configurable by Master Owner
+
+
+One important business decision: Do you want PAYTUNE Live to allow every registered user to broadcast immediately, or should creators first apply for live-streaming permission and receive approval?
+
+My recommendation is to allow eligible registered creators to apply, then give approved creators access to broadcasting. This provides better control over abuse, copyright, infrastructure costs and monetization.
+
+For the next stage, I can turn this design into a complete PAYTUNE Live technical specification covering database migrations, API endpoints, frontend pages, streaming-provider integration, permissions, security and implementation tasks.
+
+I can also schedule a monthly review of PAYTUNE's live-streaming architecture and technical readiness as the platform develops.
+
+Review PAYTUNE Live monthly
+
+
+
+
+
+
+
+
+
+
+Worked for 8s
+
+
+
+
+
+
+PAYTUNE Live monthly review scheduled successfully.
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+Monthly review of PAYTUNE's Live streaming product and technical readiness for a professional Pan-African creator platform. On each run, inspect the latest available PAYTUNE project files, specifications, implementation code, architecture decisions, and relevant current official technical documentation. If repository files or live implementation are unavailable, clearly state that limitation and do not claim to have inspected code or production systems. Review the complete live-streaming lifecycle: creator Live Studio; browser/mobile broadcasting; OBS and RTMP/SRT ingest; WebRTC guest participation; HLS/Low-Latency HLS playback; adaptive bitrate and low-bandwidth African network support; live audio; scheduling and discovery; viewer experience; real-time chat and moderation; multi-guest controls; recording, processing and replays; gifts, tips, tickets, memberships, sponsorships and eligible advertising; creator revenue accounting and payouts; Master Owner/global/country admin controls; analytics; security, privacy, copyright, age safety, paid-event entitlements, abuse prevention, reliability, scalability, CDN/bandwidth/storage/processing costs; and responsive cross-platform support across desktop, tablet, Android and iOS browsers. Verify changing technical recommendations against current primary documentation and distinguish verified facts, existing implementation, specification-only plans, and recommendations. Identify security gaps, missing migrations/APIs/tests, operational risks, vendor dependencies, cost risks and launch blockers. Prioritize findings by severity and practical implementation order; provide concrete next steps and acceptance criteria. Compare with previous review results when available and call out meaningful changes, but deliver a concise useful report every monthly run even if there are no material changes. Include source links for external technical claims. Do not modify project files, deploy changes, change production settings, spend money, or initiate broadcasts; this task is review and reporting only.
+
+
+
+
+
+
+
+
+
+
+
+
+
+This is the full review scope for your PAYTUNE Live monthly review. It matches the instructions saved in your scheduled task.
+
+The review will assess technical readiness, security, monetization, streaming infrastructure, cross-platform compatibility, operating costs and implementation priorities.
+
+It is a review-only task: it will not modify files, deploy changes or alter production systems.
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+full addtional neccessary features po
+
+
+
+
+
+
+
+
+
+
+
+
+
+PAYTUNE — Additional essential features for a complete Pan-African platform
+To make PAYTUNE a professional platform comparable in capability to YouTube, Rumble, and other major creator platforms, I recommend expanding beyond video uploads, music streaming, live streaming, and monetization.
+
+The goal should be to build a complete ecosystem connecting creators, viewers, artists, businesses, advertisers, and platform administrators across Africa and internationally.
+
+Below is an additional feature blueprint. It complements the existing PAYTUNE plans rather than replacing them.
+1. User accounts and identity management
+- Registration using email, phone number, Google and supported social login.
+- Unique username and public profile URL.
+- Personal profiles, artist profiles, creator channels and business accounts.
+- Profile verification and identity verification.
+- Profile photo, channel banner, biography, location and social links.
+- Multiple channels under eligible accounts.
+- Account switching and session management.
+- Password reset, two-factor authentication and login alerts.
+- Account privacy and visibility controls.
+- Account deactivation, deletion and data export.
+- Blocked users and restricted accounts.
+- Country, language, time zone and currency preferences.
+- Age verification and parental safety controls where required.
+2. Creator channel management
+Every creator should have a customizable channel.
+- YouTube-style large channel banner.
+- Channel logo/profile image.
+- Featured video and featured playlists.
+- Channel trailer for visitors.
+- About section and social media links.
+- Videos, Shorts, music, live streams and playlists tabs.
+- Community posts tab.
+- Channel subscription/follow button.
+- Subscriber/follower counts.
+- Channel categories and language.
+- Verified creator badge.
+- Channel URL customization.
+- Channel sections and content ordering.
+- Public and private playlists.
+- Channel analytics and monetization dashboard.
+- Channel managers and delegated permissions.
+Important: Channel banners should have a large desktop design with a safe-content area for mobile and tablet cropping, similar to YouTube channel art.
+3. Content publishing and media management
+Beyond ordinary uploads, PAYTUNE should support:
+- Long-form videos.
+- Vertical Shorts and Reels-style videos.
+- Music tracks and albums.
+- Podcasts and audio episodes.
+- Music videos.
+- Documentaries and films.
+- Educational courses.
+- News and journalism content.
+- Photo galleries and image posts.
+- Community images.
+- Video premieres.
+- Scheduled publishing.
+- Drafts and private uploads.
+- Bulk uploads.
+- Resumable uploads.
+- Upload progress, pause, resume, retry and cancel.
+- Automatic thumbnail generation.
+- Custom thumbnails and artwork.
+- Video chapters and timestamps.
+- Captions and subtitles.
+- Multi-language audio tracks where supported.
+- Content replacement while preserving the content page where appropriate.
+- Copyright checks and content reporting.
+- Processing status and upload history.
+4. Discovery and recommendation engine
+- Personalized home feed.
+- Trending across Africa and globally.
+- Trending by country and language.
+- Music discovery.
+- Shorts discovery.
+- Live Now discovery.
+- Recommended channels.
+- Recommended playlists and albums.
+- Recently watched.
+- Continue watching.
+- New releases.
+- Popular educational videos.
+- News and documentaries.
+- Search suggestions.
+- Search by title, artist, creator, category and language.
+- Advanced filters: date, duration, country, price, free/paid and content type.
+- Search typo correction and multilingual search.
+- Creator discovery and emerging-artist promotion.
+- User-controlled recommendation preferences.
+- Not interested and don't recommend this channel.
+- Exclude blocked channels and content.
+Recommendation principle: Avoid recommending content only because it generates advertising revenue. Give relevance, quality, user preferences and creator fairness priority.
+5. Community and social interaction
+- Follow and unfollow creators.
+- Like and dislike or alternative feedback reactions.
+- Comments and threaded replies.
+- Pin creator comments.
+- Edit and delete own comments.
+- Report comments and posts.
+- Community posts with text, images and polls.
+- Creator announcements.
+- Questions and answers.
+- Share videos and profiles.
+- Save posts.
+- Mention users using @username.
+- Hashtags and trending topics.
+- Followers-only posts.
+- Community moderation tools.
+- Notifications for replies, mentions and follows.
+- Creator-to-follower announcements.
+6. Messaging and communication
+- Private direct messages.
+- One-to-one conversations.
+- Group conversations.
+- Text and image sharing.
+- Share PAYTUNE videos, tracks and playlists.
+- Message requests and spam filtering.
+- Block and report users.
+- Read receipts and typing indicators as optional features.
+- Conversation search.
+- Message deletion and retention controls.
+- Creator business contact settings.
+- Optional creator-to-fan messaging restrictions.
+Messaging must include abuse reporting, privacy controls, rate limits and protections against scams.
+7. Music and audio ecosystem
+PAYTUNE should provide dedicated music experiences rather than treating music as ordinary video content.
+- Artist profiles and discographies.
+- Singles, EPs and albums.
+- Track metadata and cover artwork.
+- Music playlists.
+- Queue and shuffle.
+- Repeat and background playback where supported.
+- Lyrics display and synchronized lyrics where licensed.
+- Podcasts and podcast series.
+- Radio-style stations.
+- Offline listening for eligible purchases and subscriptions, subject to licensing.
+- Audio quality settings.
+- Music search by artist, track, album and genre.
+- Music charts by country and continent.
+- New release notifications.
+- Artist analytics.
+- Music licensing and rights management.
+- Music ownership and revenue splits.
+- Collaboration credits and featured artists.
+8. PAYTUNE Shorts
+- Vertical full-screen feed.
+- Swipe navigation.
+- Like, comment, share and follow.
+- Sound and music attribution.
+- Reuse eligible audio with licensing permissions.
+- Link Shorts to full videos.
+- Creator Shorts analytics.
+- Shorts drafts.
+- Upload from mobile.
+- Captions and basic editing.
+- Report, block and content restrictions.
+- Dedicated Shorts discovery.
+- Configurable Shorts monetization policy.
+9. Complete monetization ecosystem
+PAYTUNE should offer multiple revenue channels with separate accounting.
+Revenue source	Creator opportunity	PAYTUNE opportunity
+Free-video advertising	Eligible ad share	Ad revenue
+Free live advertising	Eligible ad share	Ad revenue
+Paid videos	Sales earnings	Platform fee
+Paid music	Track/album earnings	Platform fee
+Gifts and tips	Fan support	Configurable fee
+Paid live events	Ticket earnings	Ticketing fee
+Memberships	Recurring fan support	Subscription fee
+Sponsorships	Brand partnerships	Marketplace fee
+Merchandise	Product sales	Marketplace fee
+Courses	Educational sales	Platform fee
+Podcasts	Eligible advertising/sales	Platform fee
+
+
+Additional monetization requirements:
+- Creator earnings dashboard.
+- Revenue breakdown by source.
+- Transaction history.
+- Pending, available and paid balances.
+- Minimum withdrawal thresholds.
+- Supported payout methods by country.
+- Tax and identity information.
+- Payout verification.
+- Refund and chargeback management.
+- Revenue-sharing agreements.
+- Transparent fees.
+- Fraud detection and invalid traffic deductions.
+- Financial audit logs.
+- Downloadable statements.
+Important PAYTUNE business rule: Free-video advertising revenue should not automatically be distributed to every account. Only creators approved for the relevant PAYTUNE Partner Program should receive eligible advertising shares, using verified ad delivery and the established eligibility rules. Paid purchases, gifts and other revenue streams should have their own transparent rules.
+10. Advertiser and business portal
+PAYTUNE should have a separate portal for businesses, brands, agencies and advertisers.
+- Business registration and verification.
+- Business profile, logo and cover banner.
+- Campaign creation and management.
+- Video, image, banner and sponsored-content advertisements.
+- Campaign objectives: awareness, traffic, engagement and conversions.
+- Target by country, region, language and eligible audience.
+- Campaign budgets and spending limits.
+- Start and end dates.
+- Ad scheduling.
+- Campaign approval and rejection workflow.
+- Ad previews across desktop, tablet and mobile.
+- Impression, view, click and conversion analytics.
+- Campaign invoices and transaction history.
+- Advertiser billing and payment methods.
+- Advertiser account permissions and agency management.
+- Campaign pause, resume and cancellation.
+- Fraud detection and invalid-click protection.
+- Sponsored content disclosure.
+Ad placement types
+1. Pre-roll advertisements before free videos.
+2. Mid-roll advertisements in eligible free videos.
+3. Post-roll advertisements.
+4. Display and banner advertisements.
+5. Sponsored Shorts.
+6. Sponsored live broadcasts.
+7. Sponsored music and podcast placements.
+8. Sponsored discovery placements.
+PAYTUNE should control frequency caps, ad suitability, creator exclusions, user experience and advertising inventory. Paid content should remain ad-free by default unless the buyer is clearly informed of a different arrangement.
+11. PAYTUNE wallet and financial system
+Build a secure financial system for viewers, creators, businesses and PAYTUNE.
+- Viewer wallet where legally and operationally supported.
+- Creator earnings wallet.
+- Advertiser balance and billing.
+- Deposit and withdrawal records.
+- Purchase history.
+- Refund management.
+- Payment confirmation.
+- Transaction receipts.
+- Supported local payment methods.
+- Supported international payment methods.
+- Country-specific currencies.
+- Exchange-rate handling.
+- Payment reconciliation.
+- Chargeback management.
+- Duplicate-payment prevention.
+- Failed-payment recovery.
+- Financial reports.
+- Ledger-based accounting.
+- Admin financial approval workflows.
+Every transaction should have a unique reference, transaction status, timestamp, currency, payer, recipient and associated order. Never use a simple editable balance field as the financial source of truth.
+12. PAYTUNE membership and subscriptions
+- Creator channel memberships.
+- Monthly and annual membership plans.
+- Different membership levels.
+- Exclusive videos and music.
+- Members-only livestreams.
+- Members-only community posts.
+- Membership badges.
+- Members-only chat.
+- Automatic renewal and cancellation.
+- Expiration and renewal notifications.
+- Payment failure recovery.
+- Membership benefits and restrictions.
+- Creator-controlled membership pricing within platform limits.
+- Clear refund and cancellation terms.
+Separate creator memberships from any PAYTUNE-wide subscription plan. They serve different purposes and should have separate billing and entitlements.
+13. Notifications and reminders
+- New video notifications.
+- New music release notifications.
+- New Shorts notifications.
+- Creator going-live notifications.
+- Scheduled livestream reminders.
+- Comment and reply notifications.
+- New follower notifications.
+- Purchase confirmations.
+- Membership renewal reminders.
+- Payout status notifications.
+- Advertiser campaign notifications.
+- Security and login alerts.
+- System announcements.
+- Email notifications.
+- In-app notifications.
+- Push notifications for supported devices.
+- Notification preferences and quiet hours.
+Users should be able to choose which notifications they receive. Do not send repeated promotional notifications without permission.
+14. Search, playlists and personal library
+- Global search.
+- Search history and clearing controls.
+- Watch history.
+- Listening history.
+- Watch later.
+- Saved videos.
+- Saved music.
+- Custom playlists.
+- Collaborative playlists with permissions.
+- Recently purchased content.
+- Purchased videos and albums.
+- Followed channels.
+- Favorite artists.
+- Downloaded content where licensing permits.
+- Continue watching and listening.
+- Hide individual history items.
+- Private library settings.
+15. Professional Creator Studio
+This should be the main workspace for creators.
+- Overview dashboard.
+- Content management.
+- Upload center.
+- Video and music analytics.
+- Audience demographics.
+- Country and language analytics.
+- Watch time and retention.
+- Follower growth.
+- Revenue reports.
+- Advertising performance.
+- Copyright and claims center.
+- Community management.
+- Comment moderation.
+- Live Studio.
+- Membership management.
+- Sponsorship opportunities.
+- Brand collaboration requests.
+- Content scheduling calendar.
+- Channel customization.
+- Team management.
+- Creator support center.
+Creators should be able to see which content is performing well and why, without misleading analytics or artificial engagement figures.
+16. Master Owner administration and control center
+As PAYTUNE Master Owner, you need a separate, secure administration environment.
+
+Global platform management
+- Total registered accounts.
+- Active and inactive users.
+- Creators and verified artists.
+- Total uploads and storage consumption.
+- Active livestreams.
+- Platform traffic and engagement.
+- Platform-wide revenue and expenses.
+- Country-level statistics.
+- Platform health and service availability.
+User and creator management
+- Search and manage accounts.
+- Verify artists and creators.
+- Approve monetization applications.
+- Restrict or suspend accounts.
+- Review appeals.
+- Investigate suspicious activities.
+- Manage creator support requests.
+- Review account history.
+Content management
+- Review reported videos, music and images.
+- Copyright complaints and takedowns.
+- Remove prohibited content.
+- Manage categories and tags.
+- Feature or promote content.
+- Manage trending content rules.
+- Manage content visibility and age restrictions.
+Financial management
+- Global revenue reports.
+- Advertising revenue.
+- Direct advertiser revenue.
+- Platform fees.
+- Creator payouts.
+- Refunds and chargebacks.
+- Payment provider reconciliation.
+- Financial audit reports.
+- Country-specific revenue reports.
+Platform configuration
+- Country availability.
+- Supported currencies.
+- Languages.
+- Upload limits.
+- Video and audio processing limits.
+- Advertising rules.
+- Creator eligibility requirements.
+- Membership settings.
+- Live-stream limits.
+- Storage and retention policies.
+- Maintenance mode.
+- Feature flags and staged releases.
+Master Owner access should be protected by strong authentication, multi-factor authentication, audit logs and restricted financial permissions. Country administrators must not automatically receive global financial or security access.
+17. Country and language support
+PAYTUNE must be designed for Africa from the beginning, rather than being a Rwanda-only application.
+- Country selection.
+- Country-specific creator discovery.
+- Country-specific trending charts.
+- Country-specific currencies.
+- Country-specific payout methods.
+- Local time zones.
+- Local advertising markets.
+- Country-level content moderation.
+- Local legal and tax requirements.
+- Country-specific payment availability.
+- International audience discovery.
+- Regional creator rankings.
+Recommended language roadmap:
+- English.
+- French.
+- Portuguese.
+- Arabic.
+- Swahili.
+- Kinyarwanda.
+- Hausa.
+- Yoruba.
+- Amharic.
+- Zulu.
+- Other African languages as localization capacity grows.
+Use translation files and a proper internationalization system rather than hardcoding text into components.
+18. Accessibility and inclusive design
+- Keyboard navigation.
+- Screen-reader support.
+- Captions and subtitles.
+- High-contrast settings.
+- Adjustable text sizes.
+- Accessible forms.
+- Clear focus indicators.
+- Alt text for images.
+- Reduced-motion settings.
+- Audio descriptions where available.
+- Accessible video player controls.
+- Color choices that do not rely only on color to communicate status.
+19. Safety, security and trust
+- Content reporting.
+- User reporting.
+- Copyright complaint management.
+- Harassment and hate-speech moderation.
+- Spam and scam detection.
+- Fake engagement detection.
+- Bot and suspicious traffic detection.
+- Account takeover protection.
+- Two-factor authentication.
+- Rate limiting.
+- Session revocation.
+- Secure password storage.
+- Permission-based access control.
+- Admin action audit logs.
+- Data encryption.
+- Secure file upload validation.
+- Privacy and data retention controls.
+- Child safety protections.
+- Appeals and dispute handling.
+- Transparency reports.
+For automated moderation, use human review for uncertain or serious decisions. Clearly distinguish a report, a temporary restriction, and a final enforcement decision.
+20. Professional video and audio player
+Video player
+- Adaptive streaming quality.
+- Fullscreen.
+- Picture-in-picture where supported.
+- Playback speed.
+- Captions and subtitles.
+- Chapters.
+- Keyboard shortcuts.
+- Volume control.
+- Auto-play preferences.
+- Continue watching.
+- Theatre mode.
+- Cast support where technically supported.
+- Share at timestamp.
+- Report video.
+- Video quality selection.
+- Mobile orientation handling.
+Audio player
+- Background playback where supported.
+- Queue management.
+- Repeat and shuffle.
+- Playback speed.
+- Lyrics.
+- Track information.
+- Album artwork.
+- Sleep timer.
+- Bluetooth and device audio controls where supported.
+21. Business marketplace and creator opportunities
+- Brand-to-creator marketplace.
+- Sponsorship applications.
+- Creator media kits.
+- Creator pricing and collaboration offers.
+- Campaign briefs.
+- Contract and agreement records.
+- Campaign deliverables.
+- Sponsorship payment tracking.
+- Business product promotions.
+- Affiliate links and tracked sales.
+- Creator merchandise stores.
+- Digital products.
+- Educational courses.
+- Event promotion.
+- Service listings.
+This creates an additional income opportunity for creators who do not yet qualify for advertising revenue.
+22. Help center and customer support
+- Help center.
+- Frequently asked questions.
+- Video tutorials.
+- Creator guides.
+- Advertiser guides.
+- Payment support.
+- Account recovery.
+- Technical support tickets.
+- Copyright dispute submissions.
+- Monetization appeals.
+- Refund requests.
+- Live support where available.
+- Support ticket history.
+- Admin response and escalation tools.
+- Service status page.
+23. Technical infrastructure and reliability
+These are essential behind-the-scenes features, not optional extras.
+- Secure API architecture.
+- Database migrations and backups.
+- Automated database recovery procedures.
+- Object storage lifecycle management.
+- CDN distribution.
+- Video transcoding and adaptive bitrate generation.
+- Audio transcoding.
+- Thumbnail and artwork processing.
+- Background job queues.
+- Failed-job retry and dead-letter handling.
+- Upload resumption.
+- Media integrity checks.
+- Cache management.
+- Search indexing.
+- Monitoring and alerting.
+- Error tracking.
+- Performance analytics.
+- Automated testing.
+- Deployment pipelines.
+- Database connection pooling.
+- Disaster recovery.
+- Service rate limiting.
+- Regional delivery optimization.
+For low-bandwidth African markets, PAYTUNE should support low-resolution playback, audio-only options, efficient thumbnails, resumable uploads and adaptive delivery.
+24. Cross-platform experience
+The entire platform must adapt to different devices.
+Device	Essential experience
+Desktop	Full navigation, advanced creator studio, analytics, uploads and admin control
+Laptop	Complete platform experience with responsive layouts
+Tablet	Touch-friendly navigation, simplified dashboards and upload management
+Android	Mobile viewing, uploading, music, Shorts, notifications and creator tools
+iPhone/iPad	Equivalent supported mobile experience with platform-specific adaptations
+Smart TV	Large-screen video playback and remote-friendly navigation, as a later phase
+
+
+Responsive design must cover every screen: authentication, homepage, video player, channel pages, upload screens, music, live, comments, payments, admin dashboards and settings.
+25. Data analytics and business intelligence
+PAYTUNE needs a reliable analytics system for creators and management.
+
+Creator analytics
+- Daily, weekly, monthly and yearly performance.
+- Views, unique viewers and returning viewers.
+- Watch time and average viewing duration.
+- Audience retention graphs.
+- Traffic sources.
+- Audience countries and languages.
+- Follower growth.
+- Popular videos and music.
+- Revenue by content and revenue source.
+- Conversion from viewers to followers and buyers.
+Master Owner analytics
+- Total platform users and active users.
+- Daily active and monthly active users.
+- Creator growth by country.
+- Content uploads and consumption.
+- Platform revenue and operating costs.
+- Advertising inventory and fill rate.
+- Payment success and failure rates.
+- Storage, bandwidth and transcoding expenses.
+- Fraud and moderation statistics.
+- Creator payout liabilities.
+- Profitability by country and business line.
+Analytics must use clearly defined metrics, deduplicate events, filter invalid traffic and distinguish estimated revenue from finalized revenue.
+26. Legal, rights and compliance management
+- Terms of Service.
+- Privacy Policy.
+- Cookie Policy.
+- Community Guidelines.
+- Copyright and intellectual property policy.
+- Creator monetization agreements.
+- Advertiser agreements.
+- Music licensing agreements.
+- Sponsorship disclosure requirements.
+- Refund and cancellation policy.
+- Data access and deletion requests.
+- Country-specific legal requirements.
+- Tax documentation.
+- Content ownership declarations.
+- Rights and revenue-sharing agreements.
+- Dispute resolution and appeals.
+PAYTUNE should not assume that a user owns every song, recording, video or image they upload. Rights declarations, evidence and takedown procedures are important, especially for music.
+27. Integrations and external services
+- Google advertising integration where approved.
+- Payment gateway integrations.
+- Mobile money providers where supported.
+- Email delivery service.
+- SMS and phone verification.
+- Push notification services.
+- Social sharing integrations.
+- Analytics and error monitoring.
+- CDN and video processing providers.
+- Cloud storage.
+- Search infrastructure.
+- Identity verification providers.
+- Optional creator social account integrations.
+Every integration should have a configuration screen, secure credentials, health monitoring, error handling and a way to disable it without breaking unrelated PAYTUNE features.
+28. Recommended PAYTUNE navigation
+A professional navigation structure could look like this:
+
+PAYTUNE  (Platform structure)
+Main navigation
+
+Home
+
+Explore
+
+Videos
+
+Shorts
+
+Music
+
+Live
+
+Community
+
+Podcasts
+
+Marketplace
+
+Library
+Account and business
+- My Channel
+- Creator Studio
+- My Purchases
+- Memberships
+- Wallet and Earnings
+- Advertiser Portal
+- Notifications
+- Messages
+- Settings and Security
+  Administration — authorized personnel only
+- Master Owner Dashboard
+- Global Administration
+- Country Administration
+- Content Moderation
+- Monetization Management
+- Advertiser Management
+- Financial Management
+- System Monitoring
+- Audit Logs
+29. Recommended implementation roadmap
+Not every feature should be developed simultaneously. PAYTUNE should be built in controlled stages with tested dependencies.
+Phase	Development focus
+1	Accounts, profiles, channels, permissions and security
+2	Uploads, processing, storage, video/audio player and publishing
+3	Home feed, discovery, search, Shorts and community
+4	Purchases, wallet, payment records and creator earnings
+5	Creator Studio, advertiser portal and ad management
+6	Live streaming, chat, moderation and replay
+7	Memberships, marketplace, sponsorships and messaging
+8	Country expansion, localization, mobile applications and TV
+9	Advanced analytics, recommendations, scaling and optimization
+
+
+30. Additional features that should not be forgotten
+These smaller capabilities are often overlooked but make a platform much more complete:
+- Custom URL redirects when creators change usernames.
+- Content version history and recovery.
+- Scheduled deletion and restoration periods.
+- Duplicate upload detection.
+- Video and audio quality inspection.
+- Creator collaboration and shared ownership.
+- Channel transfer and succession procedures.
+- Creator team roles.
+- API access for approved partners.
+- Webhooks for external integrations.
+- Platform announcements.
+- Feature-request voting.
+- Beta testing program.
+- Public platform status page.
+- Creator education academy.
+- Referral program with fraud controls.
+- Gift cards and promotional codes where supported.
+- Geographic content restrictions.
+- Parental controls and family safety.
+- Accessibility preferences.
+- Transparent platform fee calculator.
+31. The most important PAYTUNE design principles
+I recommend establishing these rules across the entire project:
+1. African-first, globally accessible: Never hardcode Rwanda as the only country.
+2. Mobile-first and responsive: Every important feature must work on Android, iOS, tablet and desktop.
+3. Creator fairness: Explain monetization eligibility, earnings calculations and restrictions.
+4. Financial accuracy: Every payment and payout must be traceable through a proper financial ledger.
+5. Security first: Protect accounts, private media, paid content, financial records and administrative access.
+6. Low-bandwidth support: Optimize uploads and playback for users with limited connectivity.
+7. Real functionality: No fake views, fake earnings, simulated payments or misleading progress indicators.
+8. Modular architecture: Each major feature should have its own maintainable backend and frontend modules.
+9. Scalable infrastructure: Avoid architectural decisions that prevent expansion across African countries.
+10. Legal readiness: Launch financial, advertising and content features only when their necessary legal and operational requirements are satisfied.
+32. My final recommendation
+(Recommended direction)
+
+PAYTUNE should be developed as five connected business systems:
+PAYTUNE MEDIA
+Video, Shorts, music, podcasts, uploads, playback and live streaming.
+PAYTUNE COMMUNITY
+Profiles, channels, follows, comments, messaging, notifications and discovery.
+PAYTUNE BUSINESS
+Advertising, sponsorships, marketplace, business accounts and campaigns.
+PAYTUNE EARNINGS
+Purchases, memberships, gifts, wallets, revenue sharing, accounting and payouts.
+PAYTUNE CONTROL CENTER
+Master Owner, country admins, moderation, security, analytics and infrastructure.
+
+One important distinction: This is the proposed complete feature blueprint, not confirmation that all these features already exist in the PAYTUNE codebase. The project specification and actual implementation must be checked separately before marking any feature as completed.
+
+My recommended next step is to turn this entire feature blueprint into a PAYTUNE Master Product Requirements Document (PRD), including every module, subfeature, user role, database entity, backend API, frontend page, security requirement, acceptance criterion and implementation priority. That document can become the central development reference for the entire platform.

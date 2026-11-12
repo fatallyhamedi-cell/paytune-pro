@@ -52,15 +52,28 @@ export async function uploadBanner(req: ArtistRequest, res: Response) {
       contentType: file.mimetype,
     });
 
+    const focalX = req.body.focal_x != null ? Number(req.body.focal_x) : 50;
+    const focalY = req.body.focal_y != null ? Number(req.body.focal_y) : 50;
+    const zoom = req.body.zoom != null ? Number(req.body.zoom) : 1;
+
     if (req.artistId) {
       await db.from('artists').update({
         banner_url: url,
         banner_image: url,
+        banner_focal_x: focalX,
+        banner_focal_y: focalY,
+        banner_zoom: zoom,
         updated_at: new Date().toISOString()
       }).eq('id', req.artistId);
     }
 
-    return res.json({ success: true, url });
+    return res.json({ 
+      success: true, 
+      url, 
+      focal_x: focalX, 
+      focal_y: focalY, 
+      zoom 
+    });
   } catch (err: any) {
     console.error('uploadBanner error:', err);
     return res.status(500).json({ error: err.message || 'Banner upload failed' });

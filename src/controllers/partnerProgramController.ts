@@ -96,7 +96,22 @@ export function calculateArtistQualification(artistId: string, store: any, rules
     policyEligible;
 
   // Existing stored status or computed status
-  let status = artist?.monetization_status || (isAllEligible ? 'eligible' : 'in_progress');
+  let status = artist?.monetization_status;
+  if (!status) {
+    status = isAllEligible ? 'eligible' : 'in_progress';
+  }
+
+  // Determine Monetization Tier Level (Level 1: Standard, Level 2: Eligible/Verification, Level 3: Lifetime Partner)
+  let level = 1;
+  const isLifetimeApproved = Boolean(artist?.monetization_lifetime || status === 'approved_monetized');
+  if (isLifetimeApproved) {
+    level = 3;
+  } else if (
+    isAllEligible || 
+    ['applied', 'pending_review', 'identity_verification_required', 'payout_verification_required'].includes(status)
+  ) {
+    level = 2;
+  }
 
   return {
     artist,
@@ -138,6 +153,12 @@ export function calculateArtistQualification(artistId: string, store: any, rules
     },
     isAllEligible,
     status,
+    level,
+    monetizationLifetime: isLifetimeApproved,
+    identityVerified: Boolean(artist?.identity_verified),
+    payoutVerified: Boolean(artist?.payout_verified),
+    identityDetails: artist?.identity_details || null,
+    payoutDetails: artist?.payout_details || null,
     appliedAt: artist?.monetization_applied_at || null,
     approvedAt: artist?.monetization_approved_at || null,
     adEarningsRwf: Number(artist?.ad_earnings_rwf || 0),
@@ -328,8 +349,12 @@ export const decidePartnerApplication = async (req: Request, res: Response) => {
     const { artistId } = req.params;
     const { action, notes } = req.body; // action: 'approve' | 'reject' | 'suspend'
 
-    if (!['approve', 'reject', 'suspend'].includes(action)) {
-      return res.status(400).json({ success: false, message: 'Invalid action. Must be approve, reject, or suspend' });
+    const validActions = ['approve', 'reject', 'suspend', 'request_identity', 'request_payout'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid action. Must be approve, reject, suspend, request_identity, or request_payout' 
+      });
     }
 
     const store = getDbStore();
@@ -343,11 +368,24 @@ export const decidePartnerApplication = async (req: Request, res: Response) => {
 
     if (action === 'approve') {
       artist.monetization_status = 'approved_monetized';
+      artist.monetization_lifetime = true; // Permanent lifetime monetization policy
+      artist.monetization_level = 3;
       artist.monetization_approved_at = new Date().toISOString();
+      artist.identity_verified = true;
+      artist.payout_verified = true;
     } else if (action === 'reject') {
       artist.monetization_status = 'rejected';
+      artist.monetization_lifetime = false;
+      artist.monetization_level = 1;
     } else if (action === 'suspend') {
       artist.monetization_status = 'suspended';
+      artist.monetization_lifetime = false;
+    } else if (action === 'request_identity') {
+      artist.monetization_status = 'identity_verification_required';
+      artist.identity_verified = false;
+    } else if (action === 'request_payout') {
+      artist.monetization_status = 'payout_verification_required';
+      artist.payout_verified = false;
     }
 
     artist.monetization_decision_at = new Date().toISOString();
@@ -360,13 +398,21 @@ export const decidePartnerApplication = async (req: Request, res: Response) => {
       user_id: artist.user_id || artist.id,
       title:
         action === 'approve'
-          ? '🎉 Monetization Approved — Welcome to PayTune Partner Program!'
+          ? '🎉 Lifetime Monetization Approved — Welcome to PayTune Partner Program!'
           : action === 'suspend'
           ? '⚠️ Monetization Suspended'
+          : action === 'request_identity'
+          ? '📋 Identity Verification Required for PayTune Partner Program'
+          : action === 'request_payout'
+          ? '💳 Payout Method Verification Required'
           : 'Monetization Application Update',
       message:
         action === 'approve'
-          ? 'Your channel now qualifies for advertising revenue sharing on all eligible free videos.'
+          ? 'Your channel has been granted permanent lifetime monetization. You earn 40% ad revenue share on all eligible free videos with no annual re-application needed.'
+          : action === 'request_identity'
+          ? notes || 'Please upload your government-issued ID to complete Partner Program onboarding.'
+          : action === 'request_payout'
+          ? notes || 'Please confirm your mobile money or banking payout destination.'
           : notes || 'Your application has been reviewed by the Master Admin.',
       type: 'monetization_decision',
       created_at: new Date().toISOString(),
@@ -377,10 +423,112 @@ export const decidePartnerApplication = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: `Partner application ${action}d successfully.`,
+      message: `Partner application updated to ${action} successfully.`,
       status: artist.monetization_status,
+      level: artist.monetization_level,
+      monetization_lifetime: artist.monetization_lifetime,
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
+
+/**
+ * ARTIST: POST /api/artist/partner-program/verify-identity
+ * Submits government ID / KYC information
+ */
+export const submitIdentityVerification = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const store = getDbStore();
+    const artistId = req.body.artist_id || user?.id;
+    const { document_type, document_number, document_url, full_legal_name } = req.body;
+
+    if (!artistId) {
+      return res.status(400).json({ success: false, message: 'Artist identifier is required' });
+    }
+
+    const artist = (store.artists || []).find(
+      (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
+    );
+
+    if (!artist) {
+      return res.status(404).json({ success: false, message: 'Artist not found' });
+    }
+
+    artist.identity_details = {
+      document_type: document_type || 'National ID',
+      document_number: document_number || 'N/A',
+      document_url: document_url || null,
+      full_legal_name: full_legal_name || artist.full_name,
+      submitted_at: new Date().toISOString(),
+    };
+    artist.identity_verified = true;
+
+    if (artist.monetization_status === 'identity_verification_required') {
+      artist.monetization_status = 'pending_review';
+    }
+
+    notifyMutation();
+
+    return res.json({
+      success: true,
+      message: 'Identity verification submitted successfully. Status updated to pending review.',
+      identity_verified: true,
+      status: artist.monetization_status,
+    });
+  } catch (err: any) {
+    console.error('Error submitting identity verification:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * ARTIST: POST /api/artist/partner-program/verify-payout
+ * Submits payout method verification (MTN MoMo, Airtel, Bank)
+ */
+export const submitPayoutVerification = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const store = getDbStore();
+    const artistId = req.body.artist_id || user?.id;
+    const { payout_method, account_number, account_name } = req.body;
+
+    if (!artistId) {
+      return res.status(400).json({ success: false, message: 'Artist identifier is required' });
+    }
+
+    const artist = (store.artists || []).find(
+      (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
+    );
+
+    if (!artist) {
+      return res.status(404).json({ success: false, message: 'Artist not found' });
+    }
+
+    artist.payout_details = {
+      payout_method: payout_method || 'MTN MoMo',
+      account_number: account_number || artist.momo_code || artist.phone,
+      account_name: account_name || artist.full_name,
+      submitted_at: new Date().toISOString(),
+    };
+    artist.payout_verified = true;
+
+    if (artist.monetization_status === 'payout_verification_required') {
+      artist.monetization_status = 'pending_review';
+    }
+
+    notifyMutation();
+
+    return res.json({
+      success: true,
+      message: 'Payout destination verified successfully.',
+      payout_verified: true,
+      status: artist.monetization_status,
+    });
+  } catch (err: any) {
+    console.error('Error submitting payout verification:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+

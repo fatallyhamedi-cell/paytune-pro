@@ -136,5 +136,38 @@ describe('PayTune Partner Program (PPP) & Creator Monetization Engine', () => {
     assert.strictEqual(qual.adEarningsRwf, 12500);
     assert.strictEqual(qual.adImpressionsCount, 2500);
     assert.strictEqual(qual.artistAdSharePct, 40);
+    assert.strictEqual(qual.level, 3);
+    assert.strictEqual(qual.monetizationLifetime, true);
+  });
+
+  it('enforces permanent lifetime status and Level 3 workflow when monetization_lifetime flag is set', () => {
+    const mockStore = {
+      artists: [
+        {
+          id: 'artist-lifetime-1',
+          full_name: 'Lifetime Approved Legend',
+          subscribers_count: 500, // Even if current metric dips, approval is permanent
+          phone_verified: true,
+          is_approved: true,
+          monetization_lifetime: true,
+          monetization_approved_at: '2025-01-01T00:00:00.000Z',
+          identity_verified: true,
+          payout_verified: true,
+        }
+      ],
+      videos: [],
+      subscriptions: [],
+      watch_progress: [],
+      watch_history: [],
+      infringement_strikes: []
+    };
+
+    const qual = calculateArtistQualification('artist-lifetime-1', mockStore, mockRules);
+
+    assert.strictEqual(qual.monetizationLifetime, true);
+    assert.strictEqual(qual.level, 3);
+    assert.strictEqual(qual.identityVerified, true);
+    assert.strictEqual(qual.payoutVerified, true);
   });
 });
+

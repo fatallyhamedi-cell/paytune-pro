@@ -1,0 +1,2230 @@
+account must be forever if no issue
+Agreed. PayTune should use lifetime monetization approval, not force artists to reapply every 12 months or repeatedly qualify after approval.
+
+Updated PayTune account lifetime policy
+Lifetime approval
+Once an artist is approved for the PayTune Partner Program, their monetization status remains active indefinitely.
+
+No annual or periodic reapplication is required.
+
+Artists keep their monetization privileges as long as their accounts remain in good standing.
+
+The 12-month measurement period applies to initial eligibility, not account lifetime.
+
+PayTune can suspend or terminate monetization for proven fraud, serious copyright violations, policy breaches or legal requirements.
+
+Artists must maintain valid identity and payout information.
+
+Suspended artists should have an opportunity to appeal, where appropriate.
+
+Important distinction
+Feature
+
+Rule
+
+Initial eligibility
+
+Must meet all PPP requirements
+
+Monetization approval
+
+Lifetime
+
+Annual reapplication
+
+Not required
+
+Ongoing policy compliance
+
+Required
+
+Serious violations
+
+Monetization may be suspended
+
+Account in good standing
+
+Monetization continues
+
+Technical requirement: Store a permanent approved_at timestamp and a monetization status such as active, suspended or terminated. Do not automatically expire approval after 12 months.
+
+This makes PayTune more attractive to serious African creators: once they earn their place in the Partner Program, they keep it as long as they respect the rules.
+
+Level 2 — Monetization Eligible (Under review)
+Meets all Partner Program thresholds.
+Submits monetization application.
+Completes identity and payout verification.
+Confirmed. Level 2 — Monetization Eligible will be the application and verification stage before an artist becomes a PayTune Partner.
+
+Level 2 — Monetization Eligible
+Under review
+An artist enters Level 2 only after completing these steps:
+
+1. Meets all Partner Program thresholds
+
+At least 1,000 followers.
+
+At least 1,000 valid free video views.
+
+Required watch hours within the previous 12 months.
+
+At least 18 years old.
+
+Account at least 30 days old.
+
+2. Submits monetization application
+
+Artist requests entry into the PayTune Partner Program.
+
+Accepts the monetization agreement and advertising policies.
+
+3. Completes identity verification
+
+Valid identity document.
+
+Identity and age verification.
+
+Verified phone number and email.
+
+4. Completes payout verification
+
+Provides a supported Rwanda payout method.
+
+Confirms account ownership.
+
+Provides required tax information where applicable.
+
+5. PayTune reviews the application
+
+Checks account history.
+
+Reviews copyright and community compliance.
+
+Checks invalid traffic and suspicious engagement.
+
+Reviews advertising eligibility.
+
+Application status workflow
+Level 1 — Standard Artist
+
+Meets all eligibility thresholds
+
+Level 2 — Monetization Eligible
+
+Under review
+Application, identity and payout verification
+Master Admin / Authorized Reviewer
+
+Level 3 — PayTune Partner
+
+Approved
+Lifetime monetization approval, subject to continued policy compliance
+Additional application statuses
+The backend should support:
+
+not_applied
+
+pending_review
+
+identity_verification_required
+
+payout_verification_required
+
+additional_information_required
+
+approved
+
+rejected
+
+suspended
+
+An artist who is rejected should receive a clear reason and, where appropriate, an opportunity to correct the problem and reapply.
+
+Important: Level 2 artists do not yet earn advertising revenue. Earnings eligibility begins only when Level 3 approval is granted.
+
+focus,analyze, discuss about ulpoad features professional both media ulpoad, banner upload and layout size cover, upload all profiles no mock
+
+Worked for 41s
+PayTune — Professional Upload & Media Management System
+For PayTune, uploads should be treated as a core platform service, not just a button that sends files to storage.
+
+I recommend designing a complete PayTune Media Manager that handles:
+
+Video uploads.
+
+Short-video uploads.
+
+Audio and music uploads.
+
+Artist and user profile pictures.
+
+Artist/channel cover banners.
+
+Video thumbnails and audio artwork.
+
+Post and community images.
+
+Admin, moderator and business profile images.
+
+Media processing, quality control and secure delivery.
+
+The design should take inspiration from Rumble's creator experience, but use PayTune's own identity and support the African creator marketplace.
+
+Production rule: No fake upload progress, fake processing status, sample media, or simulated success. Every upload must correspond to a real file, real storage record and verified processing result.
+
+1. Upload architecture
+PayTune Media Manager
+Artist Studio / User Profile / Admin Panel
+
+Upload interface, metadata and permissions
+Backend Upload Authorization
+
+Authentication, ownership, file validation and signed upload authorization
+Private Media Storage
+
+Original video, audio, images and artwork
+Media Processing Workers
+
+Transcoding, thumbnails, compression, metadata extraction and safety checks
+Database and Media Delivery
+
+Verified media records, publication status, private playback and public profile images
+The proposed stack remains React + TypeScript + Vite, Express.js, Supabase PostgreSQL and Supabase Storage. Large media should upload directly to storage using short-lived, server-authorized upload permissions. The Express backend should control authorization and metadata, not hold hundreds of megabytes in server memory.
+
+2. Professional upload types and dimensions
+These are recommended initial product specifications. Actual upload limits should be configurable by Master Admin and enforced by the backend.
+
+A. Video uploads
+How to post a YouTube video | TechRadar
+AI Metadata Optimizer
+Video Metadata: How to Organize & Optimize Digital Media
+Property
+
+Standard video
+
+Aspect ratio
+
+16:9 recommended
+
+Recommended resolution
+
+1920 × 1080
+
+Minimum recommended resolution
+
+1280 × 720
+
+Preferred format
+
+MP4 (H.264 video, AAC audio)
+
+Other accepted source formats
+
+Configurable MOV and other supported formats
+
+Thumbnail
+
+1280 × 720
+
+Duration
+
+Configurable by content policy
+
+File size
+
+Configurable by storage and processing capacity
+
+Upload workflow:
+
+Select video.
+
+Validate file type and size.
+
+Upload original file.
+
+Extract duration, dimensions, codec and file metadata.
+
+Scan and process the media.
+
+Generate streaming versions and thumbnails.
+
+Add title, description, category, language and tags.
+
+Choose free or paid.
+
+Set price if paid.
+
+Submit for publishing or moderation.
+
+Important: A paid video must remain private. Do not expose its original storage URL to the browser. Playback must check the buyer's permanent purchase entitlement before issuing secure playback access.
+
+B. Short-video uploads
+How to Make a TikTok with Videos And Pictures Together
+PCからYouTube Shortsをアップロード：PCからYouTube Shortsをアップロード
+Era Shop : Live Streaming, Short Video based E-commerce Store Multi Vender by incodes
+Property
+
+Short video
+
+Aspect ratio
+
+9:16
+
+Recommended resolution
+
+1080 × 1920
+
+Duration
+
+Maximum 50 seconds, as specified in PayTune's original requirements
+
+Format
+
+MP4 recommended
+
+Thumbnail
+
+1080 × 1920
+
+Monetization
+
+Free-only under the current PayTune model
+
+Enforce duration and aspect ratio on the server after inspecting the actual media. Never rely only on the values supplied by the browser.
+
+C. Audio and music uploads
+Artist Dashboard by Desire Victor on Dribbble
+Discover New Music or Get Discovered
+Upload a Track, EP, or Album on SoundCloud – SoundCloud Help Center
+Property
+
+Audio
+
+Audio formats
+
+MP3, WAV, FLAC, M4A/AAC
+
+Artwork
+
+3000 × 3000 recommended
+
+Artwork ratio
+
+1:1
+
+Metadata
+
+Artist, track title, album, genre, language
+
+Audio details
+
+Duration, bitrate, sample rate, codec
+
+Pricing
+
+Free or paid
+
+For music, include:
+
+Single track uploads.
+
+Multi-track album uploads.
+
+Album artwork.
+
+Track ordering.
+
+Lyrics and credits.
+
+Explicit-content declaration.
+
+Rights ownership and licensing information.
+
+Preview playback for paid audio.
+
+Do not treat audio as an ordinary video with a blank screen. It needs its own player, artwork, metadata and purchase flow.
+
+3. Profile pictures and cover banners
+This is particularly important because PayTune has different account types: buyers, artists, administrators, moderators and business advertisers.
+
+Every profile should have a real profile image and, where appropriate, a cover image.
+
+Channel Banner/ Backsplash [Dimensions and Best Practices]
+Profile: Showcase your banner, headshot, and bio - ReelCrafter Help Articles
+The Lauren Norris Interview: College Vlogs To Creator Stardom
+Recommended image specifications
+Upload type
+
+Recommended dimensions
+
+Ratio
+
+User profile picture
+
+1024 × 1024
+
+1:1
+
+Artist profile picture
+
+1024 × 1024
+
+1:1
+
+Admin/moderator profile picture
+
+1024 × 1024
+
+1:1
+
+Artist/channel cover banner
+
+1600 × 500
+
+3.2:1
+
+Business/advertiser profile picture
+
+1024 × 1024
+
+1:1
+
+Business cover banner
+
+1600 × 500
+
+3.2:1
+
+Video thumbnail
+
+1280 × 720
+
+16:9
+
+Audio album artwork
+
+3000 × 3000
+
+1:1
+
+Community post image
+
+1200 × 900
+
+4:3
+
+These are recommended display dimensions, not mandatory exact pixel sizes. Accept reasonable source sizes and generate optimized derivatives.
+
+Artist profile header layout
+Afroholic Records
+EMO Grae - Spotify Statistics & Monthly Listeners | Music Metrics Vault
+Artist display name
+
+Artist • Rwanda
+Followers · Music · Videos
+Verified artist
+Artist cover
+Conceptual layout. Actual profile photos and cover images must come from the artist's uploaded assets.
+
+Banner upload and cropping behavior
+The banner editor should provide:
+
+Select image from device.
+
+Drag and reposition image.
+
+Zoom in and out.
+
+Preview desktop layout.
+
+Preview tablet layout.
+
+Preview mobile layout.
+
+Save or cancel.
+
+Replace existing cover.
+
+Remove cover and restore default background.
+
+Important design detail: Do not crop the center blindly. The artist should control the focal point because faces, logos and text can be cut off on mobile.
+
+Store the original banner and its focal position, then generate responsive versions for desktop, tablet and mobile.
+
+Profile image behavior
+Display as a circle for people and artists.
+
+Display as a square or rounded square for businesses if desired.
+
+Allow zoom, repositioning and cropping.
+
+Keep the original file so the image can be recropped later.
+
+Generate small, medium and large optimized sizes.
+
+Use the same verified profile asset across the header, comments, search results and creator pages.
+
+Profile picture and banner updates must not create a new user account or change account ownership.
+
+4. Professional upload interface
+The upload experience should be consistent across PayTune.
+
+PayTune Studio — Create upload
+
+Proposed layout
+Video
+
+Upload standard video
+Short
+
+Upload vertical video
+Audio
+
+Upload song or album
+Images
+
+Artwork, banners and posts
+Upload content
+
+Select files from your device
+
+File validation and supported formats are checked before upload.
+Illustrative interface only. It does not perform a real upload.
+A real upload form should include:
+
+For videos
+
+Title and description.
+
+Thumbnail upload or frame selection.
+
+Category and tags.
+
+Language and country of origin.
+
+Free or paid selection.
+
+Price and currency for paid content.
+
+Visibility: public, unlisted or private, with paid-content access governed separately.
+
+Copyright declaration.
+
+Audience and content classification.
+
+Save draft or publish.
+
+For audio
+
+Track title and description.
+
+Artist and collaborators.
+
+Album and artwork.
+
+Genre and language.
+
+Track number.
+
+Free or paid.
+
+Preview duration.
+
+Rights and credits.
+
+For profile images and banners
+
+Image preview.
+
+Crop and positioning.
+
+Save changes.
+
+Replace or remove image.
+
+5. Upload every profile type
+PayTune should have one shared image-upload service, with separate permissions for each profile type.
+
+Profile
+
+Profile picture
+
+Cover banner
+
+Buyer
+
+Yes
+
+Optional
+
+Artist
+
+Yes
+
+Yes
+
+Master Owner
+
+Yes
+
+Optional
+
+Global Admin
+
+Yes
+
+Optional
+
+Country Admin
+
+Yes
+
+Optional
+
+Moderator
+
+Yes
+
+Optional
+
+Support Admin
+
+Yes
+
+Optional
+
+Advertiser/business
+
+Yes
+
+Yes
+
+An administrator must not be able to change an artist's profile image without permission. Likewise, an artist can only update their own profile assets.
+
+The Master Owner can manage or remove assets under an authorized moderation process, with an audit record.
+
+6. Storage structure and database design
+Do not put every uploaded file into one public folder. Separate storage according to security and purpose.
+
+Recommended Supabase Storage buckets
+Bucket
+
+Access
+
+profile-images
+
+Public optimized images
+
+profile-covers
+
+Public optimized banners
+
+video-originals
+
+Private
+
+video-thumbnails
+
+Public for approved public content
+
+video-streams
+
+Private, entitlement-controlled
+
+audio-originals
+
+Private
+
+audio-artwork
+
+Public approved artwork
+
+community-images
+
+Public approved images
+
+admin-assets
+
+Private where appropriate
+
+temporary-uploads
+
+Private, short-lived
+
+For paid content, private storage is essential. A public thumbnail does not mean the actual paid video is public.
+
+Database tables
+I recommend the following additions to PayTune's existing database design:
+
+Table
+
+Purpose
+
+media_assets
+
+Master record for every uploaded file
+
+media_variants
+
+Resized, compressed and transcoded versions
+
+media_upload_sessions
+
+Upload session and resumable-upload state
+
+media_processing_jobs
+
+Processing tasks and their status
+
+profile_media
+
+User, artist and administrator profile images
+
+profile_covers
+
+Profile and channel banner records
+
+video_assets
+
+Video-specific metadata
+
+audio_assets
+
+Audio-specific metadata
+
+media_thumbnails
+
+Thumbnail and artwork records
+
+media_rights
+
+Ownership, license and usage permissions
+
+media_moderation_reviews
+
+Content review and decisions
+
+Use foreign keys to connect each asset to its actual owner and content record. Never trust a user-provided owner ID without checking it against the authenticated session.
+
+7. Real upload lifecycle — no mock
+Every file should pass through an actual state machine.
+
+1
+
+created
+
+Backend creates an authorized upload session.
+2
+
+uploading
+
+Real file bytes are transferred to storage.
+3
+
+uploaded
+
+Storage confirms the uploaded object.
+4
+
+processing
+
+Workers validate, scan and generate media variants.
+5
+
+ready
+
+All required processing has succeeded.
+6
+
+published
+
+Content is approved and available according to its access rules.
+Also support failure states:
+
+failed
+
+cancelled
+
+quarantined
+
+rejected
+
+expired
+
+If a network connection fails, the system should resume an upload where supported instead of forcing the artist to start over.
+
+8. Security and professional quality requirements
+These are not optional for a real media platform:
+
+Verify file signatures, not just filename extensions or browser MIME types.
+
+Set upload limits by media type and account permissions.
+
+Use signed, short-lived upload authorization.
+
+Scan files for malware and unsafe content.
+
+Inspect codecs, dimensions, duration and file metadata server-side.
+
+Protect private videos and paid audio against unauthorized access.
+
+Generate thumbnails and transcode video using real processing workers.
+
+Strip unnecessary location and sensitive metadata from public images.
+
+Rate-limit upload requests.
+
+Record file ownership and every replacement or deletion.
+
+Clean up abandoned temporary uploads.
+
+Keep backups and define media retention policies.
+
+For profile images and banners, accept JPEG, PNG and WebP; convert to optimized WebP or AVIF derivatives. Avoid accepting arbitrary SVG uploads because they can introduce security risks.
+
+For videos, use a real transcoding pipeline such as FFmpeg workers or a managed video processing service. For playback, use HLS with multiple quality levels and secure access for paid media.
+
+9. Upload management for Master Owner
+Add a Master Admin → Media Management section.
+
+It should let you:
+
+See all uploaded media across PayTune.
+
+Search by artist, user, country, content type or upload date.
+
+View actual file size, duration, dimensions and storage usage.
+
+See processing failures.
+
+Review reported media.
+
+Suspend or remove media according to policy.
+
+Review duplicate and copyright reports.
+
+See storage and bandwidth costs.
+
+Inspect upload and deletion audit logs.
+
+Do not allow the Master Owner dashboard to expose raw private media URLs or bypass purchase entitlement checks.
+
+10. Recommended development order
+I would implement the upload system in this sequence:
+
+Phase
+
+Development work
+
+1
+
+Shared media database schema and storage configuration
+
+2
+
+Secure upload authorization and resumable uploads
+
+3
+
+User and artist profile picture uploads
+
+4
+
+Artist, business and admin cover banners with responsive cropping
+
+5
+
+Standard video upload and real transcoding
+
+6
+
+Shorts upload and validation
+
+7
+
+Audio, albums and artwork uploads
+
+8
+
+Thumbnails, community images and post uploads
+
+9
+
+Moderation, copyright and media rights
+
+10
+
+Master Media Management and storage analytics
+
+My strongest recommendation: build the shared upload infrastructure first, then connect every profile and content type to it. This avoids having separate, inconsistent upload systems for artists, buyers, administrators, videos, audio and banners.
+
+The first implementation should be the real profile picture and cover banner upload module, followed by video upload. That gives PayTune a complete creator-profile foundation before tackling large media processing.
+
+
+
+Review PayTune upload architecture monthly
+
+Tap to set up
+
+Worked for 9s
+Scheduled
+Your monthly PayTune upload architecture review has been created.
+
+
+
+Review PayTune upload architecture monthly
+
+Monthly · ⁨12⁩th
+
+
+
+Run now
+
+Review the current PayTune media-upload architecture and implementation for a professional Pan-African creator platform. Use the latest available project files, code, decisions, and relevant current technical documentation. Assess video, Shorts, audio, thumbnails/artwork, community images, user/artist/admin/advertiser profile pictures, and profile/channel/business cover banners. Check secure direct and resumable uploads; authorization and ownership; file signature/type and size validation; private storage and signed playback; image resizing, crop/focal-point behavior and responsive banner layouts; media metadata and variants; real upload progress and lifecycle states; processing/transcoding/HLS workers; moderation, copyright and rights; retry/cancel/cleanup; database integrity, storage policies/RLS, audit logs, performance, accessibility, and operational costs. Preserve the existing PayTune decisions: React + TypeScript + Vite, Express, Supabase PostgreSQL/Storage; white UI with amber #FFB300 and optional dark mode; no mock data, fake progress, or simulated success. Distinguish implemented features from proposals and gaps. Verify changing technical recommendations against current primary documentation where relevant. Each run, deliver a concise review even if there are no changes, with: overall status, what is implemented, critical/high/medium risks, specific prioritized improvements, and the next practical development step. Do not modify production systems or files; report findings and proposed changes only. If project materials are unavailable, clearly state what could not be inspected rather than guessing.
+…
+
+Worked for 34s
+PayTune media-upload architecture review
+Status: design documented; implementation not verified
+Overall assessment: PayTune has a useful upload foundation described in its project specification, but the available material does not demonstrate a production-ready media-upload system. It describes direct uploads to Supabase Storage, artist declarations, video/audio uploads, profile avatars and banners, and basic video metadata. However, critical security, processing, resumability, image-cropping, and operational details are either incomplete or not evidenced.
+
+I found the PayTune master specification in your Library. I could not find a live application repository or current source-code files in this conversation, so I can review the documented implementation and code examples, but I cannot claim to have tested the running application.
+
+1. What is documented
+Area
+
+Evidence in the project specification
+
+Assessment
+
+Video uploads
+
+Device-to-Supabase upload; artist upload declarations
+
+Basic design documented
+
+Shorts
+
+9:16, maximum 50 seconds, free-only
+
+Rules documented; server enforcement not demonstrated
+
+Audio
+
+Audio uploads are listed
+
+Detailed audio pipeline not demonstrated
+
+Thumbnails
+
+Thumbnail URLs and storage are mentioned
+
+Generation and validation not demonstrated
+
+Profile pictures
+
+Artist avatar upload
+
+Basic requirement documented
+
+Cover banners
+
+Artist banner upload
+
+Basic requirement documented; crop system absent
+
+Community images
+
+Not sufficiently specified in the reviewed excerpts
+
+Gap
+
+Admin/advertiser profile media
+
+Not sufficiently specified
+
+Gap
+
+Upload processing
+
+Supabase Storage and Multer are mentioned
+
+Production processing workflow not demonstrated
+
+The specification also describes five public storage buckets for videos, thumbnails, avatars, banners, and audio. That is not a safe final design for paid or private media: original videos, paid audio, and protected playback files should not be publicly readable. 
+Pasted text(1).txt
+
+2. Critical and high-priority risks
+Critical — paid-media exposure
+
+Critical
+The example uploads videos to a videos bucket and obtains a publicUrl. The specification also lists videos and audio among public buckets. Anyone with those URLs could potentially access the original media, including paid content. 
+Pasted text(1).txt
+
+Required change: private original-media and playback buckets. Authorize playback through the backend after checking publication status, preview rules, and purchase entitlement. Use short-lived signed access or an appropriately protected streaming delivery mechanism. Supabase documents that public buckets bypass read access controls, while private buckets enforce RLS or signed access. 
+
+Supabase Docs
++1
+
+Critical — upload validation
+
+Critical
+The sample file filter trusts file.mimetype, which is supplied by the client. It does not establish that the file's actual contents match the declared type. The sample also derives the storage extension from the original filename. 
+Pasted text(1).txt
+
+Required change: verify file signatures, inspect actual media metadata, allowlist formats and codecs, enforce file and dimension limits, generate safe server-side filenames, and quarantine suspicious files. Validate video duration and aspect ratio on the server, particularly the Shorts maximum of 50 seconds.
+
+High — memory exhaustion
+
+High
+The sample uses multer.memoryStorage() with a 500 MB limit. This can put the entire upload in application memory. Multiple simultaneous uploads can exhaust the Express server. 
+Pasted text(1).txt
+
+Required change: authorize direct-to-Supabase uploads and use TUS resumable uploads for large files. Supabase recommends resumable uploads for files above 6 MB, unreliable networks, and progress reporting. 
+
+Supabase Docs
++1
+
+High — missing processing pipeline
+
+High
+The documented video flow uploads an original file and inserts a database row. It does not demonstrate transcoding, HLS generation, thumbnail extraction, malware scanning, or worker-based processing. 
+Pasted text(1).txt
+
+Required change: add asynchronous processing jobs. Do not mark media ready or publish it just because the original file has reached Storage.
+
+High — database and storage consistency
+
+High
+The example uploads the object before inserting its video record. It does not show cleanup if the database operation fails, nor does it show atomic handling of thumbnail failures.
+
+Required change: create a media record and upload session first; track every object; use retryable processing jobs; and clean up orphaned uploads. Only activate a new profile image or banner after its optimized replacement is ready.
+
+3. Upload experience by media type
+Media
+
+Current documented position
+
+What PayTune needs
+
+Standard video
+
+Upload code example
+
+Resumable upload, metadata extraction, transcoding, HLS, moderation
+
+Shorts
+
+Format and duration rules
+
+Server-enforced 9:16 and 50-second maximum; free-only validation
+
+Audio
+
+Basic upload support
+
+Audio metadata extraction, waveform/preview, artwork, playback variants
+
+Thumbnails
+
+Optional uploaded thumbnail
+
+Validation, generated fallback, optimized sizes
+
+Album artwork
+
+Not sufficiently specified
+
+Square artwork, high-resolution original, responsive derivatives
+
+Community images
+
+Not sufficiently specified
+
+Image validation, moderation, compression and attachment limits
+
+Profile pictures
+
+Artist avatar example
+
+Shared service for buyer, artist, owner, admin and advertiser
+
+Cover banners
+
+Artist banner example
+
+Crop editor, focal point, responsive previews, replacement workflow
+
+Recommended image specifications
+These are product recommendations, not verified implementation limits.
+
+Eyob Mekonnen's Instagram, Twitter & Facebook on IDCrawl
+Profile picture
+
+1024 × 1024
+1:1 square · circular display for individual profiles
+
+The Two Pack by Ollie Joseph Album | Artlist
+Profile / channel / business banner
+
+1600 × 500
+3.2:1 · responsive crop with saved focal position
+
+Russ ft. Kehlani | Cameo FX
+Video thumbnail
+
+1280 × 720
+16:9 · generated thumbnail plus artist replacement option
+
+Underscore | Robert Pastrick
+Audio / album artwork
+
+3000 × 3000
+1:1 · square cover artwork and smaller delivery variants
+
+Banner editor requirements: artists should be able to zoom, reposition and preview desktop, tablet and mobile crops before saving. Store the focal point as normalized coordinates, rather than relying on a single hard-coded center crop. Apply the same reusable editor to artist, business, advertiser and administrator profiles.
+
+Supabase offers image resizing, quality control, cropping modes and WebP optimization. Its documented transformation limits include 2,500 pixels per requested dimension, 25 MB per source image and 50 megapixels. Therefore, generate larger derivatives such as 3000 × 3000 artwork in a processing worker rather than assuming every requested size can be served by its transformation API. 
+
+Supabase Docs
++1
+
+4. Recommended production architecture
+The main architectural correction is to separate the upload transfer from media processing.
+
+React + TypeScript Upload Studio
+
+File selection · metadata · declarations · crop editor · real progress
+
+Express upload authorization API
+
+Checks identity, role, ownership, country policy, limits and upload permissions
+
+Supabase Storage — direct resumable upload
+
+Private originals · unique object paths · short-lived upload authorization
+
+Processing queue and workers
+
+File inspection · metadata · malware scan · image variants · FFmpeg transcoding · HLS
+
+PostgreSQL media records and moderation
+
+Actual processing results · review decision · ownership · publication status
+
+Secure PayTune media delivery
+
+Public approved thumbnails · protected paid streams · entitlement checks
+
+For large transfers, use Supabase TUS resumable uploads with tus-js-client or Uppy. Their documentation describes pause/resume, progress events, retries and signed upload tokens. The upload authorization API should create a unique destination and return only the temporary permission needed for that upload. 
+
+Supabase Docs
++1
+
+5. Database and lifecycle requirements
+The existing project specification lists tables such as videos, video_fingerprints and artist_profiles, but does not provide a complete production media schema or CREATE TABLE migrations in the reviewed material. 
+Pasted text(1).txt
+
+I recommend these additions:
+
+Table
+
+Responsibility
+
+media_assets
+
+Original media identity, owner, type, path, size and checksum
+
+media_variants
+
+Thumbnails, image sizes, audio renditions and video streams
+
+media_upload_sessions
+
+Upload authorization, TUS session tracking and expiry
+
+media_processing_jobs
+
+Worker tasks, retries, errors and completion
+
+profile_media
+
+Profile image ownership and active image
+
+profile_covers
+
+Banner ownership, focal position and active version
+
+media_rights
+
+Copyright declarations, licenses and evidence
+
+media_moderation_reviews
+
+Review decisions, reviewer and audit history
+
+Every media record should have a lifecycle that the backend controls:
+
+created
+uploading
+uploaded
+processing
+ready
+pending_review
+published
+Additional terminal or exception states: failed, cancelled, quarantined, rejected and expired.
+
+The interface must display these states only when confirmed by the backend or storage provider. A progress bar should use actual transferred bytes; processing progress should come from worker updates. Do not display a fabricated 100% or success message before storage and database confirmation.
+
+6. Access control, roles and Pan-African readiness
+Use one shared media service, with role-specific permissions:
+
+Buyers: their own profile image and optional cover.
+
+Artists: their own profile image, banner, videos, Shorts, audio and artwork.
+
+Master Owner and administrators: their own profile media; privileged moderation or management actions must be separately authorized and audited.
+
+Advertisers/businesses: their own profile image, business banner and permitted campaign media.
+
+Never accept an arbitrary owner ID from the browser as proof of ownership. Resolve the owner from the authenticated backend identity. Apply RLS to both application records and Storage objects; Supabase Storage uses RLS policies to control uploads, downloads and other operations. Never expose the service-role key in React. 
+
+Supabase Docs
++1
+
+For the Pan-African expansion, keep country, language, media policy and storage configuration extensible. Do not make Rwanda-specific rules the permanent upload architecture. Upload availability and advertising monetization availability should remain separate country settings: Rwanda-only initial monetization does not need to prevent creators in other supported countries from uploading content.
+
+7. Performance, cost and operations
+Track these costs separately:
+
+Original file storage and retained versions.
+
+Transcoded video and audio storage.
+
+Video delivery bandwidth and CDN egress.
+
+Image transformation and delivery.
+
+Transcoding worker compute and queue time.
+
+Failed uploads, abandoned sessions and orphan cleanup.
+
+Supabase's image transformation documentation currently describes usage-based charges for transformed origin images above the plan quota, and recommends pre-generating common variants where appropriate. 
+
+Supabase Docs
+
+Also add upload concurrency limits, per-account quotas, rate limits, processing timeouts, worker retry limits, and an automated cleanup policy. Monitor upload failures by country, media type, file size and network conditions.
+
+8. Prioritized implementation plan
+Priority
+
+Work
+
+Why it comes first
+
+1
+
+Private buckets, RLS and upload authorization
+
+Prevent unauthorized media access
+
+2
+
+Shared media schema and upload lifecycle
+
+Establish reliable records and status
+
+3
+
+Direct resumable uploads
+
+Support large African-market uploads and unstable connections
+
+4
+
+Real validation and media inspection
+
+Reject invalid or unsafe files
+
+5
+
+Profile pictures and banner crop editor
+
+Deliver reusable image functionality
+
+6
+
+Video and Shorts processing pipeline
+
+Generate playback-ready media
+
+7
+
+Audio processing and artwork
+
+Complete the music marketplace
+
+8
+
+Community images and advertiser media
+
+Extend shared media capabilities
+
+9
+
+Moderation, audit and cleanup
+
+Protect creators and platform operations
+
+10
+
+Storage and delivery monitoring
+
+Control costs as usage grows
+
+9. Next practical development step
+Recommended next step
+Build the shared Media Foundation before adding more upload screens. It should include the database migrations, private/public bucket configuration, RLS policies, media ownership model, upload-session API, real TUS upload flow and backend-controlled lifecycle.
+
+Then build profile pictures and responsive cover banners using that same foundation. This gives every later upload type one secure, consistent system.
+
+Final verdict: The project contains an upload prototype and a useful feature specification, not evidence of a complete production upload platform. The most urgent corrections are private paid-media storage, real file validation and replacing 500 MB in-memory Express uploads with direct resumable transfers. No production files or systems were changed during this review.
+
+addtional professional about this full upload. banner cover large width. make full whole web features to be responsiveness and cross platform compitabilty
+PayTune — Professional media upload and responsive platform specification
+The next upgrade should treat upload as a complete, shared media-management system, not just a file-selection page. It must support every PayTune account type, every media format, and every screen size—from a large desktop monitor to a low-cost Android phone.
+
+I recommend adding two connected product systems:
+
+PayTune Media Studio: professional uploads, media editing, profile pictures, large-width cover banners, thumbnails, audio artwork, and media management.
+
+PayTune Responsive Experience: one consistent interface that adapts to desktop, laptop, tablet, mobile, and different browsers and operating systems.
+
+The design direction remains PayTune's white interface, amber #FFB300, and optional dark mode, with a Rumble-inspired content layout without copying its branding.
+
+1. Large-width cover banners
+Cover banners should receive special attention because they establish the identity of artist channels, business profiles, advertiser pages, and administrator profiles.
+
+Recommended PayTune channel cover
+
+Recommended source: 2560 × 800 px
+
+Wide cover
+3.2:1 aspect ratio · high-resolution master · responsive display variants
+
+I recommend upgrading the earlier 1600 × 500 recommendation to 2560 × 800 pixels for a higher-resolution master. The system should still create optimized smaller versions for mobile and tablet.
+
+Banner dimensions and responsive behavior
+Display
+
+Recommended display area
+
+Behavior
+
+Large desktop
+
+Up to 1920 × 600 px
+
+Full-width banner
+
+Laptop
+
+Up to 1440 × 450 px
+
+Proportional crop
+
+Tablet
+
+Up to 1024 × 360 px
+
+Adjust focal point
+
+Mobile
+
+Up to 430 × 220 px
+
+Mobile-specific crop
+
+Source image
+
+2560 × 800 px
+
+Preserve original
+
+These are design targets, not fixed CSS requirements. Actual dimensions should adapt to the viewport.
+
+Important banner rules:
+
+The banner should span the full available content width.
+
+It should never stretch or distort.
+
+The artist must be able to reposition the image.
+
+The mobile crop must be independently previewable.
+
+Profile name, avatar, follow button and other controls should remain readable.
+
+Text and logos should not be permanently embedded in the banner where possible.
+
+Support image replacement, removal, undo and restore-default actions.
+
+Preserve the old banner until the replacement has finished processing.
+
+2. Professional cover editor
+PayTune Cover Studio — proposed editor
+
+Bohemian Betyars - Müpa
+Artist channel cover
+
+Desktop preview
+Position
+
+Horizontal: 50%
+
+Zoom
+
+100%
+
+Editor controls
+
+Upload image
+Drag to reposition
+Zoom in/out
+Undo crop
+Reset position
+The editor should provide separate desktop, tablet and mobile previews before the artist saves.
+
+The real editor should include:
+
+Drag-and-drop image selection and file picker.
+
+Zoom slider and touch pinch-to-zoom.
+
+Drag-to-position on desktop and touch repositioning on mobile.
+
+Desktop, tablet and mobile preview modes.
+
+Safe-area guides showing where profile text and buttons may overlap.
+
+Automatic image validation and optimization.
+
+Save, cancel, replace and restore-default actions.
+
+A confirmation step before replacing an existing cover.
+
+Store the crop position as normalized focal coordinates, for example focal_x = 0.50, focal_y = 0.42, rather than storing only a cropped image. This allows PayTune to render the same original image differently at each viewport size.
+
+3. One upload system for every PayTune account
+Every account should use the same media infrastructure, with permissions appropriate to its role.
+
+Account
+
+Profile picture
+
+Cover banner
+
+Other uploads
+
+Buyer
+
+Yes
+
+Optional
+
+Community attachments
+
+Artist
+
+Yes
+
+Yes
+
+Videos, Shorts, audio, artwork
+
+Advertiser
+
+Yes
+
+Yes
+
+Campaign images and videos
+
+Business
+
+Yes
+
+Yes
+
+Business promotional media
+
+Master Owner
+
+Yes
+
+Optional
+
+Authorized platform assets
+
+Global Admin
+
+Yes
+
+Optional
+
+Authorized admin assets
+
+Country Admin
+
+Yes
+
+Optional
+
+Authorized country assets
+
+Moderator
+
+Yes
+
+Optional
+
+Authorized moderation attachments
+
+Support Admin
+
+Yes
+
+Optional
+
+Authorized support attachments
+
+A user should never be able to upload media to another person's profile simply by changing an ID in the browser.
+
+Media types and recommended source dimensions
+Media
+
+Recommended dimensions
+
+Format guidance
+
+Profile picture
+
+1024 × 1024
+
+JPEG, PNG, WebP
+
+Large cover banner
+
+2560 × 800
+
+JPEG, PNG, WebP
+
+Video thumbnail
+
+1280 × 720
+
+JPEG, WebP
+
+Album artwork
+
+3000 × 3000
+
+JPEG, PNG
+
+Community image
+
+1200 × 900
+
+JPEG, PNG, WebP
+
+Standard video
+
+1920 × 1080
+
+MP4/H.264 preferred
+
+Short video
+
+1080 × 1920
+
+MP4/H.264 preferred
+
+Audio
+
+Source-dependent
+
+MP3, WAV, FLAC, AAC/M4A
+
+These are recommended upload targets. Actual supported formats, file sizes, duration and codec limits must be configurable and enforced by the backend.
+
+4. Professional upload workspace
+The upload experience should be consistent across all media types, while displaying the fields relevant to each type.
+
+PayTune Media Studio
+
+Design specification
+Upload video
+
+Standard videos and paid content
+
+Upload Short
+
+Vertical short-form videos
+
+Upload audio
+
+Singles, albums and tracks
+
+Upload images
+
+Artwork, thumbnails and community
+
+Upload queue
+
+Example: Artist video
+
+Illustrative UI only
+Uploading file
+
+Transfer progress
+
+A real implementation must show actual transferred bytes, not an invented percentage.
+
+Pause
+Resume
+Cancel
+Retry failed upload
+Video upload fields
+Title and description.
+
+Thumbnail selection or generated thumbnail.
+
+Category, tags and content language.
+
+Country of origin.
+
+Free or paid selection and currency-aware price.
+
+Visibility and publication schedule.
+
+Copyright ownership and licensing declarations.
+
+Audience and content classification.
+
+Draft, submit for review or publish when eligible.
+
+Audio upload fields
+Track title and description.
+
+Artist and collaborators.
+
+Album name and album artwork.
+
+Genre, language and release date.
+
+Track number and album ordering.
+
+Free or paid status, price and preview duration.
+
+Lyrics, credits and explicit-content declaration.
+
+Rights and licensing information.
+
+Upload queue requirements
+Artists should be able to leave the upload page without losing the upload session, resume an interrupted upload, retry a failed file, and see processing separately from file transfer.
+
+A completed transfer must not automatically mean a published video. The system should distinguish uploaded, processing, ready, pending_review and published.
+
+5. Make the entire PayTune website responsive
+Responsiveness must apply to the whole product, not only the upload screen.
+
+Desktop experience
+Foxthemes
+Wide navigation, collapsible sidebar, multi-column video grids, full analytics dashboards and advanced upload workspace.
+
+Tablet experience
+Nebula
+Compact navigation, adaptive two-column content, touch-friendly controls and simplified dashboard cards.
+
+Mobile experience
+Social Media Mobile App UIUX Design | Figma - Insightlancer - Medium
+Single-column feeds, mobile bottom navigation, vertical video playback, touch upload controls and compact artist pages.
+
+Recommended responsive breakpoints
+Screen category
+
+CSS width
+
+Main layout
+
+Small phones
+
+320–374 px
+
+One column
+
+Standard phones
+
+375–599 px
+
+One column
+
+Large phones
+
+600–767 px
+
+One or two columns
+
+Tablets
+
+768–1023 px
+
+Two columns
+
+Laptops
+
+1024–1439 px
+
+Two to four columns
+
+Desktop
+
+1440–1919 px
+
+Three to five columns
+
+Large monitors
+
+1920 px+
+
+Fluid max-width content
+
+These should be treated as starting points. Components should respond to available space, not assume every device fits a fixed category.
+
+6. Responsive behavior for every PayTune feature
+This is the platform-wide standard I recommend.
+
+PayTune feature
+
+Desktop
+
+Mobile
+
+Home page
+
+Sidebar and multi-column feed
+
+Single-column feed
+
+Explore
+
+Multi-column discovery
+
+Scrollable discovery
+
+Video watch page
+
+Player with recommendations beside it
+
+Full-width player and recommendations below
+
+Shorts
+
+Vertical video panel
+
+Full-screen vertical feed
+
+Artist profile
+
+Wide banner and profile information
+
+Responsive banner and stacked profile details
+
+Audio player
+
+Full player with track information
+
+Compact player and expandable controls
+
+Search
+
+Full search bar and filters
+
+Expandable search and filter drawer
+
+Artist Studio
+
+Sidebar and analytics dashboard
+
+Dashboard cards and mobile navigation
+
+Media upload
+
+Drag-and-drop and detailed editor
+
+File picker, camera/gallery and touch controls
+
+Cover editor
+
+Large preview and editing controls
+
+Touch crop and zoom
+
+Buyer library
+
+Multi-column grid
+
+One or two columns
+
+Playlists
+
+Grid and list views
+
+Compact list
+
+Comments
+
+Side panel or below player
+
+Below player
+
+Admin dashboard
+
+Data tables and charts
+
+Responsive tables and cards
+
+Advertiser dashboard
+
+Campaign management
+
+Stacked campaign cards
+
+Payment checkout
+
+Modal or checkout panel
+
+Full-screen checkout
+
+Notifications
+
+Header dropdown
+
+Notification page or drawer
+
+Settings
+
+Multi-column settings
+
+Stacked settings sections
+
+Navigation rules
+Desktop: collapsible left sidebar, top search/navigation bar.
+
+Tablet: compact sidebar or navigation drawer.
+
+Mobile: bottom navigation for primary destinations, with a menu for secondary features.
+
+Video player: responsive aspect ratio and accessible controls.
+
+Upload workspace: separate mobile-friendly steps rather than squeezing a desktop form into a narrow screen.
+
+Tables: horizontal scrolling only where necessary; important data should have a mobile card presentation.
+
+7. Cross-platform browser and operating-system compatibility
+PayTune should be a responsive web application first, with the possibility of a Progressive Web App (PWA) later.
+
+Target compatibility matrix
+
+Google Chrome
+
+Priority
+Windows, Android, macOS
+
+Microsoft Edge
+
+Priority
+Windows and macOS
+
+Safari
+
+Priority
+iPhone, iPad and macOS
+
+Firefox
+
+Priority
+Windows, macOS and Linux
+
+Operating systems
+
+Windows 10/11
+Android
+iOS
+iPadOS
+macOS
+Linux
+Test current stable browser versions and a defined older-version support window. Actual compatibility must be verified through testing.
+
+Technical compatibility requirements
+Video and audio
+
+Use HTML5 media playback with adaptive HLS where supported.
+
+Provide an appropriate fallback playback strategy where native HLS is unavailable.
+
+Support multiple audio tracks or language subtitles when available.
+
+Handle buffering, network interruption and playback recovery.
+
+Test autoplay restrictions, especially on mobile Safari.
+
+Provide captions and keyboard-accessible player controls.
+
+File selection and uploads
+
+Support mobile photo galleries, file pickers and desktop drag-and-drop.
+
+Use resumable uploads to handle interrupted connections.
+
+Do not assume all browsers support identical file APIs.
+
+Handle iOS backgrounding, browser refreshes and expired upload tokens.
+
+Display clear errors for unsupported formats and insufficient storage.
+
+Responsive frontend
+
+Use CSS Grid and Flexbox.
+
+Use fluid dimensions and responsive typography.
+
+Use srcset and responsive image sizes.
+
+Respect mobile safe areas and device orientation.
+
+Avoid hover-only controls.
+
+Support touch, keyboard, mouse and screen readers.
+
+8. Accessibility and professional design standards
+PayTune should target WCAG 2.2 AA accessibility.
+
+Important requirements:
+
+Keyboard navigation for every menu, upload form and dialog.
+
+Visible focus indicators.
+
+Accessible labels for all form fields.
+
+Sufficient contrast between text and backgrounds.
+
+Screen-reader announcements for upload progress and errors.
+
+Captions and subtitles for video content.
+
+Alternative text for meaningful images.
+
+Buttons large enough for touch interaction.
+
+Reduced-motion support.
+
+Clear validation messages beside invalid fields.
+
+No information communicated only through color.
+
+For the white theme, use amber #FFB300 primarily for accents and actions, with sufficiently dark text for readability. Do not use yellow text on a white background for important content. Dark mode should use a separate tested color palette.
+
+9. Technical architecture additions
+Keep the existing React + TypeScript + Vite, Express and Supabase architecture. Add the following reusable components and services.
+
+Frontend modules
+
+frontend/src/
+  components/
+    media/
+      MediaUploader.tsx
+      UploadQueue.tsx
+      UploadProgress.tsx
+      MediaPreview.tsx
+      ImageCropEditor.tsx
+      CoverBannerEditor.tsx
+      ResponsiveImage.tsx
+      MediaStatus.tsx
+    layout/
+      AppShell.tsx
+      DesktopSidebar.tsx
+      MobileNavigation.tsx
+      ResponsiveGrid.tsx
+      ResponsiveDialog.tsx
+  pages/
+    MediaStudio/
+    ArtistProfile/
+    BusinessProfile/
+    AdminProfile/
+  hooks/
+    useResumableUpload.ts
+    useMediaStatus.ts
+    useResponsiveLayout.ts
+  services/
+    mediaService.ts
+    uploadService.ts
+Backend modules
+
+backend/src/
+  modules/
+    media/
+      media.routes.js
+      media.controller.js
+      media.service.js
+      media.repository.js
+      media.validation.js
+      media.authorization.js
+    uploads/
+      uploadSession.service.js
+      uploadProgress.service.js
+      uploadCleanup.job.js
+    processing/
+      mediaQueue.js
+      imageProcessor.js
+      videoProcessor.js
+      audioProcessor.js
+      thumbnailProcessor.js
+    moderation/
+      mediaModeration.service.js
+Additional database fields for cover banners should include:
+
+Field
+
+Purpose
+
+owner_id
+
+Profile owner
+
+owner_type
+
+Artist, buyer, business or admin
+
+original_asset_id
+
+Original image reference
+
+desktop_variant_id
+
+Desktop derivative
+
+tablet_variant_id
+
+Tablet derivative
+
+mobile_variant_id
+
+Mobile derivative
+
+focal_x
+
+Horizontal focal position
+
+focal_y
+
+Vertical focal position
+
+zoom
+
+Saved zoom factor
+
+status
+
+Processing, ready, active or rejected
+
+created_at
+
+Creation date
+
+updated_at
+
+Last update
+
+All IDs and ownership relationships must be validated on the server, with foreign keys and appropriate RLS policies.
+
+10. Testing before production
+Do not declare PayTune responsive or cross-platform compatible just because it looks correct in one desktop browser.
+
+The release checklist should include:
+
+
+Test 320 px, 375 px, 430 px and 768 px screen widths.
+
+Test laptop, desktop and ultrawide screens.
+
+Test portrait and landscape orientation.
+
+Test Chrome, Edge, Firefox and Safari.
+
+Test Windows, Android, iOS, macOS and Linux.
+
+Test uploading large video files over slow networks.
+
+Test interrupted uploads and resume after refresh.
+
+Test image crop and banner focal position on all screen sizes.
+
+Test video and audio playback.
+
+Test paid-media authorization and private storage.
+
+Test all account roles and ownership restrictions.
+
+Test keyboard navigation and screen readers.
+
+Test light and dark themes.
+
+Test processing failures, retries and cleanup.
+
+Test mobile upload permissions and camera/gallery access.
+Use automated component tests, API integration tests, browser tests with Playwright, and real-device checks. A device emulation screenshot alone is not enough to verify mobile uploads or media playback.
+
+11. Final PayTune product requirements to preserve
+PayTune platform standards
+Pan-African creator marketplace
+
+Core identity
+Design
+
+White background by default.
+
+Amber #FFB300 brand accent.
+
+Optional dark mode.
+
+Responsive Rumble-inspired layout.
+
+Large, high-quality profile and channel banners.
+Media
+
+Standard videos, Shorts, audio, thumbnails, album artwork and community images.
+
+Shared upload system for all supported account types.
+
+Responsive crop and focal-point editor.
+
+Real upload progress, retry, resume and cancellation.
+Security
+
+Private original and paid media.
+
+Server-side validation and authorization.
+
+Secure playback and permanent purchase entitlements.
+
+Moderation, copyright and audit records.
+Compatibility
+
+Desktop, laptop, tablet and mobile.
+
+Major browsers and operating systems.
+
+Touch, keyboard and accessible controls.
+
+Low-bandwidth and interrupted-network support.
+Quality
+
+No fake upload progress.
+
+No simulated payment or processing success.
+
+No fabricated analytics.
+
+Only verified database and storage states.
+
+12. Recommended development sequence
+Shared media schema, private storage and authorization.
+
+Resumable upload engine and actual progress tracking.
+
+Shared profile-picture upload for every account role.
+
+Large-width cover banner editor with desktop/tablet/mobile cropping.
+
+Responsive navigation and global layout system.
+
+Video, Shorts and thumbnail processing.
+
+Audio uploads, album artwork and audio processing.
+
+Community and advertiser media.
+
+Cross-browser and real-device testing.
+
+Production monitoring, storage-cost management and security review.
+
+My recommendation: implement the shared media infrastructure and the full-width cover/banner editor as the next development milestone. That will establish the reusable upload and responsive-image foundations before building all the other media features.
+
+I can next turn this specification into the actual PayTune database migrations, Supabase Storage policies, Express upload APIs and React upload components, using real storage and no mock data.
+
+banner same like youtube banner
+Understood. PayTune artist and channel banners should follow the YouTube channel banner style: a very wide horizontal cover displayed across the top of the channel page, with the artist's profile picture overlapping the lower-left area.
+
+PayTune channel banner design
+유튜브 음표 뱃지 받는 법 완벽 가이드 | 공식 아티스트 채널(OAC) 신청 방법
+Reference layout: wide channel artwork, overlapping circular profile picture, artist identity and follow button.
+
+Recommended PayTune banner dimensions
+2560 × 1440 px
+Recommended upload canvas
+
+YouTube-style 16:9 artwork
+The channel header should display a wide, responsive crop of this image.
+
+Japan Live Music Daily · Neodrop
+For a YouTube-style banner, use these design rules:
+
+Upload canvas: 2560 × 1440 px.
+
+Minimum recommended source: 2048 × 1152 px.
+
+Maximum file size: configure a sensible upload limit; YouTube's reference limit is 6 MB.
+
+Keep important text, logos and faces in the centered safe area.
+
+Use responsive cropping on desktop, tablet and mobile.
+
+Do not stretch the original image.
+
+Important: safe area
+YouTube Banner Size Guide 2026 - Channel Art Dimensions, Safe Zone & Resolution (2560x1440)
+For YouTube's 2560 × 1440 canvas, the central safe area is approximately 1546 × 423 px. PayTune should adopt this as its initial safe-area guide, then test its own header layout on different devices.
+
+PayTune channel header layout
+Asake en concert à l'Accor Arena de Paris en octobre 2026 et les billets partent dès le 28 mai
+Victor Kunonga | Music In Africa
+Artist Name
+
+@artistname · Music creator
+
+Videos · Music · Shorts
+
+Follow
+Features to implement in PayTune
+Full-width YouTube-style channel banner.
+
+Circular artist profile image overlapping the banner's lower edge.
+
+Desktop, tablet and mobile banner previews.
+
+Centered safe-area guides in the banner editor.
+
+Drag, reposition and zoom controls.
+
+Separate mobile crop preview.
+
+Save, replace, remove and restore banner.
+
+Reuse the same design for artist and business channels.
+
+One important distinction: use the 2560 × 1440 YouTube-style upload canvas, but do not force the entire 16:9 image to display on every device. Crop it responsively while preserving the central safe area.
+
+
+Context window full

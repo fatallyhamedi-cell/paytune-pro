@@ -50,6 +50,8 @@ const CopyrightHolderPortal = lazy(() => import("./pages/CopyrightHolderPortal")
 const SearchPage = lazy(() => import("./pages/Search"));
 const TrendingPage = lazy(() => import("./pages/Trending"));
 const FeedPage = lazy(() => import("./pages/Feed"));
+const MusicPage = lazy(() => import("./pages/Music"));
+const CommunityPage = lazy(() => import("./pages/Community"));
 
 const RouteLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
@@ -80,6 +82,8 @@ function App() {
                     <Route path="/trending" element={<TrendingPage />} />
                     <Route path="/feed" element={<FeedPage />} />
                     <Route path="/follows" element={<Navigate to="/feed" replace />} />
+                    <Route path="/music" element={<MusicPage />} />
+                    <Route path="/community" element={<CommunityPage />} />
                     <Route path="/live" element={<LiveStreams />} />
                     <Route path="/live/:streamId" element={<LiveWatch />} />
                     <Route path="/legal" element={<LegalPages />} />
@@ -88,6 +92,7 @@ function App() {
                     <Route path="/copyright-portal" element={<CopyrightHolderPortal />} />
                     <Route path="/copyright/holder" element={<CopyrightHolderPortal />} />
                     <Route path="/artist/:id" element={<ArtistChannel />} />
+
                     
                     {/* Settings Routes */}
                     <Route path="/settings" element={<SettingsPage />} />

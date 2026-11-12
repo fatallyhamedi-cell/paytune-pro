@@ -23,7 +23,8 @@ import {
   Megaphone,
   PhoneCall,
   Tag,
-  Sparkles
+  Sparkles,
+  Radio
 } from "lucide-react";
 import Logo from "./Logo";
 
@@ -32,6 +33,7 @@ export type MasterTab =
   | "artists"
   | "users"
   | "videos"
+  | "live"
   | "categories"
   | "access_requests"
   | "ads"
@@ -78,6 +80,7 @@ export const MasterDashboardLayout: React.FC<MasterDashboardLayoutProps> = ({
     },
     { id: "users" as MasterTab, label: "Users", icon: UserCheck },
     { id: "videos" as MasterTab, label: "Videos", icon: Video },
+    { id: "live" as MasterTab, label: "Live Broadcasts", icon: Radio },
     { id: "categories" as MasterTab, label: "Categories", icon: Tag },
     { id: "access_requests" as MasterTab, label: "Access Requests", icon: PhoneCall },
     { id: "ads" as MasterTab, label: "Ads & Campaigns", icon: Megaphone },

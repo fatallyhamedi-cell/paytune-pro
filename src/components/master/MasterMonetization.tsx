@@ -13,9 +13,10 @@ import {
   TrendingUp,
   Save,
   Loader2,
-  ShieldAlert,
   Search,
-  Filter
+  Infinity,
+  FileCheck,
+  CreditCard
 } from 'lucide-react';
 
 export default function MasterMonetization() {
@@ -31,7 +32,7 @@ export default function MasterMonetization() {
   const [applications, setApplications] = useState<any[]>([]);
   const [savingRules, setSavingRules] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [filterTab, setFilterTab] = useState<'all' | 'applied' | 'approved_monetized' | 'suspended'>('applied');
+  const [filterTab, setFilterTab] = useState<'all' | 'applied' | 'approved_monetized' | 'suspended'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
@@ -78,16 +79,29 @@ export default function MasterMonetization() {
     }
   };
 
-  const handleDecision = async (artistId: string, action: 'approve' | 'reject' | 'suspend') => {
+  const handleDecision = async (
+    artistId: string,
+    action: 'approve' | 'reject' | 'suspend' | 'request_identity' | 'request_payout'
+  ) => {
     setActionLoadingId(artistId);
     setStatusMessage(null);
     try {
       const res = await axios.post(`/api/master/partner-program/applications/${artistId}/decision`, {
         action,
-        notes: action === 'approve' ? 'Channel approved for advertising monetization.' : 'Monetization status updated by Master Admin.'
+        notes:
+          action === 'approve'
+            ? 'Channel approved for permanent lifetime advertising monetization.'
+            : action === 'request_identity'
+            ? 'Government ID document verification required before approval.'
+            : action === 'request_payout'
+            ? 'Please confirm valid Mobile Money or Bank payout account.'
+            : 'Monetization status updated by Master Admin.',
       });
       if (res.data?.success) {
-        setStatusMessage({ type: 'success', text: `Artist monetization ${action}d successfully.` });
+        setStatusMessage({
+          type: 'success',
+          text: `Artist monetization ${action === 'approve' ? 'approved for Lifetime' : action} successfully.`,
+        });
         await fetchData();
       }
     } catch (err: any) {
@@ -113,8 +127,8 @@ export default function MasterMonetization() {
     return true;
   });
 
-  const monetizedPartnersCount = applications.filter(a => a.monetization_status === 'approved_monetized').length;
-  const pendingAppsCount = applications.filter(a => a.monetization_status === 'applied').length;
+  const monetizedPartnersCount = applications.filter((a) => a.monetization_status === 'approved_monetized').length;
+  const pendingAppsCount = applications.filter((a) => a.monetization_status === 'applied').length;
   const totalAdRevenueDistributed = applications.reduce((sum, a) => sum + (a.ad_earnings_rwf || 0), 0);
 
   if (loading) {
@@ -138,20 +152,21 @@ export default function MasterMonetization() {
             <span>PayTune Partner Program (PPP) Engine</span>
           </div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-            Creator Monetization & Ad Revenue Controls
+            Lifetime Monetization & Partner Approvals
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Configure qualification thresholds (followers, free views, watch hours) and enforce that ad revenue splits only go to verified, qualifying African creators.
+            Configure partner thresholds and manage lifetime ad revenue qualification for African music creators.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200">
-            {monetizedPartnersCount} Monetized Partners
+          <span className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200 flex items-center gap-1.5">
+            <Infinity className="w-3.5 h-3.5" />
+            {monetizedPartnersCount} Lifetime Partners
           </span>
           {pendingAppsCount > 0 && (
             <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200 animate-pulse">
-              {pendingAppsCount} Applications Pending
+              {pendingAppsCount} Review Pending
             </span>
           )}
         </div>
@@ -165,8 +180,12 @@ export default function MasterMonetization() {
               : 'bg-rose-50 text-rose-800 border border-rose-200'
           }`}
         >
-          {statusMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
-          {statusMessage.text}
+          {statusMessage.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+          )}
+          <span>{statusMessage.text}</span>
         </div>
       )}
 
@@ -174,11 +193,13 @@ export default function MasterMonetization() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-gray-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Monetized Partners</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Lifetime Monetized Partners</span>
             <Users className="w-4 h-4 text-purple-600" />
           </div>
           <p className="text-3xl font-black text-gray-900">{monetizedPartnersCount}</p>
-          <span className="text-[11px] text-emerald-600 font-semibold">Qualifying creators earning ad share</span>
+          <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+            <Infinity className="w-3 h-3" /> Permanent approval active
+          </span>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-2">
@@ -187,7 +208,9 @@ export default function MasterMonetization() {
             <DollarSign className="w-4 h-4 text-purple-600" />
           </div>
           <p className="text-3xl font-black text-purple-600">{rules.artist_ad_share_pct}%</p>
-          <span className="text-[11px] text-gray-500 font-semibold">PayTune platform retains {100 - rules.artist_ad_share_pct}%</span>
+          <span className="text-[11px] text-gray-500 font-semibold">
+            PayTune platform retains {100 - rules.artist_ad_share_pct}%
+          </span>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm space-y-2">
@@ -196,7 +219,7 @@ export default function MasterMonetization() {
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-3xl font-black text-gray-900">{totalAdRevenueDistributed.toLocaleString()} RWF</p>
-          <span className="text-[11px] text-gray-500 font-semibold">100% of unmonetized ad revenue held by platform</span>
+          <span className="text-[11px] text-gray-500 font-semibold">Paid videos remain 100% ad-free</span>
         </div>
       </div>
 
@@ -209,7 +232,9 @@ export default function MasterMonetization() {
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900">Partner Program Qualification Rules</h2>
-              <p className="text-xs text-gray-500">Enforce minimum audience engagement before free video ad revenue is shared</p>
+              <p className="text-xs text-gray-500">
+                Enforce minimum audience engagement before free video ad revenue is unlocked
+              </p>
             </div>
           </div>
         </div>
@@ -224,7 +249,7 @@ export default function MasterMonetization() {
               min="0"
               value={rules.min_followers}
               onChange={(e) => setRules({ ...rules, min_followers: Number(e.target.value) })}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-600 transition-colors"
               required
             />
             <p className="text-[11px] text-gray-400 mt-1">Default: 1,000 genuine followers</p>
@@ -239,7 +264,7 @@ export default function MasterMonetization() {
               min="0"
               value={rules.min_free_views}
               onChange={(e) => setRules({ ...rules, min_free_views: Number(e.target.value) })}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-600 transition-colors"
               required
             />
             <p className="text-[11px] text-gray-400 mt-1">Default: 10,000 public free views</p>
@@ -254,7 +279,7 @@ export default function MasterMonetization() {
               min="0"
               value={rules.min_watch_hours}
               onChange={(e) => setRules({ ...rules, min_watch_hours: Number(e.target.value) })}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-600 transition-colors"
               required
             />
             <p className="text-[11px] text-gray-400 mt-1">Default: 1,000 watch hours across free catalog</p>
@@ -270,17 +295,17 @@ export default function MasterMonetization() {
               max="90"
               value={rules.artist_ad_share_pct}
               onChange={(e) => setRules({ ...rules, artist_ad_share_pct: Number(e.target.value) })}
-              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-500 transition-colors"
+              className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:border-purple-600 transition-colors"
               required
             />
-            <p className="text-[11px] text-gray-400 mt-1">Default: 40% (PayTune keeps 60%)</p>
+            <p className="text-[11px] text-gray-400 mt-1">Default: 40% (PayTune retains 60%)</p>
           </div>
 
           <div className="sm:col-span-2 lg:col-span-4 flex justify-end pt-2">
             <button
               type="submit"
               disabled={savingRules}
-              className="px-5 py-2.5 rounded-xl bg-[#8B5CF6] text-white font-bold text-xs hover:bg-purple-700 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              className="px-5 py-2.5 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-700 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
             >
               {savingRules ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Monetization Thresholds
@@ -294,7 +319,9 @@ export default function MasterMonetization() {
         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-base font-bold text-gray-900">Creator Monetization Review Queue</h2>
-            <p className="text-xs text-gray-500">Review channels, verify qualification metrics, and approve partner access</p>
+            <p className="text-xs text-gray-500">
+              Review channels, verify qualification metrics, and grant lifetime partner monetization
+            </p>
           </div>
 
           {/* Search & Status Filters */}
@@ -306,7 +333,7 @@ export default function MasterMonetization() {
                 placeholder="Search creator name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-1.5 rounded-xl border border-gray-200 text-xs font-medium focus:outline-none focus:border-purple-500 w-56"
+                className="pl-9 pr-4 py-1.5 rounded-xl border border-gray-200 text-xs font-medium focus:outline-none focus:border-purple-600 w-56"
               />
             </div>
 
@@ -322,10 +349,12 @@ export default function MasterMonetization() {
               <button
                 onClick={() => setFilterTab('approved_monetized')}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  filterTab === 'approved_monetized' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-900'
+                  filterTab === 'approved_monetized'
+                    ? 'bg-white text-gray-900 shadow-xs'
+                    : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
-                Monetized ({monetizedPartnersCount})
+                Lifetime Partners ({monetizedPartnersCount})
               </button>
               <button
                 onClick={() => setFilterTab('all')}
@@ -345,12 +374,12 @@ export default function MasterMonetization() {
             <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-3.5">Artist & Channel</th>
+                <th className="px-6 py-3.5">Level & Status</th>
                 <th className="px-6 py-3.5">Followers</th>
                 <th className="px-6 py-3.5">Free Views</th>
                 <th className="px-6 py-3.5">Watch Hours</th>
-                <th className="px-6 py-3.5">Verification & Policy</th>
-                <th className="px-6 py-3.5">Status</th>
-                <th className="px-6 py-3.5 text-right">Actions</th>
+                <th className="px-6 py-3.5">Account Standing</th>
+                <th className="px-6 py-3.5 text-right">Admin Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -363,8 +392,8 @@ export default function MasterMonetization() {
               ) : (
                 filteredApps.map((app) => {
                   const m = app.metrics || {};
-                  const isPending = app.monetization_status === 'applied';
                   const isApproved = app.monetization_status === 'approved_monetized';
+                  const isPending = ['applied', 'pending_review'].includes(app.monetization_status);
                   const isSuspended = app.monetization_status === 'suspended';
 
                   return (
@@ -383,6 +412,39 @@ export default function MasterMonetization() {
                             <p className="text-[11px] text-gray-400">@{app.username || 'creator'} • {app.email}</p>
                           </div>
                         </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {isApproved && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200">
+                            <Infinity className="w-3.5 h-3.5" /> Level 3: Lifetime Partner
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200">
+                            <Clock className="w-3.5 h-3.5" /> Level 2: Under Review
+                          </span>
+                        )}
+                        {app.monetization_status === 'identity_verification_required' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold text-[11px] border border-blue-200">
+                            <FileCheck className="w-3.5 h-3.5" /> Awaiting KYC ID
+                          </span>
+                        )}
+                        {app.monetization_status === 'payout_verification_required' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-bold text-[11px] border border-purple-200">
+                            <CreditCard className="w-3.5 h-3.5" /> Awaiting Payout Info
+                          </span>
+                        )}
+                        {isSuspended && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200">
+                            <XCircle className="w-3.5 h-3.5" /> Suspended
+                          </span>
+                        )}
+                        {!isApproved && !isPending && !isSuspended && !['identity_verification_required', 'payout_verification_required'].includes(app.monetization_status) && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-medium text-[11px]">
+                            Level 1: In Progress
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-6 py-4 font-semibold">
@@ -409,7 +471,7 @@ export default function MasterMonetization() {
                       <td className="px-6 py-4">
                         <div className="space-y-0.5">
                           <p className="text-[11px] text-gray-600">
-                            Phone: <span className={m.phone_verified ? 'text-emerald-600 font-bold' : 'text-amber-600 font-semibold'}>{m.phone_verified ? 'Verified' : 'Unverified'}</span>
+                            Phone: <span className={m.phone_verified ? 'text-emerald-600 font-bold' : 'text-amber-600 font-semibold'}>{m.phone_verified ? 'Verified' : 'Pending'}</span>
                           </p>
                           <p className="text-[11px] text-gray-600">
                             Copyright Strikes: <span className={m.active_strikes === 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{m.active_strikes}</span>
@@ -417,49 +479,39 @@ export default function MasterMonetization() {
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">
-                        {isApproved && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Monetized Partner
-                          </span>
-                        )}
-                        {isPending && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-bold text-[11px] border border-amber-200">
-                            <Clock className="w-3.5 h-3.5" /> Pending Review
-                          </span>
-                        )}
-                        {isSuspended && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold text-[11px] border border-rose-200">
-                            <XCircle className="w-3.5 h-3.5" /> Suspended
-                          </span>
-                        )}
-                        {!isApproved && !isPending && !isSuspended && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-medium text-[11px]">
-                            In Progress
-                          </span>
-                        )}
-                      </td>
-
                       <td className="px-6 py-4 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex items-center gap-1.5 flex-wrap justify-end">
                           {!isApproved && (
                             <button
                               onClick={() => handleDecision(app.id, 'approve')}
                               disabled={actionLoadingId === app.id}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer"
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs cursor-pointer inline-flex items-center gap-1"
+                              title="Grant permanent lifetime monetization"
                             >
-                              Approve
+                              <Infinity className="w-3 h-3" />
+                              <span>Approve Lifetime</span>
                             </button>
                           )}
 
                           {isPending && (
-                            <button
-                              onClick={() => handleDecision(app.id, 'reject')}
-                              disabled={actionLoadingId === app.id}
-                              className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-[11px] transition-colors cursor-pointer"
-                            >
-                              Decline
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleDecision(app.id, 'request_identity')}
+                                disabled={actionLoadingId === app.id}
+                                className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] border border-blue-200 transition-colors cursor-pointer"
+                                title="Request ID proof"
+                              >
+                                Request ID
+                              </button>
+
+                              <button
+                                onClick={() => handleDecision(app.id, 'reject')}
+                                disabled={actionLoadingId === app.id}
+                                className="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-[11px] transition-colors cursor-pointer"
+                              >
+                                Decline
+                              </button>
+                            </>
                           )}
 
                           {isApproved && (
