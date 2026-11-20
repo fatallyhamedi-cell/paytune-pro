@@ -186,19 +186,24 @@ export const History: React.FC = () => {
                     className="relative w-32 sm:w-40 aspect-video rounded-xl overflow-hidden bg-black shrink-0 cursor-pointer"
                     onClick={() => navigate(`/watch/${item.video_id}`)}
                   >
-                    <img
-                      src={item.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      loading="lazy"
-                    />
-                    {hasPosition && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                        <div
-                          className="h-full bg-[#FFB300]"
-                          style={{ width: `${progressPercent}%` }}
-                        />
+                    {item.thumbnail_url ? (
+                      <img
+                        src={item.thumbnail_url}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-900 flex items-center justify-center">
+                        <HistoryIcon className="w-5 h-5 text-[#FFB300]/50" />
                       </div>
+                    )}
+                    {hasPosition && (
+                      <progress
+                        value={progressPercent}
+                        max={100}
+                        className="absolute bottom-0 left-0 right-0 w-full h-1 block appearance-none [&::-webkit-progress-bar]:bg-white/20 [&::-webkit-progress-value]:bg-[#FFB300] [&::-moz-progress-bar]:bg-[#FFB300]"
+                      />
                     )}
                     <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/80 rounded text-[9px] font-mono text-white">
                       {formatSeconds(item.duration)}

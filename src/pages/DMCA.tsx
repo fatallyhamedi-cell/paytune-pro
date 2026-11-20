@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { 
   ShieldCheck, 
   Scale, 
@@ -43,7 +43,7 @@ export default function DMCA() {
 
   // Fetch videos for selector helper
   useEffect(() => {
-    axios.get('/api/videos?limit=50')
+    api.get('/api/videos?limit=50')
       .then(res => {
         const list = Array.isArray(res.data) ? res.data : (res.data?.videos || []);
         setVideos(list);
@@ -72,7 +72,7 @@ export default function DMCA() {
 
     setSubmitting(true);
     try {
-      const res = await axios.post('/api/dmca/takedown', {
+      const res = await api.post('/api/dmca/takedown', {
         video_id: targetVideoId,
         claimant_name: claimantName,
         claimant_email: claimantEmail,
@@ -103,7 +103,7 @@ export default function DMCA() {
 
     setSubmitting(true);
     try {
-      await axios.post(`/api/dmca/requests/${counterDmcaId}/counter-notice`, {
+      await api.post(`/api/dmca/requests/${counterDmcaId}/counter-notice`, {
         counter_notice_reason: counterReason,
         digital_signature: counterSignature
       });

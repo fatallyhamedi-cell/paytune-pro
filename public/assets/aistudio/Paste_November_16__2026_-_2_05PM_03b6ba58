@@ -1,0 +1,1060 @@
+# GOOGLE AI STUDIO — MASTER DATABASE ENGINEERING PROMPT
+# PAYTUNE COMPLETE PROJECT — FULL INIT.SQL DATABASE IMPLEMENTATION
+
+## 1. YOUR MISSION
+
+Act as a principal PostgreSQL database architect, Supabase specialist, financial systems engineer, security engineer, and database performance engineer.
+
+Your task is to design, generate, validate, and deliver one complete, professional, production-oriented SQL database initialization file named:
+
+`init.sql`
+
+This file must establish the complete database foundation required by the entire PAYTUNE application.
+
+PAYTUNE is a full music, video, short-video, livestreaming, creator monetization, advertising, payment, and entertainment platform.
+
+The database must support all application features, not only artist registration or artist management.
+
+**The final deliverable must be one consolidated, ordered, complete SQL file named `init.sql`, compatible with the actual PAYTUNE project.**
+
+Do not generate a simplified database.
+
+Do not generate a partial database.
+
+Do not generate an artist-only database.
+
+Do not generate a collection of unrelated SQL examples.
+
+Do not generate fake records.
+
+Do not use mock data.
+
+Do not create database objects based on guesses.
+
+Do not leave important functions, triggers, constraints, policies, or relationships unfinished.
+
+Do not claim the database is complete without validating the complete SQL file.
+
+---
+
+## 2. FIRST: INSPECT THE EXISTING PAYTUNE PROJECT
+
+Before writing SQL, inspect:
+
+1. Existing PAYTUNE source code.
+2. Existing Supabase configuration.
+3. Existing database schema.
+4. Existing SQL migrations.
+5. Existing database initialization scripts.
+6. Existing tables and columns.
+7. Existing enums.
+8. Existing functions and their complete definitions.
+9. Existing triggers.
+10. Existing views.
+11. Existing indexes.
+12. Existing constraints.
+13. Existing foreign keys.
+14. Existing RLS policies.
+15. Existing database grants.
+16. Existing storage buckets and policies.
+17. Existing scheduled jobs.
+18. Existing authentication integration.
+19. Existing API database queries.
+20. Existing frontend data requirements.
+
+The actual connected database is the source of truth.
+
+Use the previously confirmed PAYTUNE database foundation as a compatibility reference.
+
+If the actual database differs from the previous information, document the difference and follow the verified actual schema.
+
+If you cannot access the database or source files, do not pretend that inspection succeeded. Produce a list of the missing inspection requirements and request access.
+
+Do not invent missing columns, functions, tables, or enum values.
+
+---
+
+## 3. PRESERVE THE EXISTING DATABASE FOUNDATION
+
+The following PAYTUNE database objects have previously been confirmed and must be inspected and preserved.
+
+### Authentication and profiles
+- `auth.users`
+- `public.profiles`
+
+Remember:
+- `auth.users.id` is the authentication identity.
+- `public.profiles` is keyed by `user_id`, not an assumed `id` field.
+
+### Artist system
+- `public.artist_profiles`
+- `public.artist_members`
+- `public.artist_verification_requests`
+- `public.artist_phone_verification_events`
+
+### Existing user and administration system
+- `public.user_role_assignments`
+- `public.admin_permissions`
+- `public.admin_role_permissions`
+- `public.admin_action_audit_logs`
+
+### Country and currency configuration
+- `public.countries`
+- `public.country_currencies`
+- `public.country_payout_settings`
+- `public.currencies`
+
+### Existing authorization functions
+- `app_private.has_active_role(p_role paytune_user_role)`
+- `app_private.is_master_admin()`
+- `app_private.has_artist_access(uuid)`
+- `app_private.is_artist_member(uuid)`
+
+### Existing artist functions
+- `public.create_artist_profile(text,text,text,text)`
+- `public.submit_artist_verification(uuid,text,jsonb)`
+- `public.get_artist_verification_status(uuid)`
+- `public.reject_artist_invitation(p_token_hash text)`
+- `public.update_artist_member_role(p_artist_id uuid,p_member_id uuid,p_new_role paytune_artist_member_role)`
+
+### Existing phone verification functions
+- `app_private.record_artist_phone_verification_event(...)`
+- `app_private.reserve_artist_phone_otp_attempt(...)`
+
+Preserve existing enum types, including their confirmed values:
+
+`paytune_artist_type`
+- solo
+- group
+- band
+- orchestra
+- other
+
+`paytune_moderation_status`
+- pending
+- approved
+- rejected
+- flagged
+- restricted
+
+`paytune_payout_attempt_status`
+- pending
+- submitted
+- processing
+- succeeded
+- failed
+- cancelled
+- reversed
+
+`paytune_payout_method_type`
+- bank_transfer
+- mobile_money
+- digital_wallet
+- other
+
+`paytune_record_status`
+- active
+- inactive
+- suspended
+- archived
+
+`paytune_verification_status`
+- not_submitted
+- pending
+- under_review
+- verified
+- rejected
+- expired
+
+`paytune_user_role`
+- user
+- support_agent
+- moderator
+- admin
+- master_admin
+
+`paytune_artist_member_role`
+- owner
+- manager
+- artist
+- editor
+
+Do not create duplicate versions of these types or existing indexes.
+
+Preserve existing SECURITY DEFINER functions, ownership, search paths, and execution privileges unless a specific audited security requirement requires a controlled change.
+
+---
+
+## 4. COMPLETE PAYTUNE DATABASE MODULES
+
+Design the database to support the entire product.
+
+Before adding each table, function, or other object, inspect whether an equivalent already exists.
+
+### MODULE 1 — USERS AND AUTHENTICATION
+
+Support:
+- User profiles.
+- User settings.
+- User preferences.
+- Account status.
+- Account security events.
+- User sessions or session references where appropriate.
+- Account recovery records where required.
+- Phone verification integration.
+- Email verification integration where applicable.
+- Notification preferences.
+- Privacy preferences.
+- Account deletion and retention workflows.
+
+Authentication identity must remain connected to Supabase Auth.
+
+Never create duplicate authentication identities.
+
+### MODULE 2 — ARTISTS AND CREATORS
+
+Support:
+- Artist profiles.
+- Creator profiles.
+- Artist teams.
+- Membership.
+- Invitations.
+- Membership permissions.
+- Verification.
+- Approval.
+- Moderation.
+- Suspension.
+- Reactivation.
+- Creator settings.
+- Creator content ownership.
+- Creator activity history.
+
+Reuse the existing artist system.
+
+Do not weaken artist privacy or ownership controls.
+
+### MODULE 3 — MUSIC CATALOG
+
+Support:
+- Tracks.
+- Albums.
+- EPs.
+- Singles.
+- Artists.
+- Contributors.
+- Producers.
+- Songwriters.
+- Genres.
+- Languages.
+- Copyright ownership.
+- Music licenses.
+- Release metadata.
+- Release dates.
+- Track ordering.
+- Cover artwork.
+- Release status.
+- Distribution status.
+- Content review.
+- Takedown records.
+
+Use proper relationships and prevent duplicate or invalid ownership records.
+
+### MODULE 4 — MUSIC UPLOAD AND STORAGE
+
+Support:
+- Upload records.
+- Storage object references.
+- Upload ownership.
+- Upload status.
+- File metadata.
+- MIME type.
+- File size.
+- Processing status.
+- Transcoding status.
+- Failed processing records.
+- Retry tracking.
+- Asset versions.
+- Secure access information.
+
+Do not store fake file paths.
+
+Do not mark uploads successful before actual storage confirmation.
+
+Store references to real Supabase Storage objects or configured media storage providers.
+
+### MODULE 5 — MUSIC PLAYBACK
+
+Support:
+- Playback events.
+- Qualified stream events.
+- Playback sessions.
+- Listening history.
+- Favorites.
+- Playlists.
+- Playlist tracks.
+- User libraries.
+- Queue persistence where appropriate.
+- Playback analytics.
+- Playback failure events.
+
+Prevent duplicate event processing.
+
+Define a consistent qualified-stream counting policy.
+
+Do not count simple page views as music streams.
+
+### MODULE 6 — VIDEO PLATFORM
+
+Support:
+- Videos.
+- Video metadata.
+- Video creators.
+- Thumbnails.
+- Video assets.
+- Video processing.
+- Captions.
+- Subtitles.
+- Categories.
+- Tags.
+- Visibility.
+- Publication status.
+- Moderation.
+- Video playback events.
+- Watch history.
+- Video analytics.
+
+### MODULE 7 — SHORT VIDEOS
+
+Support:
+- Short-video records.
+- Video assets.
+- Captions.
+- Sounds.
+- Music attachments.
+- Hashtags.
+- Creator ownership.
+- Visibility.
+- Publication status.
+- Likes.
+- Comments.
+- Shares.
+- Saves.
+- Reports.
+- Feed ranking inputs.
+- Qualified view events.
+- Analytics.
+
+Short videos must integrate with the music rights and content ownership systems.
+
+### MODULE 8 — LIVESTREAMING
+
+Support:
+- Livestream sessions.
+- Stream ownership.
+- Stream metadata.
+- Stream status.
+- Scheduled streams.
+- Stream provider references.
+- Secure credential references.
+- Viewer sessions.
+- Live chat.
+- Chat moderation.
+- Moderators.
+- Stream reports.
+- Stream analytics.
+- Stream recording references.
+- Stream revenue events.
+- Stream termination history.
+
+Never store exposed streaming secrets in publicly accessible tables.
+
+Support actual streaming provider integrations through secure backend services.
+
+### MODULE 9 — FOLLOWERS AND SOCIAL INTERACTIONS
+
+Support:
+- Following creators.
+- Followers.
+- Likes.
+- Comments.
+- Replies.
+- Shares.
+- Saves.
+- Playlists.
+- User interactions.
+- Blocking.
+- Reporting.
+- Moderation.
+- Interaction history.
+
+Use appropriate uniqueness constraints and prevent duplicate relationships.
+
+### MODULE 10 — ADVERTISING SYSTEM
+
+Support:
+- Advertiser accounts.
+- Advertiser users and permissions.
+- Advertising campaigns.
+- Campaign budgets.
+- Ad creatives.
+- Ad formats.
+- Campaign scheduling.
+- Campaign approval.
+- Targeting configuration.
+- Ad placements.
+- Ad impressions.
+- Qualified views.
+- Ad clicks.
+- Invalid traffic signals.
+- Frequency limits.
+- Campaign spend.
+- Advertising billing.
+- Ad revenue.
+- Creator ad revenue allocation.
+- Platform advertising revenue.
+
+Advertising events must be auditable and resistant to duplication and manipulation.
+
+Never count unverified impressions as confirmed revenue.
+
+### MODULE 11 — MONETIZATION
+
+Support:
+- Creator monetization applications.
+- Eligibility requirements.
+- Monetization approval.
+- Monetization status.
+- Revenue sources.
+- Revenue allocation rules.
+- Revenue share configurations.
+- Effective dates.
+- Revenue calculation records.
+- Estimated earnings.
+- Confirmed earnings.
+- Pending earnings.
+- Available balances.
+- Adjustments.
+- Deductions.
+- Monetization history.
+- Monetization suspension.
+
+Support monetization from:
+- Music.
+- Videos.
+- Shorts.
+- Livestreams.
+- Advertising.
+- Gifts.
+- Subscriptions.
+- Other approved sources.
+
+Do not invent arbitrary revenue shares or eligibility thresholds.
+
+Use approved, configurable rules with effective dates and audit history.
+
+### MODULE 12 — GIFTS AND CREATOR SUPPORT
+
+Where enabled, support:
+- Virtual gifts.
+- Gift catalog.
+- Gift pricing.
+- Gift purchases.
+- Gift delivery events.
+- Livestream gifts.
+- Creator gift revenue.
+- Refund handling.
+- Fraud prevention.
+- Gift transaction history.
+
+Never generate fake gift balances or fake purchases.
+
+### MODULE 13 — SUBSCRIPTIONS AND MEMBERSHIPS
+
+Support:
+- Subscription plans.
+- User subscriptions.
+- Creator memberships where applicable.
+- Subscription payments.
+- Billing periods.
+- Renewal.
+- Cancellation.
+- Expiration.
+- Failed payments.
+- Refunds.
+- Access permissions.
+- Subscription history.
+
+### MODULE 14 — PAYMENTS
+
+Support:
+- Payment records.
+- Payment attempts.
+- Payment providers.
+- Provider references.
+- Payment methods.
+- Transaction statuses.
+- Currency.
+- Gross amounts.
+- Fees.
+- Net amounts.
+- Refunds.
+- Reversals.
+- Webhook event records.
+- Idempotency keys.
+- Reconciliation.
+- Financial audit records.
+
+Never trust payment success from the frontend.
+
+Only trusted provider verification or authorized internal financial operations may confirm payments.
+
+### MODULE 15 — CREATOR EARNINGS AND WITHDRAWALS
+
+Support:
+- Creator payout profiles.
+- Payout destinations.
+- Destination verification.
+- Withdrawal requests.
+- Payout attempts.
+- Payout provider references.
+- Withdrawal fees.
+- Country-specific withdrawal limits.
+- Withdrawal review.
+- Payout processing.
+- Failed payouts.
+- Reversals.
+- Reconciliation.
+- Withdrawal history.
+
+Reuse existing:
+- Country configuration.
+- Currency configuration.
+- Payout configuration.
+- Payout method enums.
+- Payout status enums.
+
+Implement financially correct ledger and balance operations.
+
+Prevent duplicate withdrawals and unauthorized balance modification.
+
+### MODULE 16 — NOTIFICATIONS
+
+Support:
+- In-app notifications.
+- Email notification records.
+- SMS notification records.
+- Notification templates.
+- Delivery attempts.
+- Retry history.
+- Read/unread status.
+- Notification preferences.
+- User notification history.
+- Provider references.
+
+Do not mark external messages delivered without delivery confirmation.
+
+### MODULE 17 — MODERATION AND COPYRIGHT
+
+Support:
+- Content reports.
+- User reports.
+- Copyright complaints.
+- Copyright disputes.
+- Takedown requests.
+- Content restrictions.
+- Moderation queues.
+- Moderation decisions.
+- Reviewer records.
+- Moderation history.
+- Repeat infringement tracking.
+- Content appeals.
+
+### MODULE 18 — SUPPORT SYSTEM
+
+Support:
+- Support tickets.
+- Ticket messages.
+- Ticket assignment.
+- Ticket status.
+- Ticket priority.
+- Internal notes.
+- User responses.
+- Resolution history.
+- Support-agent permissions.
+
+### MODULE 19 — ANALYTICS AND REPORTING
+
+Support real analytics for:
+- Users.
+- Artists.
+- Creators.
+- Music.
+- Videos.
+- Shorts.
+- Livestreams.
+- Views.
+- Qualified streams.
+- Followers.
+- Engagement.
+- Advertising.
+- Revenue.
+- Subscriptions.
+- Payments.
+- Withdrawals.
+
+Provide efficient reporting queries and views where appropriate.
+
+Avoid exposing private analytics to unauthorized users.
+
+### MODULE 20 — PLATFORM ADMINISTRATION
+
+Support:
+- Admin management.
+- Master Admin management.
+- Role assignments.
+- Permission assignments.
+- Platform settings.
+- Country settings.
+- Currency settings.
+- Payout settings.
+- Monetization configuration.
+- Advertising configuration.
+- Content policy settings.
+- Platform feature settings.
+- Admin audit history.
+- Emergency controls.
+
+Use the existing roles and authorization functions.
+
+Never allow a user to assign themselves an elevated role.
+
+### MODULE 21 — SYSTEM MONITORING
+
+Support real monitoring records for:
+- Application errors.
+- API errors.
+- Database failures.
+- Background job failures.
+- Upload failures.
+- Video processing failures.
+- Livestream failures.
+- Payment failures.
+- Payout failures.
+- Security events.
+- Suspicious activity.
+- Provider outages.
+- System performance.
+
+Design monitoring so the backend can record and query operational events.
+
+Do not confuse application event storage with actual infrastructure monitoring. External monitoring integrations must be documented separately.
+
+---
+
+## 5. COMPLETE DATABASE ENGINEERING REQUIREMENTS
+
+The complete `init.sql` must include all necessary verified and newly required:
+
+- Tables.
+- Columns.
+- Data types.
+- Primary keys.
+- Foreign keys.
+- Unique constraints.
+- Check constraints.
+- Enum types.
+- Indexes.
+- Partial indexes.
+- Functions.
+- Triggers.
+- Views.
+- Materialized views where justified.
+- RLS activation.
+- RLS policies.
+- Table grants.
+- Function execution grants.
+- Sequence privileges.
+- Storage policies where applicable.
+- Database comments and documentation.
+
+All relationships must be consistent.
+
+Use UUID identifiers where appropriate.
+
+Use `timestamptz` for timestamps representing real points in time.
+
+Use appropriate numeric types for money.
+
+Do not use floating-point types for financial amounts.
+
+Use appropriate JSONB only for genuinely flexible structured data, not to avoid proper relational design.
+
+Use transactions for important multi-table operations.
+
+Use constraints to enforce data integrity at the database level.
+
+Use indexes based on actual query patterns.
+
+Avoid redundant indexes.
+
+Avoid unnecessary triggers.
+
+Avoid functions that duplicate existing functionality.
+
+---
+
+## 6. DATABASE SECURITY REQUIREMENTS
+
+Implement strict database security.
+
+- RLS on all relevant private tables.
+- Explicit authorization policies.
+- Least-privilege grants.
+- Safe SECURITY DEFINER functions.
+- Controlled search paths.
+- Authenticated identity through `auth.uid()`.
+- No client-supplied roles as authorization proof.
+- No client-supplied user IDs as ownership proof.
+- No client-supplied balances.
+- No public access to private payout records.
+- No public access to private artist dashboards.
+- No public access to private user dashboards.
+- No public access to administrative records.
+- No public access to private media.
+- No exposure of service-role credentials.
+- No unauthorized modification of financial records.
+
+### Strict dashboard isolation
+
+Ordinary users can access only their own private user records.
+
+Artists can access only their own artist profiles and records for which they have verified active authorization.
+
+Artist team permissions must be explicitly checked.
+
+Administrators can access only records allowed by their assigned permissions.
+
+Master Admin has platform-level administrative authority, but that must not silently grant ordinary private artist-dashboard membership.
+
+Test all cross-user and cross-artist access paths.
+
+---
+
+## 7. DATABASE FUNCTION REQUIREMENTS
+
+Implement real database functions for necessary business operations.
+
+Examples include:
+- Artist onboarding.
+- Artist membership changes.
+- Artist verification lifecycle.
+- Content creation and publication.
+- Upload state transitions.
+- Qualified playback event recording.
+- Short-video engagement.
+- Livestream session lifecycle.
+- Ad event recording.
+- Monetization calculations.
+- Revenue allocation.
+- Payment processing records.
+- Withdrawal reservation.
+- Payout state transitions.
+- Refund and reversal processing.
+- Notification state updates.
+- Moderation actions.
+- Administrative permission management.
+- Audit recording.
+
+These are required business-operation categories, not permission to invent function signatures that conflict with the existing project.
+
+Every function must have:
+- Clear purpose.
+- Input validation.
+- Authorization.
+- Correct transaction behavior.
+- Error handling.
+- Appropriate privileges.
+- Documented return values.
+- Tests.
+
+Never accept sensitive actor identities or roles from untrusted clients.
+
+---
+
+## 8. PERFORMANCE AND SCALABILITY
+
+Design for a growing platform.
+
+Implement:
+- Appropriate indexes.
+- Efficient query patterns.
+- Pagination.
+- Efficient aggregation.
+- Avoidance of N+1 queries.
+- Partitioning only where justified by volume and query patterns.
+- Efficient analytics storage.
+- Appropriate retention policies.
+- Safe archival strategies.
+- Efficient event processing.
+- Transaction optimization.
+- Background processing support.
+- Idempotency.
+- Database connection efficiency.
+
+Consider high-volume event categories:
+- Music playback.
+- Video views.
+- Short-video views.
+- Livestream viewers.
+- Ad impressions.
+- Ad clicks.
+- Likes and interactions.
+- Notifications.
+
+Do not create expensive synchronous database operations for every high-volume event when an appropriate asynchronous design is required.
+
+Do not introduce premature complexity without a measurable reason.
+
+---
+
+## 9. REQUIRED INIT.SQL ORDER
+
+The SQL file must be ordered by dependency.
+
+Recommended structure:
+
+1. File header and execution requirements.
+2. Environment compatibility checks.
+3. Existing schema inspection and fail-fast checks.
+4. Required extension checks.
+5. Schema creation only when genuinely missing.
+6. Enum validation and controlled creation.
+7. Shared utility functions.
+8. Core user and profile structures.
+9. Artist and creator structures.
+10. Music catalog structures.
+11. Media upload and storage references.
+12. Music playback.
+13. Video system.
+14. Short-video system.
+15. Social interactions.
+16. Livestreaming.
+17. Advertising.
+18. Monetization.
+19. Gifts and subscriptions.
+20. Financial ledger.
+21. Payments and withdrawals.
+22. Notifications.
+23. Moderation and copyright.
+24. Support.
+25. Analytics.
+26. Administration.
+27. Monitoring.
+28. Foreign keys and constraints not already created inline.
+29. Indexes.
+30. Functions.
+31. Triggers.
+32. Views.
+33. RLS enablement.
+34. RLS policies.
+35. Grants and revocations.
+36. Database comments.
+37. Validation queries.
+38. Final completion verification.
+
+Adjust this order when actual dependencies require it.
+
+---
+
+## 10. MIGRATION AND DATA PRESERVATION
+
+The database may already contain production data.
+
+Therefore:
+
+- Never drop existing tables just to simplify initialization.
+- Never truncate existing tables.
+- Never delete production records.
+- Never replace existing functions without inspecting dependencies.
+- Never reset authentication identities.
+- Never silently change enum values.
+- Never disable RLS to make an operation work.
+- Never grant broad access to avoid permission errors.
+- Never create duplicate indexes.
+- Never silently alter existing constraints.
+
+Use carefully designed idempotent SQL where appropriate.
+
+If an existing object conflicts with the required design:
+1. Detect the conflict.
+2. Explain it.
+3. Preserve existing data.
+4. Propose a safe migration.
+5. Apply only after the migration is validated.
+
+Because a full `init.sql` may contain both creation and upgrade operations, explicitly document which execution mode it supports:
+
+- Fresh database initialization.
+- Existing PAYTUNE database upgrade.
+- Both, if genuinely safe and tested.
+
+Do not claim it supports both unless tested against both environments.
+
+---
+
+## 11. VALIDATION AND TESTING
+
+Before delivering the file, validate:
+
+### Structural validation
+- Every table exists.
+- Every required column exists.
+- Every foreign key references a valid object.
+- Every constraint is valid.
+- Every index is valid.
+- Every enum value is compatible.
+- Every function compiles.
+- Every trigger references an existing function.
+- Every view compiles.
+
+### Security validation
+- RLS is enabled where required.
+- RLS policies use actual columns and functions.
+- Anonymous privileges are restricted.
+- Authenticated privileges are appropriate.
+- Service-role privileges are restricted.
+- SECURITY DEFINER functions have safe ownership and search paths.
+- Private user records are isolated.
+- Private artist records are isolated.
+- Financial records are isolated.
+- Administrative records are protected.
+
+### Functional validation
+- Artist creation.
+- Artist membership.
+- Artist verification.
+- Music creation.
+- Upload state transitions.
+- Playback event recording.
+- Video creation.
+- Short-video creation.
+- Livestream lifecycle.
+- Ad event recording.
+- Monetization calculations.
+- Financial ledger operations.
+- Payment records.
+- Withdrawal processing.
+- Notifications.
+- Moderation.
+- Administrative actions.
+
+### Financial validation
+- Monetary precision.
+- Balance integrity.
+- No duplicate transactions.
+- No duplicate withdrawals.
+- Correct transaction locking.
+- Correct reversals.
+- Correct reconciliation.
+
+### Performance validation
+- Important indexes exist.
+- Critical query plans are reviewed.
+- High-volume event tables have suitable indexing.
+- Expensive operations are identified.
+
+Do not claim tests passed unless they were actually executed.
+
+If you cannot execute SQL against a real PostgreSQL/Supabase environment, clearly report the unverified tests.
+
+---
+
+## 12. REQUIRED DELIVERABLES
+
+Deliver:
+
+### Primary file
+`init.sql`
+
+It must contain the complete ordered SQL implementation for the entire PAYTUNE database, compatible with the inspected project.
+
+### Supporting validation report
+`DATABASE_VALIDATION_REPORT.md`
+
+Include:
+- Existing objects preserved.
+- Newly created objects.
+- Modified objects.
+- Missing features.
+- Database compatibility findings.
+- RLS findings.
+- Security findings.
+- Index findings.
+- Function and trigger findings.
+- Test results.
+- Unverified items.
+- External integration dependencies.
+
+### Database object inventory
+`DATABASE_OBJECT_INVENTORY.md`
+
+Document:
+- Tables.
+- Columns.
+- Relationships.
+- Constraints.
+- Indexes.
+- Functions.
+- Triggers.
+- Views.
+- Policies.
+- Grants.
+- Enums.
+
+### Feature-to-database mapping
+`PAYTUNE_DATABASE_FEATURE_MAP.md`
+
+Map every product feature to its actual tables, functions, triggers, views, permissions, and APIs.
+
+---
+
+## 13. FINAL ACCEPTANCE CONDITIONS
+
+The final `init.sql` must:
+
+1. Support the entire PAYTUNE product, not only artist management.
+2. Be compatible with the actual project.
+3. Preserve verified existing database functionality.
+4. Include all genuinely missing database functionality.
+5. Contain no mock records.
+6. Contain no invented schema assumptions.
+7. Contain no unresolved duplicate database objects.
+8. Contain no broken foreign keys.
+9. Contain no unfinished critical functions.
+10. Contain no incomplete critical RLS policies.
+11. Protect all private user and artist records.
+12. Protect financial operations.
+13. Support real music and video playback records.
+14. Support uploads and processing workflows.
+15. Support short videos.
+16. Support livestream sessions.
+17. Support advertisements.
+18. Support monetization.
+19. Support payments and withdrawals.
+20. Support users, creators, admins, and Master Admin.
+21. Include performance-conscious indexes and queries.
+22. Include operational event support.
+23. Include validation and test evidence.
+24. Be documented and maintainable.
+
+**FINAL DIRECTIVE:**
+
+Build the complete PAYTUNE `init.sql` database, not a partial example and not a simplified schema.
+
+Inspect first. Preserve existing functionality. Build missing functionality. Validate every dependency. Protect every private record. Protect every financial transaction.
+
+Do not pretend that unimplemented functionality exists.
+
+If any requirement cannot be completed because actual project information, database access, or provider details are missing, identify it explicitly instead of guessing.
+
+The objective is one coherent, complete, secure, scalable, production-oriented database foundation for the entire PAYTUNE platform.

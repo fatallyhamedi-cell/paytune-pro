@@ -1,22 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { createMockSupabaseClient } from '../config/supabase_mock';
 
-// Read Vite environment variables (client-safe)
-const env: Record<string, string | undefined> = 
+const env: Record<string, string | undefined> =
   typeof import.meta !== 'undefined' && (import.meta as any)?.env ? (import.meta as any).env : {};
-
-export const THIS_APP_URL = 'https://ais-dev-4pcefwvqqa7qfqrkdm5mo6-156032383868.europe-west2.run.app';
 
 export function getAppBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return THIS_APP_URL;
+  return '';
 }
 
 export function sanitizeSupabaseUrl(rawUrl?: string): string {
-  const currentAppUrl = getAppBaseUrl();
-  if (!rawUrl) return currentAppUrl;
+  if (!rawUrl) return '';
   let cleaned = String(rawUrl).trim();
   if (
     !cleaned ||
@@ -28,25 +23,18 @@ export function sanitizeSupabaseUrl(rawUrl?: string): string {
     cleaned.includes('MISSING_SUPABASE_URL') ||
     cleaned.includes('placeholder')
   ) {
-    return currentAppUrl;
+    return '';
   }
 
-  // If dashboard URL was provided: https://supabase.com/dashboard/project/xyz
   const dashboardMatch = cleaned.match(/supabase\.com\/dashboard\/project\/([a-z0-9_-]+)/i);
   if (dashboardMatch) {
     return `https://${dashboardMatch[1]}.supabase.co`;
   }
 
-  // Strip trailing /rest/v1 or trailing slashes
   cleaned = cleaned.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '');
 
-  // If user provided just project ID e.g. "abcdefghijklmnop"
   if (!/^https?:\/\//i.test(cleaned)) {
-    if (cleaned.includes('.')) {
-      cleaned = `https://${cleaned}`;
-    } else {
-      cleaned = `https://${cleaned}.supabase.co`;
-    }
+    cleaned = cleaned.includes('.') ? `https://${cleaned}` : `https://${cleaned}.supabase.co`;
   }
 
   try {
@@ -55,25 +43,24 @@ export function sanitizeSupabaseUrl(rawUrl?: string): string {
       return parsed.origin;
     }
   } catch {
-    // fallback
+    return '';
   }
 
-  return currentAppUrl;
+  return '';
 }
 
 export function sanitizeSupabaseKey(rawKey?: string): string {
   if (!rawKey) return '';
   const cleaned = String(rawKey).trim();
 
-  // STRICT SECURITY GUARD: Never allow service_role or secret keys in browser code
+  // Strictly block service_role / secret keys in client-side code
   if (
     cleaned.toLowerCase().includes('service_role') ||
     cleaned.toLowerCase().includes('secret') ||
     cleaned.includes('sb_secret_')
   ) {
     console.error(
-      '[Supabase Security Warning] Detected service_role or secret key in browser environment. ' +
-      'Service role keys MUST NOT be exposed to client-side code. Discarding key for security.'
+      '[Supabase Security Warning] Secret/service_role key blocked in browser code.'
     );
     return '';
   }
@@ -81,203 +68,128 @@ export function sanitizeSupabaseKey(rawKey?: string): string {
   return cleaned;
 }
 
-// Read Vite environment variables as requested:
-// - VITE_SUPABASE_URL
-// - VITE_SUPABASE_PUBLISHABLE_KEY (with VITE_SUPABASE_ANON_KEY fallback for backward compatibility)
-const rawUrl = env.VITE_SUPABASE_URL || getAppBaseUrl();
+const rawUrl = env.VITE_SUPABASE_URL || '';
 const rawKey = env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabaseUrl = sanitizeSupabaseUrl(rawUrl);
 export const supabasePublishableKey = sanitizeSupabaseKey(rawKey);
 
 export const isExternalSupabaseConfigured = (): boolean => {
-  return !!supabaseUrl && !!supabasePublishableKey && !supabaseUrl.includes('MISSING_SUPABASE_URL');
+  return Boolean(supabaseUrl && supabasePublishableKey);
 };
 
 export const isSupabaseConfigured = (): boolean => {
-  return true;
+  return isExternalSupabaseConfigured();
 };
 
 export const supabaseProjectInfo = {
   projectId: supabaseUrl.includes('.supabase.co')
     ? supabaseUrl.replace('https://', '').split('.')[0]
-    : 'paytune-app',
-  url: supabaseUrl || getAppBaseUrl(),
-  isConfigured: isExternalSupabaseConfigured()
+    : 'unconfigured',
+  url: supabaseUrl,
+  isConfigured: isExternalSupabaseConfigured(),
 };
 
-const mockInstance = createMockSupabaseClient();
-
-/**
- * Resilient query wrapper to transparently fall back to mock data store
- * if remote tables are not yet created or during offline development.
- */
-function wrapResilientQuery(realBuilder: any, mockFn: () => any, table: string): any {
-  return new Proxy(realBuilder, {
-    get(target, prop, receiver) {
-      if (prop === 'then') {
-        return async (onfulfilled?: any, onrejected?: any) => {
-          try {
-            const result = await target;
-            if (
-              result &&
-              result.error &&
-              (result.error.code === 'PGRST205' ||
-               result.error.message?.includes('schema cache') ||
-               result.error.message?.includes('relation') ||
-               result.error.code === '42P01')
-            ) {
-              const mockResult = await mockFn();
-              return onfulfilled ? onfulfilled(mockResult) : mockResult;
-            }
-            return onfulfilled ? onfulfilled(result) : result;
-          } catch {
-            const mockResult = await mockFn();
-            return onfulfilled ? onfulfilled(mockResult) : mockResult;
-          }
-        };
-      }
-      if (prop === 'single' || prop === 'maybeSingle') {
-        return async () => {
-          try {
-            const result = await target[prop]();
-            if (
-              result &&
-              result.error &&
-              (result.error.code === 'PGRST205' ||
-               result.error.message?.includes('schema cache') ||
-               result.error.message?.includes('relation') ||
-               result.error.code === '42P01')
-            ) {
-              return await mockFn()[prop]();
-            }
-            return result;
-          } catch {
-            return await mockFn()[prop]();
-          }
-        };
-      }
-      const val = Reflect.get(target, prop, receiver);
-      if (typeof val === 'function') {
-        return (...args: any[]) => {
-          const nextReal = val.apply(target, args);
-          return wrapResilientQuery(nextReal, () => {
-            const m = mockFn();
-            return typeof m[prop] === 'function' ? m[prop](...args) : m;
-          }, table);
-        };
-      }
-      return val;
-    }
-  });
-}
-
-function createResilientClient(realClient: SupabaseClient, mockClient: any): any {
-  return new Proxy(realClient, {
-    get(target: any, prop: string | symbol, receiver: any) {
-      if (prop === 'from') {
-        return (table: string) => {
-          try {
-            const realQuery = target.from(table);
-            return wrapResilientQuery(realQuery, () => mockClient.from(table), table);
-          } catch {
-            return mockClient.from(table);
-          }
-        };
-      }
-      if (prop === 'channel') {
-        return (channelName: string) => {
-          try {
-            return target.channel(channelName);
-          } catch {
-            return mockClient.channel(channelName);
-          }
-        };
-      }
-      if (prop === 'removeChannel') {
-        return (channelObj: any) => {
-          try {
-            return target.removeChannel(channelObj);
-          } catch {
-            return mockClient.removeChannel(channelObj);
-          }
-        };
-      }
-      const val = Reflect.get(target, prop, receiver);
-      if (typeof val === 'function') {
-        return val.bind(target);
-      }
-      return val;
-    }
-  });
-}
-
-// Initialize Supabase client
-let clientInstance: any = mockInstance;
+let clientInstance: SupabaseClient | null = null;
 
 if (isExternalSupabaseConfigured()) {
   try {
-    const rawSupabase = createClient(supabaseUrl, supabasePublishableKey, {
+    clientInstance = createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: 'paytune_supabase_auth'
-      }
+        storageKey: 'paytune_supabase_auth',
+      },
     });
-    clientInstance = createResilientClient(rawSupabase, mockInstance);
   } catch (err) {
-    console.warn('[Supabase Client] Failed to initialize client, using resilient mock store:', err);
-    clientInstance = mockInstance;
+    console.error('[Supabase Client] Initialization failed:', err);
+    clientInstance = null;
   }
-} else {
-  clientInstance = mockInstance;
 }
 
-/**
- * The reusable Supabase client instance
- */
-export const supabase: any = clientInstance;
+export const rawSupabaseBrowser: SupabaseClient | null = clientInstance;
 
-/**
- * Helper to invoke Supabase Edge Functions.
- * Reads the project URL from VITE_SUPABASE_URL and uses supabase.functions.invoke,
- * falling back gracefully to server-side edge function proxy if needed.
- */
+const unconfiguredStub: any = new Proxy(
+  {},
+  {
+    get(_t, prop) {
+      if (prop === 'from') {
+        return () =>
+          new Proxy(
+            {},
+            {
+              get(_qt, qProp) {
+                const err = {
+                  data: null,
+                  error: { message: 'Supabase client is not configured.', code: 'DB_NOT_CONFIGURED' },
+                };
+                if (qProp === 'then') {
+                  return (cb?: any) => Promise.resolve(cb ? cb(err) : err);
+                }
+                if (qProp === 'single' || qProp === 'maybeSingle') {
+                  return async () => err;
+                }
+                return () => unconfiguredStub.from('');
+              },
+            }
+          );
+      }
+      if (prop === 'auth') {
+        return {
+          getSession: async () => ({ data: { session: null }, error: null }),
+          getUser: async () => ({ data: { user: null }, error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          signOut: async () => ({ error: null }),
+        };
+      }
+      if (prop === 'channel') {
+        return () => ({
+          on: () => ({ subscribe: () => ({}) }),
+          subscribe: () => ({}),
+        });
+      }
+      if (prop === 'removeChannel') {
+        return async () => 'ok';
+      }
+      return undefined;
+    },
+  }
+);
+
+export const supabase: any = clientInstance || unconfiguredStub;
+
 export async function invokeEdgeFunction<T = any>(
   functionName: string,
   body?: any,
   options?: { headers?: Record<string, string> }
 ): Promise<{ data: T | null; error: any | null }> {
-  // 1. If real external Supabase client is configured, call Supabase Edge Function
-  if (isExternalSupabaseConfigured() && supabase?.functions?.invoke) {
+  if (isExternalSupabaseConfigured() && clientInstance?.functions?.invoke) {
     try {
-      const response = await supabase.functions.invoke(functionName, {
+      const response = await clientInstance.functions.invoke(functionName, {
         body,
-        headers: options?.headers
+        headers: options?.headers,
       });
       if (!response.error) {
         return { data: response.data as T, error: null };
       }
-      console.warn(`[Edge Function] Remote invoke for ${functionName} reported:`, response.error);
     } catch (err: any) {
-      console.warn(`[Edge Function] Remote invoke failed for ${functionName}:`, err.message);
+      console.warn(`[Edge Function] Invoke failed for ${functionName}:`, err.message);
     }
   }
 
-  // 2. Fallback to server-side Edge Function route
   try {
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('paytune_auth_token') : null;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options?.headers || {})
+      ...(options?.headers || {}),
     };
 
     const res = await fetch(`/api/edge-functions/${functionName}`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(body || {})
+      body: JSON.stringify(body || {}),
     });
 
     if (!res.ok) {
@@ -294,7 +206,6 @@ export async function invokeEdgeFunction<T = any>(
     const data = await res.json();
     return { data: data as T, error: null };
   } catch (fallbackErr: any) {
-    console.error(`[Edge Function] Fallback execution failed for ${functionName}:`, fallbackErr);
     return { data: null, error: fallbackErr };
   }
 }

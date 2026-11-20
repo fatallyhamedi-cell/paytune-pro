@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 import { LiveChatMessage, ChatMessageData } from './LiveChatMessage';
 import { useAuth } from '../hooks/useAuth';
-import axios from 'axios';
+import { api } from '../lib/api';
 
 export interface LiveChatProps {
   streamId: string;
@@ -19,6 +19,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Poll or load messages
@@ -27,12 +28,13 @@ export const LiveChat: React.FC<LiveChatProps> = ({
 
     const fetchChat = async () => {
       try {
-        const res = await axios.get(`/api/live/streams/${streamId}/chat`);
-        if (Array.isArray(res.data?.messages)) {
-          setMessages(res.data.messages);
+        const res = await api.get(`/api/live/streams/${streamId}/chat`);
+        const list = Array.isArray(res.data) ? res.data : res.data?.messages;
+        if (Array.isArray(list)) {
+          setMessages(list);
         }
-      } catch (err) {
-        // silent fallback
+      } catch {
+        // Ignore transient polling error
       }
     };
 
@@ -53,11 +55,13 @@ export const LiveChat: React.FC<LiveChatProps> = ({
     if (!inputMessage.trim() || sending) return;
 
     const text = inputMessage.trim();
+    const tempId = `temp-${Date.now()}`;
     setInputMessage('');
     setSending(true);
+    setChatError(null);
 
     const tempMsg: ChatMessageData = {
-      id: `temp-${Date.now()}`,
+      id: tempId,
       stream_id: streamId,
       user_id: user?.id || 'guest',
       user_name: user?.user_metadata?.full_name || 'Fan',
@@ -68,15 +72,16 @@ export const LiveChat: React.FC<LiveChatProps> = ({
     setMessages(prev => [...prev, tempMsg]);
 
     try {
-      const token = localStorage.getItem('paytune_auth_token');
-      await axios.post(`/api/live/streams/${streamId}/chat`, {
+      const res = await api.post(`/api/live/streams/${streamId}/chat`, {
         message: text,
         userName: user?.user_metadata?.full_name || 'Fan'
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
-    } catch (err) {
-      console.warn('Failed to send live chat message:', err);
+      if (res.data?.id) {
+        setMessages(prev => prev.map(m => (m.id === tempId ? res.data : m)));
+      }
+    } catch (err: any) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setChatError(err?.response?.data?.error || 'Sign in required to send live chat messages.');
     } finally {
       setSending(false);
     }
@@ -113,6 +118,14 @@ export const LiveChat: React.FC<LiveChatProps> = ({
           ))
         )}
       </div>
+
+      {/* Error notice */}
+      {chatError && (
+        <div className="px-3 py-1.5 bg-red-500/10 border-t border-red-500/20 text-[11px] text-red-400 flex items-center justify-between">
+          <span>{chatError}</span>
+          <button type="button" onClick={() => setChatError(null)} className="underline ml-2">Dismiss</button>
+        </div>
+      )}
 
       {/* Input */}
       <form onSubmit={handleSend} className="p-3 border-t border-zinc-800 bg-zinc-900/40 flex items-center gap-2">

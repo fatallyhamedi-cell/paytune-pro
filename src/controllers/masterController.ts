@@ -1,1808 +1,2123 @@
-import { Request, Response } from "express";
-import { getDbStore, notifyMutation } from "../config/supabase_mock";
-import { notifyWithdrawalStatus, notifyArtistApproved } from "../services/notificationService";
+import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import { rawSupabaseAdmin, supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
+import { getJwtSecret } from '../utils/jwtSecret';
+import { cacheService } from '../services/cacheService';
+import { notifyWithdrawalStatus, notifyArtistApproved } from '../services/notificationService';
 
-// In-memory or store-persisted admin logs
-function getLogsStore(): any[] {
-  const store = getDbStore();
-  if (!store.admin_logs) {
-    store.admin_logs = [];
-  }
-  return store.admin_logs;
+const getDb = () => rawSupabaseAdmin || supabaseAdmin;
+
+export interface AuditLogInput {
+  actorUserId?: string | null;
+  actorRole?: string | null;
+  actionKey: string;
+  targetEntityType?: string | null;
+  targetEntityId?: string | null;
+  targetUserId?: string | null;
+  description?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  success?: boolean;
+  failureReason?: string | null;
 }
 
-export function logAdminAction(admin: string, action: string, target: string, ip: string, details: string) {
-  const logs = getLogsStore();
-  const newLog = {
-    id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-    admin: admin || "master@paytune.com",
-    action,
-    target,
-    ip: ip || "127.0.0.1",
-    timestamp: new Date().toISOString(),
-    details
-  };
-  logs.unshift(newLog);
-  // Auto-retention: keep latest 500 logs
-  if (logs.length > 500) {
-    logs.splice(500);
+function sanitizeIp(raw?: string | null): string | null {
+  if (!raw) return null;
+  let cleaned = String(raw).split(',')[0].trim();
+  if (cleaned.startsWith('::ffff:')) cleaned = cleaned.slice(7);
+  const ipv4Regex = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+  const ipv6Regex = /^[0-9a-fA-F:]+$/;
+  if (ipv4Regex.test(cleaned) || ipv6Regex.test(cleaned)) {
+    return cleaned;
   }
-  notifyMutation();
+  return null;
+}
+
+function isUuid(val?: string | null): boolean {
+  if (!val) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 }
 
 /**
- * GET /api/master/stats
+ * Dual-signature admin audit logger persisting to public.admin_action_audit_logs
  */
-export const getMasterStats = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const users = store.profiles || [];
-    const artists = store.artists || [];
-    const videos = store.videos || [];
-    const purchases = store.purchases || [];
-    const withdrawals = store.withdrawals || [];
-    const settings = (store.platform_settings && store.platform_settings[0]) || {
-      commission_percentage: 30,
-      vat_percentage: 5,
-      auto_approve_artists: false
+export function logAdminAction(
+  arg1: AuditLogInput | string,
+  action?: string,
+  target?: string,
+  ip?: string,
+  details?: string
+) {
+  if (!isSupabaseConfigured()) return;
+
+  let payload: Record<string, any>;
+  if (typeof arg1 !== 'string') {
+    payload = {
+      actor_user_id: isUuid(arg1.actorUserId) ? arg1.actorUserId : null,
+      actor_role: arg1.actorRole || 'master_admin',
+      action_key: arg1.actionKey,
+      target_entity_type: arg1.targetEntityType || null,
+      target_entity_id: isUuid(arg1.targetEntityId) ? arg1.targetEntityId : null,
+      target_user_id: isUuid(arg1.targetUserId) ? arg1.targetUserId : null,
+      description: arg1.description || null,
+      ip_address: sanitizeIp(arg1.ipAddress),
+      user_agent: arg1.userAgent || null,
+      success: arg1.success !== undefined ? arg1.success : true,
+      failure_reason: arg1.failureReason || null,
     };
+  } else {
+    payload = {
+      actor_user_id: isUuid(arg1) ? arg1 : null,
+      actor_role: 'master_admin',
+      action_key: action || 'ADMIN_ACTION',
+      target_entity_type: target || null,
+      target_entity_id: isUuid(target) ? target : null,
+      description: details || `${arg1}: ${action} on ${target}`,
+      ip_address: sanitizeIp(ip),
+      success: true,
+    };
+  }
 
-    const totalUsers = users.length;
-    const totalArtists = artists.length;
-    const totalVideos = videos.length;
-    const totalPurchases = purchases.length;
-
-    // Financial calculations
-    const ownerCommissionRate = (settings.commission_percentage || 30) / 100;
-    const vatRate = (settings.vat_percentage || 5) / 100;
-
-    let totalVolume = 0;
-    let totalOwnerRevenue = 0;
-    let totalVat = 0;
-
-    purchases.forEach((p: any) => {
-      const amount = Number(p.amount_rwf || p.amount || 0);
-      totalVolume += amount;
-      if (p.owner_share_rwf) {
-        totalOwnerRevenue += Number(p.owner_share_rwf);
-      } else {
-        totalOwnerRevenue += Math.round(amount * ownerCommissionRate);
-      }
-
-      if (p.vat_amount_rwf) {
-        totalVat += Number(p.vat_amount_rwf);
-      } else {
-        totalVat += Math.round(amount * vatRate);
+  void getDb()
+    .from('admin_action_audit_logs')
+    .insert(payload)
+    .then(({ error }) => {
+      if (error) {
+        console.warn('[logAdminAction] Insert warning:', error.message);
       }
     });
+}
 
-    // Counts of actions needed
-    const pendingApprovals = artists.filter((a: any) => a.is_approved === false || a.status === "pending").length;
-    const pendingWithdrawals = withdrawals.filter((w: any) => (w.status || "pending").toLowerCase() === "pending").length;
+async function getPlatformConfigObject() {
+  const db = getDb();
+  const { data } = await db
+    .from('platform_settings')
+    .select('*')
+    .eq('setting_key', 'platform_config')
+    .maybeSingle();
 
-    res.json({
-      total_users: totalUsers,
-      total_artists: totalArtists,
-      total_videos: totalVideos,
-      total_purchases: totalPurchases,
-      total_revenue: totalOwnerRevenue, // Platform owner's net revenue
+  const stored = data?.setting_value && typeof data.setting_value === 'object' ? data.setting_value : {};
+  const vatPercentage = Number(stored.vat_percentage ?? process.env.VAT_PERCENTAGE ?? 5);
+  const artistSharePercentage = Number(process.env.ARTIST_SHARE_PERCENTAGE ?? 70);
+  const defaultCommission = 100 - artistSharePercentage;
+
+  return {
+    rowId: data?.id || null,
+    config: {
+      id: 'platform-config',
+      platform_name: stored.platform_name || 'PAYTUNE',
+      tagline: stored.tagline || 'Rwandan Music, Video & Live Streaming Platform',
+      logo_url: stored.logo_url || '/logo.png',
+      vat_percentage: vatPercentage,
+      owner_commission_percentage: Number(stored.owner_commission_percentage ?? defaultCommission),
+      commission_percentage: Number(stored.commission_percentage ?? defaultCommission),
+      min_withdrawal_amount: Number(stored.min_withdrawal_amount ?? process.env.MIN_WITHDRAWAL_RWF ?? 5000),
+      min_withdrawal: Number(stored.min_withdrawal ?? stored.min_withdrawal_amount ?? process.env.MIN_WITHDRAWAL_RWF ?? 5000),
+      owner_momo_number: stored.owner_momo_number ?? process.env.MTN_OWNER_PHONE ?? '',
+      momo_number: stored.momo_number ?? stored.owner_momo_number ?? process.env.MTN_OWNER_PHONE ?? '',
+      trending_days: Number(stored.trending_days ?? 7),
+      maintenance_mode: Boolean(stored.maintenance_mode),
+      maintenance_message:
+        stored.maintenance_message ||
+        'PAYTUNE is undergoing scheduled maintenance. We will be back shortly.',
+      auto_approve_artists: Boolean(stored.auto_approve_artists),
+      welcome_template:
+        stored.welcome_template ||
+        'Welcome to PAYTUNE! Enjoy streaming Rwandan music, videos, and live concerts.',
+      receipt_template:
+        stored.receipt_template ||
+        'Murakoze! Your payment for {{video_title}} was successful.',
+      gift_template:
+        stored.gift_template ||
+        'You received a PAYTUNE gift from {{sender_name}}!',
+      withdrawal_template:
+        stored.withdrawal_template ||
+        'Your withdrawal of {{amount}} RWF has been processed to {{phone}}.',
+    },
+  };
+}
+
+export const getMasterStats = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const [
+      usersCountRes,
+      artistsRes,
+      videosCountRes,
+      txRes,
+      pendingWithdrawalsRes,
+      platformCfg,
+    ] = await Promise.all([
+      db.from('profiles').select('user_id', { count: 'exact', head: true }),
+      db.from('artist_profiles').select('id, approval_status, record_status'),
+      db.from('videos').select('id', { count: 'exact', head: true }),
+      db
+        .from('financial_transactions')
+        .select('gross_amount, fee_amount, net_amount')
+        .eq('transaction_status', 'succeeded'),
+      db
+        .from('creator_withdrawal_requests')
+        .select('id', { count: 'exact', head: true })
+        .in('withdrawal_status', ['requested', 'under_review']),
+      getPlatformConfigObject(),
+    ]);
+
+    const commissionRate = platformCfg.config.commission_percentage / 100;
+    const txs = txRes.data || [];
+
+    let totalVolume = 0;
+    let totalVat = 0;
+    let totalOwnerRevenue = 0;
+
+    for (const tx of txs) {
+      const gross = Number(tx.gross_amount || 0);
+      const fee = Number(tx.fee_amount || 0);
+      const net = Number(tx.net_amount || Math.max(0, gross - fee));
+      totalVolume += gross;
+      totalVat += fee;
+      totalOwnerRevenue += Math.round(net * commissionRate);
+    }
+
+    const artists = artistsRes.data || [];
+    const pendingApprovals = artists.filter((a: any) => a.approval_status === 'pending').length;
+
+    return res.json({
+      total_users: usersCountRes.count || 0,
+      total_artists: artists.length,
+      total_videos: videosCountRes.count || 0,
+      total_purchases: txs.length,
+      total_revenue: totalOwnerRevenue,
       total_volume: totalVolume,
       total_vat: totalVat,
       pending_approvals: pendingApprovals,
-      pending_withdrawals: pendingWithdrawals,
-      auto_approve_artists: !!settings.auto_approve_artists,
-      currency: "RWF"
+      pending_withdrawals: pendingWithdrawalsRes.count || 0,
+      auto_approve_artists: platformCfg.config.auto_approve_artists,
+      currency: 'RWF',
     });
   } catch (error: any) {
-    console.error("getMasterStats error:", error);
-    res.status(500).json({ error: "Failed to load master dashboard stats" });
+    console.error('getMasterStats error:', error);
+    return res.status(500).json({ error: 'Failed to load master dashboard stats' });
   }
 };
 
-/**
- * GET /api/master/revenue
- * Query params: period (day, week, month, year)
- */
 export const getMasterRevenue = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const { period = "month" } = req.query;
-    const store = getDbStore();
-    const purchases = store.purchases || [];
-    const settings = (store.platform_settings && store.platform_settings[0]) || { commission_percentage: 30 };
-    const commissionRate = (settings.commission_percentage || 30) / 100;
-
-    let labels: string[] = [];
-    let values: number[] = [];
-    let grossValues: number[] = [];
-
+    const period = String(req.query.period || 'month');
     const now = new Date();
+    let sinceDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    if (period === 'day') sinceDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    else if (period === 'week') sinceDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (period === 'year') sinceDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
 
-    if (period === "day") {
-      // 24 hours of today
-      for (let h = 0; h < 24; h += 3) {
-        labels.push(`${String(h).padStart(2, '0')}:00`);
-        const hourVolume = Math.floor(Math.random() * 8000) + 1500;
-        grossValues.push(hourVolume);
-        values.push(Math.round(hourVolume * commissionRate));
+    const [{ data: txs }, platformCfg] = await Promise.all([
+      db
+        .from('financial_transactions')
+        .select('gross_amount, net_amount, processed_at, created_at')
+        .eq('transaction_status', 'succeeded')
+        .gte('created_at', sinceDate.toISOString()),
+      getPlatformConfigObject(),
+    ]);
+
+    const commissionRate = platformCfg.config.commission_percentage / 100;
+    const txList = txs || [];
+
+    const labels: string[] = [];
+    const grossValues: number[] = [];
+    const values: number[] = [];
+
+    if (period === 'day') {
+      const hourBuckets: Record<number, number> = {};
+      for (const tx of txList) {
+        const h = Math.floor(new Date(tx.processed_at || tx.created_at).getUTCHours() / 3) * 3;
+        hourBuckets[h] = (hourBuckets[h] || 0) + Number(tx.gross_amount || 0);
       }
-    } else if (period === "week") {
-      // Last 7 days
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      for (let h = 0; h < 24; h += 3) {
+        const g = hourBuckets[h] || 0;
+        labels.push(`${String(h).padStart(2, '0')}:00`);
+        grossValues.push(g);
+        values.push(Math.round(g * commissionRate));
+      }
+    } else if (period === 'week') {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const dayBuckets: Record<string, number> = {};
+      for (const tx of txList) {
+        const d = String(tx.processed_at || tx.created_at).slice(0, 10);
+        dayBuckets[d] = (dayBuckets[d] || 0) + Number(tx.gross_amount || 0);
+      }
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const key = d.toISOString().slice(0, 10);
+        const g = dayBuckets[key] || 0;
         labels.push(dayNames[d.getDay()]);
-        const dayVolume = Math.floor(Math.random() * 45000) + 12000;
-        grossValues.push(dayVolume);
-        values.push(Math.round(dayVolume * commissionRate));
+        grossValues.push(g);
+        values.push(Math.round(g * commissionRate));
       }
-    } else if (period === "year") {
-      // 12 months
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const currentMonth = now.getMonth();
+    } else if (period === 'year') {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthBuckets: Record<string, number> = {};
+      for (const tx of txList) {
+        const ym = String(tx.processed_at || tx.created_at).slice(0, 7);
+        monthBuckets[ym] = (monthBuckets[ym] || 0) + Number(tx.gross_amount || 0);
+      }
       for (let i = 11; i >= 0; i--) {
-        const mIndex = (currentMonth - i + 12) % 12;
-        labels.push(months[mIndex]);
-        const monthVolume = Math.floor(Math.random() * 320000) + 95000;
-        grossValues.push(monthVolume);
-        values.push(Math.round(monthVolume * commissionRate));
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const ym = d.toISOString().slice(0, 7);
+        const g = monthBuckets[ym] || 0;
+        labels.push(months[d.getMonth()]);
+        grossValues.push(g);
+        values.push(Math.round(g * commissionRate));
       }
     } else {
-      // Default: 30 days of the month (grouped by 5-day intervals)
-      for (let d = 1; d <= 30; d += 3) {
-        labels.push(`Day ${d}`);
-        const slotVolume = Math.floor(Math.random() * 65000) + 18000;
-        grossValues.push(slotVolume);
-        values.push(Math.round(slotVolume * commissionRate));
+      const dayBuckets: Record<string, number> = {};
+      for (const tx of txList) {
+        const d = String(tx.processed_at || tx.created_at).slice(0, 10);
+        dayBuckets[d] = (dayBuckets[d] || 0) + Number(tx.gross_amount || 0);
+      }
+      for (let i = 27; i >= 0; i -= 3) {
+        let g = 0;
+        for (let k = 0; k < 3; k++) {
+          const d = new Date(now.getTime() - (i - k) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+          g += dayBuckets[d] || 0;
+        }
+        const labelDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        labels.push(labelDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        grossValues.push(g);
+        values.push(Math.round(g * commissionRate));
       }
     }
 
-    // Incorporate actual purchase data if available
-    let totalRevenueCalculated = values.reduce((sum, v) => sum + v, 0);
-
-    res.json({
+    const totalRevenueCalculated = values.reduce((s, v) => s + v, 0);
+    return res.json({
       period,
       labels,
-      values, // Owner share
-      gross_values: grossValues, // Total GMV
+      values,
+      gross_values: grossValues,
       total_revenue: totalRevenueCalculated,
-      currency: "RWF"
+      currency: 'RWF',
     });
   } catch (error: any) {
-    console.error("getMasterRevenue error:", error);
-    res.status(500).json({ error: "Failed to generate revenue chart data" });
+    console.error('getMasterRevenue error:', error);
+    return res.status(500).json({ error: 'Failed to generate revenue chart data' });
   }
 };
 
-/**
- * GET /api/master/activity
- * Limit 20 recent events
- */
-export const getMasterActivity = async (req: Request, res: Response) => {
+export const getMasterActivity = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const purchases = store.purchases || [];
-    const profiles = store.profiles || [];
-    const videos = store.videos || [];
-    const withdrawals = store.withdrawals || [];
+    const [txRes, artistsRes, withdrawalsRes, logsRes] = await Promise.all([
+      db
+        .from('financial_transactions')
+        .select('id, gross_amount, currency_code, revenue_source, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8),
+      db
+        .from('artist_profiles')
+        .select('id, artist_name, approval_status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8),
+      db
+        .from('creator_withdrawal_requests')
+        .select('id, withdrawal_reference, requested_amount, currency_code, withdrawal_status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8),
+      db
+        .from('admin_action_audit_logs')
+        .select('id, action_key, description, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8),
+    ]);
 
-    const activities: any[] = [];
-
-    // Recent purchases
-    purchases.slice(-8).reverse().forEach((p: any) => {
-      activities.push({
-        id: `act-p-${p.id || Math.random()}`,
-        type: "purchase",
-        title: "Video Purchase",
-        description: `${p.user_name || "User"} paid ${Number(p.amount_rwf || p.amount || 1000).toLocaleString()} RWF for "${p.video_title || 'Video'}"`,
-        timestamp: p.created_at || new Date().toISOString(),
-        badge: "PAID",
-        badgeColor: "bg-purple-600/20 text-purple-400"
+    const feed: any[] = [];
+    for (const tx of txRes.data || []) {
+      feed.push({
+        id: `tx-${tx.id}`,
+        type: 'payment',
+        title: `Transaction (${tx.revenue_source || 'payment'})`,
+        description: `${Number(tx.gross_amount || 0).toLocaleString()} ${tx.currency_code || 'RWF'}`,
+        timestamp: tx.created_at,
       });
-    });
-
-    // Recent user registrations
-    profiles.slice(-5).reverse().forEach((u: any) => {
-      activities.push({
-        id: `act-u-${u.id || Math.random()}`,
-        type: "registration",
-        title: "New User Registration",
-        description: `${u.full_name || u.email} joined PAYTUNE`,
-        timestamp: u.created_at || new Date().toISOString(),
-        badge: "USER",
-        badgeColor: "bg-blue-500/20 text-blue-400"
+    }
+    for (const a of artistsRes.data || []) {
+      feed.push({
+        id: `art-${a.id}`,
+        type: 'artist',
+        title: 'Creator Registration',
+        description: `${a.artist_name} (${a.approval_status})`,
+        timestamp: a.created_at,
       });
-    });
-
-    // Recent video uploads
-    videos.slice(-5).reverse().forEach((v: any) => {
-      activities.push({
-        id: `act-v-${v.id || Math.random()}`,
-        type: "upload",
-        title: "Video Uploaded",
-        description: `"${v.title}" published by ${v.artist_name || 'Artist'} (${v.price_rwf ? v.price_rwf + ' RWF' : 'Free'})`,
-        timestamp: v.uploaded_at || v.created_at || new Date().toISOString(),
-        badge: "VIDEO",
-        badgeColor: "bg-purple-500/20 text-purple-400"
+    }
+    for (const w of withdrawalsRes.data || []) {
+      feed.push({
+        id: `wd-${w.id}`,
+        type: 'withdrawal',
+        title: `Withdrawal ${w.withdrawal_status}`,
+        description: `${w.withdrawal_reference}: ${Number(w.requested_amount || 0).toLocaleString()} ${w.currency_code || 'RWF'}`,
+        timestamp: w.created_at,
       });
-    });
-
-    // Recent withdrawals
-    withdrawals.slice(-5).reverse().forEach((w: any) => {
-      activities.push({
-        id: `act-w-${w.id || Math.random()}`,
-        type: "withdrawal",
-        title: "Withdrawal Request",
-        description: `${w.artist_name || 'Artist'} requested ${Number(w.amount || 0).toLocaleString()} RWF to ${w.phone || w.momo_number || 'Mobile Money'}`,
-        timestamp: w.created_at || w.requested_at || new Date().toISOString(),
-        badge: (w.status || "pending").toUpperCase(),
-        badgeColor: (w.status === "completed") ? "bg-emerald-500/20 text-emerald-400" : "bg-purple-600/20 text-purple-400"
+    }
+    for (const l of logsRes.data || []) {
+      feed.push({
+        id: `log-${l.id}`,
+        type: 'audit',
+        title: l.action_key,
+        description: l.description || '',
+        timestamp: l.created_at,
       });
-    });
+    }
 
-    // Sort by newest first and limit to 20
-    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    res.json(activities.slice(0, 20));
-  } catch (error: any) {
-    console.error("getMasterActivity error:", error);
-    res.status(500).json({ error: "Failed to fetch platform activity" });
+    feed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return res.json(feed.slice(0, 20));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/top-content
- */
-export const getMasterTopContent = async (req: Request, res: Response) => {
+export const getMasterTopContent = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const videos = store.videos || [];
-    const artists = store.artists || [];
-    const users = store.profiles || [];
+    const [videosRes, artistsRes, txRes] = await Promise.all([
+      db.from('videos').select('*').order('created_at', { ascending: false }).limit(100),
+      db.from('artist_profiles').select('id, artist_name'),
+      db
+        .from('financial_transactions')
+        .select('source_record_id, gross_amount')
+        .eq('transaction_status', 'succeeded'),
+    ]);
 
-    // Top 10 videos by views
-    const topVideos = [...videos]
-      .sort((a: any, b: any) => (b.views || 0) - (a.views || 0))
-      .slice(0, 10)
-      .map((v: any) => ({
-        id: v.id,
-        title: v.title,
-        artist_name: v.artist_name || "Unknown Artist",
-        thumbnail_url: v.thumbnail_url || "",
-        views: v.views || 0,
-        price_rwf: v.price_rwf || 0,
-        earnings: Math.round((v.views || 0) * 0.3 * (v.price_rwf || 500)),
-        category: v.category || "Music"
-      }));
+    const artistMap = new Map((artistsRes.data || []).map((a: any) => [a.id, a.artist_name]));
+    const revByVideo: Record<string, number> = {};
+    for (const tx of txRes.data || []) {
+      if (tx.source_record_id) {
+        revByVideo[tx.source_record_id] = (revByVideo[tx.source_record_id] || 0) + Number(tx.gross_amount || 0);
+      }
+    }
 
-    // Top 5 artists by earnings
-    const topArtists = [...artists]
-      .sort((a: any, b: any) => (b.total_earnings || 0) - (a.total_earnings || 0))
-      .slice(0, 5)
-      .map((a: any) => ({
-        id: a.id,
-        full_name: a.full_name,
-        profile_image: a.profile_image || "",
-        total_earnings: a.total_earnings || 0,
-        subscribers: a.subscriber_count || 0,
-        video_count: (videos.filter((v: any) => v.artist_id === a.id)).length,
-        status: a.is_approved !== false ? "approved" : "pending"
-      }));
+    const items = (videosRes.data || [])
+      .map((v: any) => {
+        const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
+        return {
+          id: v.id,
+          title: v.title,
+          artist_name: artistMap.get(v.artist_profile_id) || meta.artist_name || 'Creator',
+          thumbnail_url: meta.thumbnail_url || '',
+          views: Number(meta.view_count ?? meta.views ?? 0),
+          revenue: revByVideo[v.id] || 0,
+          category: meta.category || 'Music',
+        };
+      })
+      .sort((a, b) => b.revenue - a.revenue || b.views - a.views)
+      .slice(0, 10);
 
-    // Top 5 users by spend
-    const topUsers = [...users]
-      .sort((a: any, b: any) => (b.total_spent || 0) - (a.total_spent || 0))
-      .slice(0, 5)
-      .map((u: any) => ({
-        id: u.id,
-        name: u.full_name || u.email,
-        email: u.email,
-        total_spent: u.total_spent || 0,
-        join_date: u.created_at || "2026-01-01"
-      }));
-
-    res.json({
-      top_videos: topVideos,
-      top_artists: topArtists,
-      top_users: topUsers
-    });
-  } catch (error: any) {
-    console.error("getMasterTopContent error:", error);
-    res.status(500).json({ error: "Failed to load top content" });
+    return res.json(items);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/artists
- */
 export const getMasterArtists = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const artists = store.artists || [];
-    const videos = store.videos || [];
-    const { status, search, sort = "joined", limit = 50, offset = 0 } = req.query;
+    const { status, search } = req.query;
+    const [artistsRes, videosRes, followsRes, earningRes] = await Promise.all([
+      db.from('artist_profiles').select('*').order('created_at', { ascending: false }),
+      db.from('videos').select('artist_profile_id'),
+      db.from('artist_follows').select('artist_id'),
+      db.from('creator_earning_accounts').select('creator_channel_id, available_balance, pending_balance, settled_total'),
+    ]);
 
-    let filtered = artists.map((a: any) => {
-      const artistVideos = videos.filter((v: any) => v.artist_id === a.id);
-      const isApproved = a.is_approved !== false && a.status !== "pending" && a.status !== "blocked";
-      let computedStatus = a.status || (isApproved ? "approved" : "pending");
-      if (a.is_blocked) computedStatus = "blocked";
+    if (artistsRes.error) return res.status(500).json({ error: artistsRes.error.message });
 
+    const { data: channels } = await db.from('creator_channels').select('id, owner_user_id');
+    const channelByOwner = new Map<string, string>((channels || []).map((c: any) => [String(c.owner_user_id), String(c.id)]));
+
+    const videoCountMap: Record<string, number> = {};
+    for (const v of videosRes.data || []) {
+      if (v.artist_profile_id) videoCountMap[v.artist_profile_id] = (videoCountMap[v.artist_profile_id] || 0) + 1;
+    }
+
+    const followCountMap: Record<string, number> = {};
+    for (const f of followsRes.data || []) {
+      followCountMap[f.artist_id] = (followCountMap[f.artist_id] || 0) + 1;
+    }
+
+    const earningsByChannel: Record<string, number> = {};
+    for (const e of earningRes.data || []) {
+      const total = Number(e.available_balance || 0) + Number(e.pending_balance || 0) + Number(e.settled_total || 0);
+      earningsByChannel[e.creator_channel_id] = (earningsByChannel[e.creator_channel_id] || 0) + total;
+    }
+
+    let list = (artistsRes.data || []).map((a: any) => {
+      const ownerId = a.primary_contact_user_id || a.created_by_user_id;
+      const chId = ownerId ? channelByOwner.get(ownerId) : null;
       return {
         id: a.id,
-        user_id: a.user_id,
-        name: a.full_name,
-        email: a.email || `${a.username || 'artist'}@paytune.com`,
-        phone: a.phone || "0780000000",
-        profile_image: a.profile_image || "",
-        status: computedStatus,
-        is_verified: !!a.is_verified,
-        video_count: artistVideos.length,
-        total_earnings: a.total_earnings || 0,
-        pending_balance: a.pending_balance || 0,
-        subscribers: a.subscriber_count || 0,
-        join_date: a.join_date || a.created_at || "2024-01-01T00:00:00Z"
+        user_id: ownerId,
+        full_name: a.artist_name,
+        username: a.artist_handle,
+        bio: a.bio_en || '',
+        profile_image: a.avatar_path || '',
+        country_code: a.country_code || 'RW',
+        is_approved: a.approval_status === 'approved',
+        is_blocked: a.record_status === 'suspended',
+        is_verified: a.verification_status === 'verified',
+        status: a.record_status === 'suspended' ? 'blocked' : a.approval_status,
+        videos_count: videoCountMap[a.id] || 0,
+        subscriber_count: followCountMap[a.id] || 0,
+        total_earnings: chId ? earningsByChannel[chId] || 0 : 0,
+        created_at: a.created_at,
       };
     });
 
-    // Filter by status
-    if (status && status !== "all") {
-      filtered = filtered.filter((a: any) => a.status === status);
+    if (status && status !== 'all') {
+      const st = String(status).toLowerCase();
+      list = list.filter((a) => a.status === st);
     }
-
-    // Search
     if (search) {
       const q = String(search).toLowerCase();
-      filtered = filtered.filter((a: any) =>
-        a.name.toLowerCase().includes(q) ||
-        a.email.toLowerCase().includes(q) ||
-        a.phone.includes(q)
+      list = list.filter(
+        (a) => a.full_name.toLowerCase().includes(q) || a.username.toLowerCase().includes(q)
       );
     }
 
-    // Sort
-    if (sort === "name") {
-      filtered.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sort === "earnings") {
-      filtered.sort((a, b) => b.total_earnings - a.total_earnings);
-    } else if (sort === "videos") {
-      filtered.sort((a, b) => b.video_count - a.video_count);
-    } else {
-      // Joined newest first
-      filtered.sort((a, b) => new Date(b.join_date).getTime() - new Date(a.join_date).getTime());
-    }
-
-    const total = filtered.length;
-    const paginated = filtered.slice(Number(offset), Number(offset) + Number(limit));
-
-    res.json({
-      artists: paginated,
-      total,
-      limit: Number(limit),
-      offset: Number(offset)
-    });
-  } catch (error: any) {
-    console.error("getMasterArtists error:", error);
-    res.status(500).json({ error: "Failed to load artists list" });
+    return res.json(list);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/master/artists/:id/approve
- */
-export const approveArtist = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const artist = (store.artists || []).find((a: any) => a.id === id);
-    if (!artist) {
-      return res.status(404).json({ error: "Artist not found" });
-    }
-
-    artist.is_approved = true;
-    artist.status = "approved";
-    artist.is_verified = true;
-    artist.is_blocked = false;
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "ARTIST_APPROVED",
-      `${artist.full_name} (${artist.id})`,
-      req.ip || "127.0.0.1",
-      `Approved artist account and verified official credentials.`
-    );
-
-    notifyMutation();
-    try {
-      notifyArtistApproved(artist.id, artist.full_name || 'Artist');
-    } catch (notifErr) {
-      console.warn("Artist approval notification error:", notifErr);
-    }
-    res.json({ message: "Artist successfully approved", artist });
-  } catch (error: any) {
-    console.error("approveArtist error:", error);
-    res.status(500).json({ error: "Failed to approve artist" });
-  }
-};
-
-/**
- * PUT /api/master/artists/:id/block
- */
-export const blockArtist = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const artist = (store.artists || []).find((a: any) => a.id === id);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
-
-    artist.status = "blocked";
-    artist.is_blocked = true;
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "ARTIST_BLOCKED",
-      `${artist.full_name} (${artist.id})`,
-      req.ip || "127.0.0.1",
-      `Blocked artist from uploading videos or accessing studio.`
-    );
-
-    notifyMutation();
-    res.json({ message: "Artist successfully blocked", artist });
-  } catch (error: any) {
-    console.error("blockArtist error:", error);
-    res.status(500).json({ error: "Failed to block artist" });
-  }
-};
-
-/**
- * PUT /api/master/artists/:id/unblock
- */
-export const unblockArtist = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const artist = (store.artists || []).find((a: any) => a.id === id);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
-
-    artist.status = "approved";
-    artist.is_blocked = false;
-    artist.is_approved = true;
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "ARTIST_UNBLOCKED",
-      `${artist.full_name} (${artist.id})`,
-      req.ip || "127.0.0.1",
-      `Restored artist account to active status.`
-    );
-
-    notifyMutation();
-    res.json({ message: "Artist successfully unblocked", artist });
-  } catch (error: any) {
-    console.error("unblockArtist error:", error);
-    res.status(500).json({ error: "Failed to unblock artist" });
-  }
-};
-
-/**
- * DELETE /api/master/artists/:id
- */
-export const deleteArtist = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const index = (store.artists || []).findIndex((a: any) => a.id === id);
-    if (index === -1) return res.status(404).json({ error: "Artist not found" });
-
-    const deletedArtist = store.artists[index];
-    store.artists.splice(index, 1);
-
-    // Cascade delete artist's videos
-    if (store.videos) {
-      store.videos = store.videos.filter((v: any) => v.artist_id !== id);
-    }
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "ARTIST_DELETED",
-      `${deletedArtist.full_name} (${deletedArtist.id})`,
-      req.ip || "127.0.0.1",
-      `Hard deleted artist and cascade deleted all associated videos.`
-    );
-
-    notifyMutation();
-    res.json({ message: "Artist and associated content successfully deleted" });
-  } catch (error: any) {
-    console.error("deleteArtist error:", error);
-    res.status(500).json({ error: "Failed to delete artist" });
-  }
-};
-
-/**
- * GET /api/master/artists/:id
- */
 export const getArtistDetails = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
   const { id } = req.params;
+
   try {
-    const store = getDbStore();
-    const artist = (store.artists || []).find((a: any) => a.id === id);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const { data: artist } = await db.from('artist_profiles').select('*').eq('id', id).maybeSingle();
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
 
-    const videos = (store.videos || []).filter((v: any) => v.artist_id === id);
-    const withdrawals = (store.withdrawals || []).filter((w: any) => w.artist_id === id);
-    const purchases = (store.purchases || []).filter((p: any) => p.artist_id === id);
+    const ownerId = artist.primary_contact_user_id || artist.created_by_user_id;
+    const [videosRes, followsRes, channelRes] = await Promise.all([
+      db.from('videos').select('*').eq('artist_profile_id', id).order('created_at', { ascending: false }),
+      db.from('artist_follows').select('id', { count: 'exact', head: true }).eq('artist_id', id),
+      ownerId ? db.from('creator_channels').select('*').eq('owner_user_id', ownerId).limit(1).maybeSingle() : Promise.resolve({ data: null }),
+    ]);
 
-    res.json({
-      artist,
-      videos,
-      withdrawals,
-      purchases,
-      total_videos: videos.length,
-      subscribers: artist.subscriber_count || 0
+    return res.json({
+      id: artist.id,
+      full_name: artist.artist_name,
+      username: artist.artist_handle,
+      bio: artist.bio_en || '',
+      profile_image: artist.avatar_path || '',
+      banner_image: artist.banner_path || '',
+      approval_status: artist.approval_status,
+      record_status: artist.record_status,
+      verification_status: artist.verification_status,
+      creator_channel_id: channelRes.data?.id || null,
+      subscriber_count: followsRes.count || 0,
+      videos: (videosRes.data || []).map((v: any) => ({
+        id: v.id,
+        title: v.title,
+        views: Number(v.metadata?.view_count ?? v.metadata?.views ?? 0),
+        created_at: v.created_at,
+      })),
+      created_at: artist.created_at,
     });
-  } catch (error: any) {
-    console.error("getArtistDetails error:", error);
-    res.status(500).json({ error: "Failed to load artist details" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/master/artists/impersonate/:id
- */
-export const impersonateArtist = async (req: Request, res: Response) => {
+export const approveArtist = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
   const { id } = req.params;
+  const adminUser = (req as any).user;
+  const now = new Date().toISOString();
+
   try {
-    const store = getDbStore();
-    const artist = (store.artists || []).find((a: any) => a.id === id);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const { data: artist, error } = await db
+      .from('artist_profiles')
+      .update({
+        approval_status: 'approved',
+        verification_status: 'verified',
+        record_status: 'active',
+        approved_by_user_id: isUuid(adminUser?.id) ? adminUser.id : null,
+        approved_at: now,
+        updated_at: now,
+      })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
 
-    const impersonationToken = `impersonate_${artist.id}`;
+    if (error) return res.status(500).json({ error: error.message });
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "IMPERSONATION_STARTED",
-      `${artist.full_name} (${artist.id})`,
-      req.ip || "127.0.0.1",
-      `Master admin generated support impersonation session for artist dashboard.`
+    const ownerId = artist.primary_contact_user_id || artist.created_by_user_id;
+    if (ownerId) {
+      await db
+        .from('creator_channels')
+        .update({
+          approval_status: 'approved',
+          verification_status: 'verified',
+          record_status: 'active',
+          approved_at: now,
+          updated_at: now,
+        })
+        .eq('owner_user_id', ownerId);
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'ARTIST_APPROVED',
+      targetEntityType: 'artist_profile',
+      targetEntityId: id,
+      description: `Approved artist ${artist.artist_name}`,
+      ipAddress: req.ip,
+    });
+
+    notifyArtistApproved(id, artist.artist_name);
+    return res.json({ message: 'Artist approved successfully', artist });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const blockArtist = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+  const now = new Date().toISOString();
+
+  try {
+    const { data: artist, error } = await db
+      .from('artist_profiles')
+      .update({ record_status: 'suspended', updated_at: now })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
+
+    const ownerId = artist.primary_contact_user_id || artist.created_by_user_id;
+    if (ownerId) {
+      await db
+        .from('creator_channels')
+        .update({ record_status: 'suspended', updated_at: now })
+        .eq('owner_user_id', ownerId);
+    }
+
+    await cacheService.del('paytune:videos:catalog:all');
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'ARTIST_BLOCKED',
+      targetEntityType: 'artist_profile',
+      targetEntityId: id,
+      description: `Suspended artist ${artist.artist_name}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: 'Artist blocked successfully', artist });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const unblockArtist = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+  const now = new Date().toISOString();
+
+  try {
+    const { data: artist, error } = await db
+      .from('artist_profiles')
+      .update({ record_status: 'active', updated_at: now })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
+
+    const ownerId = artist.primary_contact_user_id || artist.created_by_user_id;
+    if (ownerId) {
+      await db
+        .from('creator_channels')
+        .update({ record_status: 'active', updated_at: now })
+        .eq('owner_user_id', ownerId);
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'ARTIST_UNBLOCKED',
+      targetEntityType: 'artist_profile',
+      targetEntityId: id,
+      description: `Reactivated artist ${artist.artist_name}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: 'Artist unblocked successfully', artist });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const deleteArtist = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+
+  try {
+    const { data: artist } = await db.from('artist_profiles').select('id, artist_name').eq('id', id).maybeSingle();
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
+
+    const { error } = await db.from('artist_profiles').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
+
+    await cacheService.del('paytune:videos:catalog:all');
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'ARTIST_DELETED',
+      targetEntityType: 'artist_profile',
+      targetEntityId: id,
+      description: `Deleted artist ${artist.artist_name}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: 'Artist deleted successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const impersonateArtist = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const jwtSecret = getJwtSecret();
+
+  const { id } = req.params;
+  const db = getDb();
+  const adminUser = (req as any).user;
+
+  try {
+    const { data: artist } = await db.from('artist_profiles').select('*').eq('id', id).maybeSingle();
+    if (!artist) return res.status(404).json({ error: 'Artist not found' });
+
+    const ownerId = artist.primary_contact_user_id || artist.created_by_user_id;
+    const token = jwt.sign(
+      {
+        id: ownerId,
+        userId: ownerId,
+        artistId: artist.id,
+        role: 'artist',
+        impersonatedBy: adminUser?.id || null,
+      },
+      jwtSecret,
+      { expiresIn: '2h' }
     );
 
-    res.json({
-      token: impersonationToken,
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'ARTIST_IMPERSONATED',
+      targetEntityType: 'artist_profile',
+      targetEntityId: artist.id,
+      targetUserId: ownerId,
+      description: `Issued scoped studio impersonation token for ${artist.artist_name}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      token,
       artist: {
         id: artist.id,
-        name: artist.full_name,
-        email: artist.email,
-        profile_image: artist.profile_image
+        full_name: artist.artist_name,
+        username: artist.artist_handle,
       },
-      redirect_url: `/artist/dashboard`
     });
-  } catch (error: any) {
-    console.error("impersonateArtist error:", error);
-    res.status(500).json({ error: "Failed to create impersonation session" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/master/artists/bulk-action
- */
 export const bulkArtistAction = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
   const { action, ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: "No artist IDs specified" });
+    return res.status(400).json({ error: 'No artist IDs provided' });
   }
 
-  try {
-    const store = getDbStore();
-    let count = 0;
+  const db = getDb();
+  const adminUser = (req as any).user;
+  const now = new Date().toISOString();
 
-    ids.forEach((id: string) => {
-      const artist = (store.artists || []).find((a: any) => a.id === id);
-      if (artist) {
-        count++;
-        if (action === "approve") {
-          artist.is_approved = true;
-          artist.status = "approved";
-          artist.is_blocked = false;
-        } else if (action === "block") {
-          artist.status = "blocked";
-          artist.is_blocked = true;
-        }
-      }
+  try {
+    if (action === 'approve') {
+      await db
+        .from('artist_profiles')
+        .update({ approval_status: 'approved', verification_status: 'verified', approved_at: now, updated_at: now })
+        .in('id', ids);
+    } else if (action === 'block') {
+      await db.from('artist_profiles').update({ record_status: 'suspended', updated_at: now }).in('id', ids);
+    } else if (action === 'unblock') {
+      await db.from('artist_profiles').update({ record_status: 'active', updated_at: now }).in('id', ids);
+    } else if (action === 'delete') {
+      await db.from('artist_profiles').delete().in('id', ids);
+    } else {
+      return res.status(400).json({ error: 'Invalid bulk action' });
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: `ARTIST_BULK_${String(action).toUpperCase()}`,
+      targetEntityType: 'artist_profile',
+      description: `Bulk ${action} on ${ids.length} artists`,
+      ipAddress: req.ip,
     });
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      `BULK_ARTIST_${action.toUpperCase()}`,
-      `${count} Artists`,
-      req.ip || "127.0.0.1",
-      `Bulk executed ${action} across ${count} artist records.`
-    );
-
-    notifyMutation();
-    res.json({ message: `Bulk action '${action}' applied to ${count} artists`, count });
-  } catch (error: any) {
-    console.error("bulkArtistAction error:", error);
-    res.status(500).json({ error: "Bulk operation failed" });
+    return res.json({ success: true, count: ids.length, action });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/master/artists/toggle-auto-approve
- * Feature: Automatical Approval Artist
- */
 export const toggleAutoApproveArtist = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const adminUser = (req as any).user;
+
   try {
-    const store = getDbStore();
-    if (!store.platform_settings || !store.platform_settings[0]) {
-      store.platform_settings = [{ id: "platform-config" }];
-    }
-    const settings = store.platform_settings[0];
-    const { enabled, approve_existing } = req.body;
+    const { rowId, config } = await getPlatformConfigObject();
+    const nextValue =
+      req.body?.auto_approve_artists !== undefined
+        ? Boolean(req.body.auto_approve_artists)
+        : !config.auto_approve_artists;
 
-    settings.auto_approve_artists = typeof enabled === "boolean" ? enabled : !settings.auto_approve_artists;
+    const updatedValue = { ...config, auto_approve_artists: nextValue };
 
-    let approvedCount = 0;
-    if (settings.auto_approve_artists && approve_existing) {
-      (store.artists || []).forEach((a: any) => {
-        if (a.is_approved === false || a.status === "pending") {
-          a.is_approved = true;
-          a.status = "approved";
-          a.is_verified = true;
-          approvedCount++;
-        }
+    if (rowId) {
+      await db
+        .from('platform_settings')
+        .update({
+          setting_value: updatedValue,
+          updated_by: isUuid(adminUser?.id) ? adminUser.id : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', rowId);
+    } else {
+      await db.from('platform_settings').insert({
+        setting_key: 'platform_config',
+        setting_group: 'general',
+        setting_value: updatedValue,
+        value_type: 'json',
+        is_public: false,
+        updated_by: isUuid(adminUser?.id) ? adminUser.id : null,
       });
     }
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "AUTO_APPROVE_TOGGLED",
-      `Settings (auto_approve_artists = ${settings.auto_approve_artists})`,
-      req.ip || "127.0.0.1",
-      `Auto-approval mode changed to ${settings.auto_approve_artists}. Auto-approved ${approvedCount} pending artists.`
-    );
-
-    notifyMutation();
-    res.json({
-      auto_approve_artists: settings.auto_approve_artists,
-      approved_existing_count: approvedCount,
-      message: `Automatic artist approval is now ${settings.auto_approve_artists ? 'ENABLED' : 'DISABLED'}`
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'AUTO_APPROVE_ARTISTS_TOGGLED',
+      targetEntityType: 'platform_settings',
+      description: `Set auto_approve_artists = ${nextValue}`,
+      ipAddress: req.ip,
     });
-  } catch (error: any) {
-    console.error("toggleAutoApproveArtist error:", error);
-    res.status(500).json({ error: "Failed to toggle automatic artist approval" });
+
+    return res.json({ auto_approve_artists: nextValue, success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/users
- */
 export const getMasterUsers = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const profiles = store.profiles || [];
-    const purchases = store.purchases || [];
-    const { status, search, sort = "joined", limit = 50, offset = 0 } = req.query;
+    const { search, status } = req.query;
+    const [profilesRes, rolesRes, txRes, authUsersRes] = await Promise.all([
+      db.from('profiles').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('user_role_assignments').select('user_id, role').eq('is_active', true),
+      db
+        .from('financial_transactions')
+        .select('user_id, gross_amount')
+        .eq('transaction_status', 'succeeded'),
+      db.auth.admin.listUsers({ perPage: 200 }).catch(() => ({ data: { users: [] } })),
+    ]);
 
-    let list = profiles.map((u: any) => {
-      const userPurchases = purchases.filter((p: any) => p.user_id === u.id);
-      const computedSpent = userPurchases.reduce((acc: number, cur: any) => acc + Number(cur.amount_rwf || cur.amount || 0), 0);
-      const isBlocked = !!u.is_blocked;
+    if (profilesRes.error) return res.status(500).json({ error: profilesRes.error.message });
 
-      return {
-        id: u.id,
-        name: u.full_name || u.name || "User",
-        email: u.email || "",
-        phone: u.phone || "",
-        avatar: u.avatar_url || "",
-        status: isBlocked ? "blocked" : "active",
-        total_spent: u.total_spent || computedSpent || 0,
-        purchases_count: userPurchases.length,
-        join_date: u.created_at || new Date().toISOString()
-      };
-    });
-
-    if (status && status !== "all") {
-      list = list.filter((u: any) => u.status === status);
+    const roleMap = new Map((rolesRes.data || []).map((r: any) => [r.user_id, r.role]));
+    const emailMap = new Map((authUsersRes.data?.users || []).map((u: any) => [u.id, u.email]));
+    const spentMap: Record<string, number> = {};
+    for (const tx of txRes.data || []) {
+      if (tx.user_id) spentMap[tx.user_id] = (spentMap[tx.user_id] || 0) + Number(tx.gross_amount || 0);
     }
 
+    let list = (profilesRes.data || []).map((p: any) => ({
+      id: p.user_id,
+      email: emailMap.get(p.user_id) || '',
+      full_name: p.display_name || p.username || 'User',
+      username: p.username || '',
+      avatar_url: p.avatar_storage_path || '',
+      role: roleMap.get(p.user_id) || 'user',
+      status: p.account_status === 'suspended' ? 'blocked' : p.account_status || 'active',
+      is_blocked: p.account_status === 'suspended',
+      total_spent: spentMap[p.user_id] || 0,
+      created_at: p.created_at,
+    }));
+
+    if (status && status !== 'all') {
+      list = list.filter((u) => u.status === String(status).toLowerCase());
+    }
     if (search) {
       const q = String(search).toLowerCase();
-      list = list.filter((u: any) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+      list = list.filter(
+        (u) =>
+          u.full_name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.username.toLowerCase().includes(q)
+      );
     }
 
-    if (sort === "name") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sort === "spent") {
-      list.sort((a, b) => b.total_spent - a.total_spent);
-    } else {
-      list.sort((a, b) => new Date(b.join_date).getTime() - new Date(a.join_date).getTime());
-    }
-
-    const total = list.length;
-    const paginated = list.slice(Number(offset), Number(offset) + Number(limit));
-
-    res.json({
-      users: paginated,
-      total,
-      limit: Number(limit),
-      offset: Number(offset)
-    });
-  } catch (error: any) {
-    console.error("getMasterUsers error:", error);
-    res.status(500).json({ error: "Failed to load users" });
+    return res.json(list);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/master/users/:id/block
- */
 export const blockUser = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
   const { id } = req.params;
+  const adminUser = (req as any).user;
+
   try {
-    const store = getDbStore();
-    const user = (store.profiles || []).find((u: any) => u.id === id);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const { data, error } = await db
+      .from('profiles')
+      .update({ account_status: 'suspended', updated_at: new Date().toISOString() })
+      .eq('user_id', id)
+      .select('*')
+      .maybeSingle();
 
-    user.is_blocked = true;
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'User not found' });
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "USER_BLOCKED",
-      `${user.full_name || user.email} (${user.id})`,
-      req.ip || "127.0.0.1",
-      `Blocked user account from purchasing or viewing videos.`
-    );
-
-    notifyMutation();
-    res.json({ message: "User blocked successfully", user });
-  } catch (error: any) {
-    console.error("blockUser error:", error);
-    res.status(500).json({ error: "Failed to block user" });
-  }
-};
-
-/**
- * PUT /api/master/users/:id/unblock
- */
-export const unblockUser = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const user = (store.profiles || []).find((u: any) => u.id === id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    user.is_blocked = false;
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "USER_UNBLOCKED",
-      `${user.full_name || user.email} (${user.id})`,
-      req.ip || "127.0.0.1",
-      `Unblocked user account.`
-    );
-
-    notifyMutation();
-    res.json({ message: "User unblocked successfully", user });
-  } catch (error: any) {
-    console.error("unblockUser error:", error);
-    res.status(500).json({ error: "Failed to unblock user" });
-  }
-};
-
-/**
- * DELETE /api/master/users/:id
- */
-export const deleteUser = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const index = (store.profiles || []).findIndex((u: any) => u.id === id);
-    if (index === -1) return res.status(404).json({ error: "User not found" });
-
-    const deleted = store.profiles[index];
-    store.profiles.splice(index, 1);
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "USER_DELETED",
-      `${deleted.full_name || deleted.email} (${deleted.id})`,
-      req.ip || "127.0.0.1",
-      `Removed user profile record.`
-    );
-
-    notifyMutation();
-    res.json({ message: "User deleted successfully" });
-  } catch (error: any) {
-    console.error("deleteUser error:", error);
-    res.status(500).json({ error: "Failed to delete user" });
-  }
-};
-
-/**
- * GET /api/master/users/:id
- */
-export const getUserDetails = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const user = (store.profiles || []).find((u: any) => u.id === id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const purchases = (store.purchases || []).filter((p: any) => p.user_id === id);
-    const watchHistory = (store.watch_history || []).filter((w: any) => w.user_id === id);
-
-    res.json({
-      user,
-      purchases,
-      watch_history: watchHistory,
-      total_purchases: purchases.length,
-      total_spent: purchases.reduce((acc, cur) => acc + Number(cur.amount_rwf || cur.amount || 0), 0)
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'USER_BLOCKED',
+      targetEntityType: 'profile',
+      targetUserId: id,
+      description: `Suspended user ${data.display_name || id}`,
+      ipAddress: req.ip,
     });
-  } catch (error: any) {
-    console.error("getUserDetails error:", error);
-    res.status(500).json({ error: "Failed to load user details" });
+
+    return res.json({ message: 'User blocked successfully', user: data });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/videos
- */
-export const getMasterVideos = async (req: Request, res: Response) => {
+export const unblockUser = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+
   try {
-    const store = getDbStore();
-    const videos = store.videos || [];
-    const artists = store.artists || [];
-    const artistsMap: any = {};
-    artists.forEach((a: any) => { artistsMap[a.id] = a; });
+    const { data, error } = await db
+      .from('profiles')
+      .update({ account_status: 'active', updated_at: new Date().toISOString() })
+      .eq('user_id', id)
+      .select('*')
+      .maybeSingle();
 
-    const { artist, visibility, type, sort = "uploaded_at", search, limit = 50, offset = 0 } = req.query;
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(404).json({ error: 'User not found' });
 
-    let list = videos.map((v: any) => {
-      const art = artistsMap[v.artist_id] || {};
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'USER_UNBLOCKED',
+      targetEntityType: 'profile',
+      targetUserId: id,
+      description: `Reactivated user ${data.display_name || id}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: 'User unblocked successfully', user: data });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const deleteUser = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+
+  try {
+    const { error } = await db.auth.admin.deleteUser(id);
+    if (error) return res.status(500).json({ error: error.message });
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'USER_DELETED',
+      targetEntityType: 'auth_user',
+      targetUserId: id,
+      description: `Deleted user account ${id}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: 'User deleted successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getUserDetails = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+
+  try {
+    const [profRes, txRes, authRes] = await Promise.all([
+      db.from('profiles').select('*').eq('user_id', id).maybeSingle(),
+      db
+        .from('financial_transactions')
+        .select('*')
+        .eq('user_id', id)
+        .order('created_at', { ascending: false }),
+      db.auth.admin.getUserById(id).catch(() => ({ data: { user: null } })),
+    ]);
+
+    if (!profRes.data) return res.status(404).json({ error: 'User not found' });
+
+    return res.json({
+      id: profRes.data.user_id,
+      email: authRes.data?.user?.email || '',
+      full_name: profRes.data.display_name || profRes.data.username,
+      username: profRes.data.username,
+      account_status: profRes.data.account_status,
+      transactions: txRes.data || [],
+      created_at: profRes.data.created_at,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMasterVideos = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const { search } = req.query;
+    const [videosRes, artistsRes] = await Promise.all([
+      db.from('videos').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('artist_profiles').select('id, artist_name'),
+    ]);
+
+    if (videosRes.error) return res.status(500).json({ error: videosRes.error.message });
+    const artistMap = new Map((artistsRes.data || []).map((a: any) => [a.id, a.artist_name]));
+
+    let items = (videosRes.data || []).map((v: any) => {
+      const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
       return {
         id: v.id,
         title: v.title,
-        artist_id: v.artist_id,
-        artist_name: art.full_name || v.artist_name || "Unknown Artist",
-        thumbnail_url: v.thumbnail_url || "",
-        video_url: v.video_url,
-        price_rwf: v.price_rwf || 0,
-        visibility: v.visibility || (v.is_active !== false ? "public" : "private"),
-        is_short: !!v.is_short,
-        is_featured: !!v.is_featured,
-        views: v.views || 0,
-        likes: v.likes || 0,
-        earnings: Math.round((v.views || 0) * 0.3 * (v.price_rwf || 500)),
-        category: v.category || "Music",
-        duration: v.duration || 180,
-        uploaded_at: v.uploaded_at || v.created_at || "2026-01-01T00:00:00Z"
+        artist_id: v.artist_profile_id || v.creator_channel_id,
+        artist_name: artistMap.get(v.artist_profile_id) || meta.artist_name || 'Creator',
+        category: meta.category || 'Music',
+        thumbnail_url: meta.thumbnail_url || '',
+        video_url: meta.video_url || '',
+        price_rwf: Number(meta.price_rwf || 0),
+        price_usd: Number(meta.price_usd || 0),
+        is_free: Boolean(v.is_free),
+        is_short: v.video_type === 'short',
+        views: Number(meta.view_count ?? meta.views ?? 0),
+        visibility: v.visibility,
+        moderation_status: v.moderation_status,
+        publication_status: v.publication_status,
+        uploaded_at: v.published_at || v.created_at,
       };
     });
-
-    if (artist && artist !== "all") {
-      list = list.filter((v: any) => v.artist_id === artist);
-    }
-
-    if (visibility && visibility !== "all") {
-      list = list.filter((v: any) => v.visibility === visibility);
-    }
-
-    if (type && type !== "all") {
-      if (type === "short") list = list.filter((v: any) => v.is_short);
-      if (type === "video") list = list.filter((v: any) => !v.is_short);
-    }
 
     if (search) {
       const q = String(search).toLowerCase();
-      list = list.filter((v: any) => v.title.toLowerCase().includes(q) || v.artist_name.toLowerCase().includes(q));
+      items = items.filter(
+        (v) => v.title.toLowerCase().includes(q) || v.artist_name.toLowerCase().includes(q)
+      );
     }
 
-    if (sort === "views") {
-      list.sort((a, b) => b.views - a.views);
-    } else if (sort === "earnings") {
-      list.sort((a, b) => b.earnings - a.earnings);
-    } else {
-      list.sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
-    }
-
-    const total = list.length;
-    const paginated = list.slice(Number(offset), Number(offset) + Number(limit));
-
-    res.json({
-      videos: paginated,
-      total,
-      limit: Number(limit),
-      offset: Number(offset)
-    });
-  } catch (error: any) {
-    console.error("getMasterVideos error:", error);
-    res.status(500).json({ error: "Failed to load videos" });
+    return res.json(items);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/videos/:id
- */
 export const getMasterVideoDetails = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
   const { id } = req.params;
+
   try {
-    const store = getDbStore();
-    const video = (store.videos || []).find((v: any) => v.id === id);
-    if (!video) return res.status(404).json({ error: "Video not found" });
-
-    const comments = (store.user_comments || []).filter((c: any) => c.video_id === id);
-    const purchases = (store.purchases || []).filter((p: any) => p.video_id === id);
-
-    res.json({
-      video,
-      comments,
-      purchases_count: purchases.length,
-      total_earnings: purchases.reduce((acc, cur) => acc + Number(cur.amount_rwf || cur.amount || 0), 0)
-    });
-  } catch (error: any) {
-    console.error("getMasterVideoDetails error:", error);
-    res.status(500).json({ error: "Failed to load video details" });
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+    return res.json(video);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/master/videos/:id
- */
 export const updateMasterVideo = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
   const { id } = req.params;
-  const { visibility, price_rwf, title, description, is_featured, category } = req.body;
+  const adminUser = (req as any).user;
 
   try {
-    const store = getDbStore();
-    const video = (store.videos || []).find((v: any) => v.id === id);
-    if (!video) return res.status(404).json({ error: "Video not found" });
+    const { data: existing } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!existing) return res.status(404).json({ error: 'Video not found' });
 
-    if (visibility !== undefined) video.visibility = visibility;
-    if (price_rwf !== undefined) video.price_rwf = Number(price_rwf);
-    if (title !== undefined) video.title = title;
-    if (description !== undefined) video.description = description;
-    if (is_featured !== undefined) video.is_featured = !!is_featured;
-    if (category !== undefined) video.category = category;
+    const { title, visibility, moderation_status, is_free, price_rwf, price_usd, category } = req.body;
+    const nextMeta = existing.metadata && typeof existing.metadata === 'object' ? { ...existing.metadata } : {};
+    if (price_rwf !== undefined) nextMeta.price_rwf = Number(price_rwf);
+    if (price_usd !== undefined) nextMeta.price_usd = Number(price_usd);
+    if (category !== undefined) nextMeta.category = category;
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "VIDEO_UPDATED",
-      `Video "${video.title}" (${video.id})`,
-      req.ip || "127.0.0.1",
-      `Updated properties: visibility=${visibility}, price=${price_rwf}, featured=${is_featured}`
-    );
+    const patch: Record<string, any> = {
+      metadata: nextMeta,
+      updated_at: new Date().toISOString(),
+    };
+    if (title !== undefined) patch.title = title;
+    if (visibility !== undefined) patch.visibility = visibility;
+    if (moderation_status !== undefined) patch.moderation_status = moderation_status;
+    if (is_free !== undefined) {
+      patch.is_free = Boolean(is_free);
+      patch.is_paywalled = !Boolean(is_free);
+    }
 
-    notifyMutation();
-    res.json({ message: "Video updated successfully", video });
-  } catch (error: any) {
-    console.error("updateMasterVideo error:", error);
-    res.status(500).json({ error: "Failed to update video" });
+    const { data: updated, error } = await db.from('videos').update(patch).eq('id', id).select('*').single();
+    if (error) return res.status(500).json({ error: error.message });
+
+    await Promise.all([
+      cacheService.del('paytune:videos:trending'),
+      cacheService.del('paytune:videos:new'),
+      cacheService.del('paytune:videos:catalog:all'),
+      cacheService.del(`paytune:videos:related:${id}`),
+    ]);
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'MASTER_VIDEO_UPDATED',
+      targetEntityType: 'video',
+      targetEntityId: id,
+      description: `Updated video ${updated.title}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ success: true, video: updated });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * DELETE /api/master/videos/:id
- */
 export const deleteMasterVideo = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
   const { id } = req.params;
+  const adminUser = (req as any).user;
+
   try {
-    const store = getDbStore();
-    const index = (store.videos || []).findIndex((v: any) => v.id === id);
-    if (index === -1) return res.status(404).json({ error: "Video not found" });
+    const { data: existing } = await db.from('videos').select('id, title').eq('id', id).maybeSingle();
+    if (!existing) return res.status(404).json({ error: 'Video not found' });
 
-    const deleted = store.videos[index];
-    store.videos.splice(index, 1);
+    const { error } = await db.from('videos').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "VIDEO_DELETED",
-      `Video "${deleted.title}" (${deleted.id})`,
-      req.ip || "127.0.0.1",
-      `Removed video from catalog.`
-    );
+    await Promise.all([
+      cacheService.del('paytune:videos:trending'),
+      cacheService.del('paytune:videos:new'),
+      cacheService.del('paytune:videos:catalog:all'),
+      cacheService.del(`paytune:videos:related:${id}`),
+    ]);
 
-    notifyMutation();
-    res.json({ message: "Video deleted successfully" });
-  } catch (error: any) {
-    console.error("deleteMasterVideo error:", error);
-    res.status(500).json({ error: "Failed to delete video" });
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'MASTER_VIDEO_DELETED',
+      targetEntityType: 'video',
+      targetEntityId: id,
+      description: `Deleted video ${existing.title}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ success: true, message: 'Video deleted' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/payments
- */
 export const getMasterPayments = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const purchases = store.purchases || [];
-    const settings = (store.platform_settings && store.platform_settings[0]) || { commission_percentage: 30, vat_percentage: 5 };
-    const commissionRate = (settings.commission_percentage || 30) / 100;
-    const vatRate = (settings.vat_percentage || 5) / 100;
-
-    const { from, to, artist, user, method, limit = 50, offset = 0 } = req.query;
-
-    let list = purchases.map((p: any) => {
-      const amount = Number(p.amount_rwf || p.amount || 1000);
-      const vat = p.vat_amount_rwf !== undefined ? Number(p.vat_amount_rwf) : Math.round(amount * vatRate);
-      const ownerShare = p.owner_share_rwf !== undefined ? Number(p.owner_share_rwf) : Math.round(amount * commissionRate);
-      const artistShare = p.artist_share_rwf !== undefined ? Number(p.artist_share_rwf) : (amount - vat - ownerShare);
-
-      return {
-        id: p.id,
-        user_name: p.user_name || "Audience Member",
-        user_id: p.user_id,
-        video_title: p.video_title || "Rwandan Music Video",
-        video_id: p.video_id,
-        artist_name: p.artist_name || "Artist",
-        artist_id: p.artist_id,
-        amount_rwf: amount,
-        vat_rwf: vat,
-        artist_share_rwf: artistShare,
-        owner_share_rwf: ownerShare,
-        method: p.payment_method || p.provider || "MTN MoMo",
-        country_code: p.country_code || "RW",
-        paid_currency: p.paid_currency || "RWF",
-        paid_amount: p.paid_amount || amount,
-        exchange_rate: p.exchange_rate || 1.0,
-        escrow_status: p.escrow_status || "RELEASED",
-        status: p.status || "completed",
-        date: p.created_at || "2026-06-01T12:00:00Z"
-      };
-    });
-
-    if (method && method !== "all") {
-      list = list.filter((p: any) => p.method.toLowerCase().includes(String(method).toLowerCase()));
-    }
-    if (artist && artist !== "all") {
-      list = list.filter((p: any) => p.artist_id === artist);
-    }
-    if (user && user !== "all") {
-      list = list.filter((p: any) => p.user_id === user);
-    }
-    if (from) {
-      list = list.filter((p: any) => new Date(p.date) >= new Date(String(from)));
-    }
-    if (to) {
-      list = list.filter((p: any) => new Date(p.date) <= new Date(String(to)));
-    }
-
-    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    const total = list.length;
-    const paginated = list.slice(Number(offset), Number(offset) + Number(limit));
-
-    res.json({
-      payments: paginated,
-      total,
-      limit: Number(limit),
-      offset: Number(offset)
-    });
-  } catch (error: any) {
-    console.error("getMasterPayments error:", error);
-    res.status(500).json({ error: "Failed to load payments" });
-  }
-};
-
-/**
- * GET /api/master/payments/export
- */
-export const exportPaymentsCSV = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const purchases = store.purchases || [];
-
-    const headers = ["Transaction ID", "User", "Video", "Artist", "Amount (RWF)", "VAT (RWF)", "Artist Share", "Owner Share", "Method", "Status", "Date"];
-    const rows = purchases.map((p: any) => {
-      const amount = Number(p.amount_rwf || p.amount || 1000);
-      const vat = Math.round(amount * 0.05);
-      const owner = Math.round(amount * 0.30);
-      const artist = amount - vat - owner;
-      return [
-        `"${p.id}"`,
-        `"${p.user_name || 'User'}"`,
-        `"${(p.video_title || 'Video').replace(/"/g, '""')}"`,
-        `"${p.artist_name || 'Artist'}"`,
-        amount,
-        vat,
-        artist,
-        owner,
-        `"${p.payment_method || 'MTN'}"`,
-        `"${p.status || 'completed'}"`,
-        `"${p.created_at || new Date().toISOString()}"`
-      ].join(",");
-    });
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=paytune_transactions.csv");
-    res.send(csvContent);
-  } catch (error: any) {
-    console.error("exportPaymentsCSV error:", error);
-    res.status(500).json({ error: "Failed to export payments" });
-  }
-};
-
-/**
- * POST /api/master/payments/:id/refund
- */
-export const refundPayment = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const store = getDbStore();
-    const payment = (store.purchases || []).find((p: any) => p.id === id);
-    if (!payment) return res.status(404).json({ error: "Transaction not found" });
-
-    payment.status = "refunded";
-    payment.refunded_at = new Date().toISOString();
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "PAYMENT_REFUNDED",
-      `Tx: ${payment.id} (${payment.amount_rwf || payment.amount} RWF)`,
-      req.ip || "127.0.0.1",
-      `Processed customer refund for video "${payment.video_title}".`
-    );
-
-    notifyMutation();
-    res.json({ message: "Transaction refunded successfully", payment });
-  } catch (error: any) {
-    console.error("refundPayment error:", error);
-    res.status(500).json({ error: "Failed to refund payment" });
-  }
-};
-
-/**
- * GET /api/master/withdrawals
- */
-export const getMasterWithdrawals = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const withdrawals = store.withdrawals || [];
     const { status, limit = 50, offset = 0 } = req.query;
+    let query = db
+      .from('financial_transactions')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-    let list = [...withdrawals];
-    if (status && status !== "all") {
-      list = list.filter((w: any) => (w.status || "pending").toLowerCase() === String(status).toLowerCase());
+    if (status && status !== 'all') {
+      query = query.eq('transaction_status', String(status));
     }
 
-    list.sort((a, b) => new Date(b.created_at || b.requested_at).getTime() - new Date(a.created_at || a.requested_at).getTime());
+    const { data: txs, count, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
 
-    const total = list.length;
-    const paginated = list.slice(Number(offset), Number(offset) + Number(limit));
+    const channelIds = Array.from(new Set((txs || []).map((t: any) => t.creator_channel_id).filter(Boolean)));
+    const { data: channels } = channelIds.length
+      ? await db.from('creator_channels').select('id, channel_name').in('id', channelIds)
+      : { data: [] };
+    const channelMap = new Map((channels || []).map((c: any) => [c.id, c.channel_name]));
 
-    res.json({
-      withdrawals: paginated,
-      total,
+    const payments = (txs || []).map((tx: any) => ({
+      id: tx.id,
+      user_id: tx.user_id,
+      artist_name: channelMap.get(tx.creator_channel_id) || 'Creator',
+      amount_rwf: Number(tx.gross_amount || 0),
+      fee_amount: Number(tx.fee_amount || 0),
+      net_amount: Number(tx.net_amount || 0),
+      currency: tx.currency_code || 'RWF',
+      revenue_source: tx.revenue_source,
+      status: tx.transaction_status,
+      provider_ref: tx.provider_transaction_reference || tx.external_reference || '',
+      description: tx.description || '',
+      created_at: tx.created_at,
+    }));
+
+    return res.json({
+      payments,
+      total: count || payments.length,
       limit: Number(limit),
-      offset: Number(offset)
+      offset: Number(offset),
     });
-  } catch (error: any) {
-    console.error("getMasterWithdrawals error:", error);
-    res.status(500).json({ error: "Failed to fetch withdrawals" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/master/withdrawals/:id/process
- */
-export const processWithdrawal = async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const exportPaymentsCSV = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const item = (store.withdrawals || []).find((w: any) => w.id === id);
-    if (!item) return res.status(404).json({ error: "Withdrawal not found" });
+    const { data: txs, error } = await db
+      .from('financial_transactions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(2000);
 
-    item.status = "completed";
-    item.completed_at = new Date().toISOString();
-    item.processed_by = (req as any).user?.email || "master@paytune.com";
-    item.transaction_ref = `MOMO-RW-${Date.now()}`;
+    if (error) return res.status(500).json({ error: error.message });
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "WITHDRAWAL_PROCESSED",
-      `${item.artist_name} (${item.amount} RWF)`,
-      req.ip || "127.0.0.1",
-      `Sent ${item.amount} RWF to ${item.phone} via ${item.provider || 'MTN'} MoMo API. Ref: ${item.transaction_ref}`
+    const headers = ['ID', 'User ID', 'Source', 'Gross Amount', 'Fee', 'Net Amount', 'Currency', 'Status', 'Reference', 'Date'];
+    const rows = (txs || []).map((t: any) =>
+      [
+        `"${t.id}"`,
+        `"${t.user_id || ''}"`,
+        `"${t.revenue_source || ''}"`,
+        t.gross_amount || 0,
+        t.fee_amount || 0,
+        t.net_amount || 0,
+        `"${t.currency_code || 'RWF'}"`,
+        `"${t.transaction_status}"`,
+        `"${(t.provider_transaction_reference || '').replace(/"/g, '""')}"`,
+        `"${t.created_at}"`,
+      ].join(',')
     );
 
-    notifyMutation();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=paytune_payments.csv');
+    return res.send([headers.join(','), ...rows].join('\n'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const refundPayment = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+
+  try {
+    const { data: tx } = await db.from('financial_transactions').select('*').eq('id', id).maybeSingle();
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+
+    const now = new Date().toISOString();
+    await db
+      .from('financial_transactions')
+      .update({ transaction_status: 'refunded' })
+      .eq('id', id);
+
+    if (tx.user_id && tx.source_record_id) {
+      await db
+        .from('premium_content_access_grants')
+        .update({ revoked_at: now })
+        .eq('user_id', tx.user_id)
+        .eq('content_id', tx.source_record_id)
+        .is('revoked_at', null);
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'PAYMENT_REFUNDED',
+      targetEntityType: 'financial_transaction',
+      targetEntityId: id,
+      description: `Marked transaction ${id} refunded (${tx.gross_amount} ${tx.currency_code})`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ success: true, message: 'Payment marked as refunded' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMasterWithdrawals = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const { status, limit = 50, offset = 0 } = req.query;
+    let query = db
+      .from('creator_withdrawal_requests')
+      .select('*, creator_channels(channel_name), creator_payout_methods(provider_name, masked_account_reference)', {
+        count: 'exact',
+      })
+      .order('created_at', { ascending: false })
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+    if (status && status !== 'all') {
+      query = query.eq('withdrawal_status', String(status).toLowerCase());
+    }
+
+    const { data, count, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+
+    const withdrawals = (data || []).map((w: any) => ({
+      id: w.id,
+      reference: w.withdrawal_reference,
+      creator_channel_id: w.creator_channel_id,
+      artist_name: w.creator_channels?.channel_name || 'Creator',
+      amount: Number(w.requested_amount || 0),
+      fee: Number(w.withdrawal_fee || 0),
+      net_amount: Number(w.net_payout_amount || 0),
+      currency: w.currency_code || 'RWF',
+      provider: w.creator_payout_methods?.provider_name || 'Mobile Money',
+      phone: w.creator_payout_methods?.masked_account_reference || '',
+      status: w.withdrawal_status,
+      created_at: w.created_at,
+      paid_at: w.paid_at,
+    }));
+
+    return res.json({
+      withdrawals,
+      total: count || withdrawals.length,
+      limit: Number(limit),
+      offset: Number(offset),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const processWithdrawal = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const { id } = req.params;
+  const adminUser = (req as any).user;
+  const { external_reference, action = 'approve', reason } = req.body || {};
+
+  try {
+    const { data: item } = await db
+      .from('creator_withdrawal_requests')
+      .select('*, creator_channels(channel_name), creator_payout_methods(provider_name, masked_account_reference)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!item) return res.status(404).json({ error: 'Withdrawal not found' });
+
+    if (item.withdrawal_status === 'paid' || item.withdrawal_status === 'rejected') {
+      return res.status(409).json({
+        error: `Withdrawal is already ${item.withdrawal_status} and cannot be reprocessed.`,
+      });
+    }
+
+    const now = new Date().toISOString();
+    const isReject = action === 'reject';
+    const nextStatus = isReject ? 'rejected' : external_reference ? 'paid' : 'approved';
+
+    const patch: Record<string, any> = {
+      withdrawal_status: nextStatus,
+      reviewed_by: isUuid(adminUser?.id) ? adminUser.id : null,
+      reviewed_at: now,
+      updated_at: now,
+    };
+
+    if (isReject) {
+      patch.rejected_at = now;
+      patch.rejection_reason = reason || 'Rejected by Master Admin';
+    } else if (nextStatus === 'paid') {
+      patch.approved_at = item.approved_at || now;
+      patch.paid_at = now;
+      patch.internal_notes = `External reference: ${external_reference}`;
+    } else {
+      patch.approved_at = now;
+    }
+
+    const { data: updated, error } = await db
+      .from('creator_withdrawal_requests')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    if ((nextStatus === 'paid' || isReject) && item.earning_account_id) {
+      const requestedAmount = Number(item.requested_amount || 0);
+      const { data: acc } = await db
+        .from('creator_earning_accounts')
+        .select('available_balance, pending_balance, settled_total')
+        .eq('id', item.earning_account_id)
+        .maybeSingle();
+      if (acc) {
+        const accountPatch: Record<string, any> = {
+          pending_balance: Math.max(0, Number(acc.pending_balance || 0) - requestedAmount),
+          last_transaction_at: now,
+          updated_at: now,
+        };
+        if (nextStatus === 'paid') {
+          accountPatch.settled_total = Number(acc.settled_total || 0) + requestedAmount;
+        } else if (isReject) {
+          accountPatch.available_balance = Number(acc.available_balance || 0) + requestedAmount;
+        }
+        await db
+          .from('creator_earning_accounts')
+          .update(accountPatch)
+          .eq('id', item.earning_account_id);
+      }
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: isReject ? 'WITHDRAWAL_REJECTED' : nextStatus === 'paid' ? 'WITHDRAWAL_PAID' : 'WITHDRAWAL_APPROVED',
+      targetEntityType: 'creator_withdrawal_request',
+      targetEntityId: id,
+      description: `${item.withdrawal_reference}: ${nextStatus} (${item.requested_amount} ${item.currency_code})`,
+      ipAddress: req.ip,
+    });
+
     try {
       notifyWithdrawalStatus({
         withdrawalId: item.id,
-        artistId: item.artist_id,
-        amount: Number(item.amount || 0),
-        status: 'completed',
-        phone: item.phone,
-        provider: item.provider || item.payment_method
+        artistId: item.creator_channel_id,
+        amount: Number(item.requested_amount || 0),
+        status: isReject ? 'rejected' : nextStatus === 'paid' ? 'completed' : 'approved',
+        phone: item.creator_payout_methods?.masked_account_reference,
+        provider: item.creator_payout_methods?.provider_name,
+        tx: external_reference,
+        reason,
       });
-    } catch (notifErr) {
-      console.warn("Withdrawal status notification error:", notifErr);
-    }
-    res.json({ message: "Withdrawal successfully processed", withdrawal: item });
-  } catch (error: any) {
-    console.error("processWithdrawal error:", error);
-    res.status(500).json({ error: "Failed to process withdrawal" });
+    } catch {}
+
+    return res.json({ message: `Withdrawal ${nextStatus}`, withdrawal: updated });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/master/withdrawals/batch-process
- */
 export const batchProcessWithdrawals = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: "No withdrawal IDs provided" });
+    return res.status(400).json({ error: 'No withdrawal IDs provided' });
   }
 
+  const db = getDb();
+  const adminUser = (req as any).user;
+  const now = new Date().toISOString();
+
   try {
-    const store = getDbStore();
-    let processed = 0;
-    let totalAmount = 0;
+    const { data: items } = await db
+      .from('creator_withdrawal_requests')
+      .select('id, creator_channel_id, requested_amount, withdrawal_status')
+      .in('id', ids)
+      .in('withdrawal_status', ['requested', 'under_review']);
 
-    ids.forEach((id: string) => {
-      const item = (store.withdrawals || []).find((w: any) => w.id === id);
-      if (item && item.status !== "completed") {
-        item.status = "completed";
-        item.completed_at = new Date().toISOString();
-        item.processed_by = (req as any).user?.email || "master@paytune.com";
-        item.transaction_ref = `MOMO-BATCH-${Date.now()}-${processed}`;
-        processed++;
-        totalAmount += Number(item.amount || 0);
+    const eligibleIds = (items || []).map((w: any) => w.id);
+    if (eligibleIds.length === 0) {
+      return res.json({ message: 'No eligible pending withdrawals found', count: 0, totalAmount: 0 });
+    }
 
-        try {
-          notifyWithdrawalStatus({
-            withdrawalId: item.id,
-            artistId: item.artist_id,
-            amount: Number(item.amount || 0),
-            status: 'completed',
-            phone: item.phone,
-            provider: item.provider || item.payment_method
-          });
-        } catch (notifErr) {
-          console.warn("Batch withdrawal notification error:", notifErr);
-        }
-      }
+    await db
+      .from('creator_withdrawal_requests')
+      .update({
+        withdrawal_status: 'approved',
+        reviewed_by: isUuid(adminUser?.id) ? adminUser.id : null,
+        reviewed_at: now,
+        approved_at: now,
+        updated_at: now,
+      })
+      .in('id', eligibleIds);
+
+    const totalAmount = (items || []).reduce((s: number, w: any) => s + Number(w.requested_amount || 0), 0);
+
+    for (const item of items || []) {
+      try {
+        notifyWithdrawalStatus({
+          withdrawalId: item.id,
+          artistId: item.creator_channel_id,
+          amount: Number(item.requested_amount || 0),
+          status: 'approved',
+        });
+      } catch {}
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'WITHDRAWAL_BATCH_APPROVED',
+      targetEntityType: 'creator_withdrawal_request',
+      description: `Batch approved ${eligibleIds.length} withdrawal requests totaling ${totalAmount} RWF`,
+      ipAddress: req.ip,
     });
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "WITHDRAWAL_BATCH_PROCESSED",
-      `${processed} Requests`,
-      req.ip || "127.0.0.1",
-      `Batch disbursed ${totalAmount.toLocaleString()} RWF across ${processed} pending artist requests.`
+    return res.json({
+      message: `Approved ${eligibleIds.length} withdrawals`,
+      count: eligibleIds.length,
+      totalAmount,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getWithdrawalsHistory = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const { data, error } = await db
+      .from('creator_withdrawal_requests')
+      .select('*, creator_channels(channel_name), creator_payout_methods(provider_name, masked_account_reference)')
+      .in('withdrawal_status', ['paid', 'rejected', 'failed', 'cancelled'])
+      .order('updated_at', { ascending: false })
+      .limit(100);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json(
+      (data || []).map((w: any) => ({
+        id: w.id,
+        reference: w.withdrawal_reference,
+        artist_name: w.creator_channels?.channel_name || 'Creator',
+        amount: Number(w.requested_amount || 0),
+        currency: w.currency_code || 'RWF',
+        provider: w.creator_payout_methods?.provider_name || 'Mobile Money',
+        status: w.withdrawal_status,
+        paid_at: w.paid_at,
+        created_at: w.created_at,
+      }))
     );
-
-    notifyMutation();
-    res.json({ message: `Successfully processed ${processed} withdrawals`, count: processed, totalAmount });
-  } catch (error: any) {
-    console.error("batchProcessWithdrawals error:", error);
-    res.status(500).json({ error: "Batch processing failed" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/withdrawals/history
- */
-export const getWithdrawalsHistory = async (req: Request, res: Response) => {
+export const getMasterSettings = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const store = getDbStore();
-    const withdrawals = store.withdrawals || [];
-    const history = withdrawals.filter((w: any) => w.status === "completed" || w.status === "failed");
-    res.json(history);
-  } catch (error: any) {
-    console.error("getWithdrawalsHistory error:", error);
-    res.status(500).json({ error: "Failed to fetch history" });
+    const { config } = await getPlatformConfigObject();
+    return res.json(config);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/settings
- */
-export const getMasterSettings = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    let settings = (store.platform_settings && store.platform_settings[0]);
-    if (!settings) {
-      settings = {
-        id: "platform-config",
-        platform_name: "PAYTUNE",
-        tagline: "The Home of Rwandan Music & Creative Culture",
-        logo_url: "/logo.png",
-        vat_percentage: 5,
-        owner_commission_percentage: 30,
-        commission_percentage: 30,
-        min_withdrawal_amount: 5000,
-        min_withdrawal: 5000,
-        owner_momo_number: "0788192233",
-        momo_number: "0788192233",
-        trending_days: 7,
-        maintenance_mode: false,
-        maintenance_message: "PAYTUNE is undergoing scheduled infrastructure upgrades. We will be back shortly!",
-        auto_approve_artists: false,
-        welcome_template: "Welcome to PAYTUNE! Enjoy unlimited streaming of premium Rwandan music and live concerts.",
-        receipt_template: "Murakoze! Your payment for {{video_title}} was successful. You can stream or watch now.",
-        gift_template: "You have received a PAYTUNE video gift from {{sender_name}}!",
-        withdrawal_template: "Your withdrawal of {{amount}} RWF has been sent to {{phone}}."
-      };
-      store.platform_settings = [settings];
-      notifyMutation();
-    }
-
-    res.json(settings);
-  } catch (error: any) {
-    console.error("getMasterSettings error:", error);
-    res.status(500).json({ error: "Failed to fetch settings" });
-  }
-};
-
-/**
- * PUT /api/master/settings
- */
 export const updateMasterSettings = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    if (!store.platform_settings || !store.platform_settings[0]) {
-      store.platform_settings = [{ id: "platform-config" }];
-    }
-    const current = store.platform_settings[0];
-    const b = req.body;
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const adminUser = (req as any).user;
 
-    if (b.platform_name !== undefined) current.platform_name = b.platform_name;
-    if (b.tagline !== undefined) current.tagline = b.tagline;
-    if (b.logo_url !== undefined) current.logo_url = b.logo_url;
-    if (b.vat_percentage !== undefined) current.vat_percentage = Number(b.vat_percentage);
+  try {
+    const { rowId, config } = await getPlatformConfigObject();
+    const b = req.body || {};
+    const next = { ...config };
+
+    if (b.platform_name !== undefined) next.platform_name = b.platform_name;
+    if (b.tagline !== undefined) next.tagline = b.tagline;
+    if (b.logo_url !== undefined) next.logo_url = b.logo_url;
+    if (b.vat_percentage !== undefined) next.vat_percentage = Number(b.vat_percentage);
     if (b.owner_commission_percentage !== undefined) {
-      current.owner_commission_percentage = Number(b.owner_commission_percentage);
-      current.commission_percentage = Number(b.owner_commission_percentage);
+      next.owner_commission_percentage = Number(b.owner_commission_percentage);
+      next.commission_percentage = Number(b.owner_commission_percentage);
     } else if (b.commission_percentage !== undefined) {
-      current.owner_commission_percentage = Number(b.commission_percentage);
-      current.commission_percentage = Number(b.commission_percentage);
+      next.owner_commission_percentage = Number(b.commission_percentage);
+      next.commission_percentage = Number(b.commission_percentage);
     }
     if (b.min_withdrawal_amount !== undefined) {
-      current.min_withdrawal_amount = Number(b.min_withdrawal_amount);
-      current.min_withdrawal = Number(b.min_withdrawal_amount);
+      next.min_withdrawal_amount = Number(b.min_withdrawal_amount);
+      next.min_withdrawal = Number(b.min_withdrawal_amount);
     } else if (b.min_withdrawal !== undefined) {
-      current.min_withdrawal_amount = Number(b.min_withdrawal);
-      current.min_withdrawal = Number(b.min_withdrawal);
+      next.min_withdrawal_amount = Number(b.min_withdrawal);
+      next.min_withdrawal = Number(b.min_withdrawal);
     }
     if (b.owner_momo_number !== undefined) {
-      current.owner_momo_number = b.owner_momo_number;
-      current.momo_number = b.owner_momo_number;
+      next.owner_momo_number = b.owner_momo_number;
+      next.momo_number = b.owner_momo_number;
     } else if (b.momo_number !== undefined) {
-      current.owner_momo_number = b.momo_number;
-      current.momo_number = b.momo_number;
+      next.owner_momo_number = b.momo_number;
+      next.momo_number = b.momo_number;
     }
-    if (b.trending_days !== undefined) current.trending_days = Number(b.trending_days);
-    if (b.maintenance_mode !== undefined) current.maintenance_mode = !!b.maintenance_mode;
-    if (b.maintenance_message !== undefined) current.maintenance_message = b.maintenance_message;
-    if (b.auto_approve_artists !== undefined) current.auto_approve_artists = !!b.auto_approve_artists;
+    if (b.trending_days !== undefined) next.trending_days = Number(b.trending_days);
+    if (b.maintenance_mode !== undefined) next.maintenance_mode = Boolean(b.maintenance_mode);
+    if (b.maintenance_message !== undefined) next.maintenance_message = b.maintenance_message;
+    if (b.auto_approve_artists !== undefined) next.auto_approve_artists = Boolean(b.auto_approve_artists);
 
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "SETTINGS_UPDATED",
-      "platform_settings",
-      req.ip || "127.0.0.1",
-      `Updated platform configuration: VAT=${current.vat_percentage}%, Comm=${current.commission_percentage}%, AutoApprove=${current.auto_approve_artists}`
-    );
-
-    notifyMutation();
-    res.json({ message: "Platform settings updated successfully", settings: current });
-  } catch (error: any) {
-    console.error("updateMasterSettings error:", error);
-    res.status(500).json({ error: "Failed to update platform settings" });
-  }
-};
-
-/**
- * PUT /api/master/settings/email-templates
- */
-export const updateEmailTemplates = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    if (!store.platform_settings || !store.platform_settings[0]) {
-      store.platform_settings = [{ id: "platform-config" }];
-    }
-    const current = store.platform_settings[0];
-    const { welcome_template, receipt_template, gift_template, withdrawal_template } = req.body;
-
-    if (welcome_template !== undefined) current.welcome_template = welcome_template;
-    if (receipt_template !== undefined) current.receipt_template = receipt_template;
-    if (gift_template !== undefined) current.gift_template = gift_template;
-    if (withdrawal_template !== undefined) current.withdrawal_template = withdrawal_template;
-
-    logAdminAction(
-      (req as any).user?.email || "master@paytune.com",
-      "TEMPLATES_UPDATED",
-      "email_templates",
-      req.ip || "127.0.0.1",
-      "Updated system notification & email copy templates."
-    );
-
-    notifyMutation();
-    res.json({ message: "Email templates updated successfully", settings: current });
-  } catch (error: any) {
-    console.error("updateEmailTemplates error:", error);
-    res.status(500).json({ error: "Failed to update email templates" });
-  }
-};
-
-/**
- * GET /api/master/logs
- */
-export const getAdminLogs = async (req: Request, res: Response) => {
-  try {
-    const logs = getLogsStore();
-    const { admin, action, limit = 50, offset = 0, from, to } = req.query;
-
-    let list = [...logs];
-    if (admin) {
-      list = list.filter((l: any) => l.admin.toLowerCase().includes(String(admin).toLowerCase()));
-    }
-    if (action && action !== "all") {
-      list = list.filter((l: any) => l.action.toLowerCase().includes(String(action).toLowerCase()));
-    }
-    if (from) {
-      list = list.filter((l: any) => new Date(l.timestamp) >= new Date(String(from)));
-    }
-    if (to) {
-      list = list.filter((l: any) => new Date(l.timestamp) <= new Date(String(to)));
+    let settingId = rowId;
+    if (rowId) {
+      await db
+        .from('platform_settings')
+        .update({
+          setting_value: next,
+          updated_by: isUuid(adminUser?.id) ? adminUser.id : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', rowId);
+    } else {
+      const { data: inserted } = await db
+        .from('platform_settings')
+        .insert({
+          setting_key: 'platform_config',
+          setting_group: 'general',
+          setting_value: next,
+          value_type: 'json',
+          is_public: false,
+          updated_by: isUuid(adminUser?.id) ? adminUser.id : null,
+        })
+        .select('id')
+        .single();
+      settingId = inserted?.id || null;
     }
 
-    const total = list.length;
-    const paginated = list.slice(Number(offset), Number(offset) + Number(limit));
+    if (settingId) {
+      const { count: revCount } = await db
+        .from('platform_setting_revisions')
+        .select('id', { count: 'exact', head: true })
+        .eq('platform_setting_id', settingId);
 
-    res.json({
-      logs: paginated,
-      total,
-      limit: Number(limit),
-      offset: Number(offset)
+      await db.from('platform_setting_revisions').insert({
+        platform_setting_id: settingId,
+        previous_value: config,
+        new_value: next,
+        changed_by: isUuid(adminUser?.id) ? adminUser.id : null,
+        change_reason: 'Updated via Master Settings',
+        revision_number: (revCount || 0) + 1,
+      });
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'SETTINGS_UPDATED',
+      targetEntityType: 'platform_settings',
+      targetEntityId: settingId,
+      description: `Updated platform settings: VAT=${next.vat_percentage}%, Comm=${next.commission_percentage}%`,
+      ipAddress: req.ip,
     });
-  } catch (error: any) {
-    console.error("getAdminLogs error:", error);
-    res.status(500).json({ error: "Failed to load audit logs" });
+
+    return res.json({ message: 'Platform settings updated successfully', settings: next });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/logs/export
- */
-export const exportLogsCSV = async (req: Request, res: Response) => {
-  try {
-    const logs = getLogsStore();
-    const headers = ["ID", "Admin", "Action", "Target", "IP Address", "Timestamp", "Details"];
-    const rows = logs.map((l: any) => [
-      `"${l.id}"`,
-      `"${l.admin}"`,
-      `"${l.action}"`,
-      `"${(l.target || '').replace(/"/g, '""')}"`,
-      `"${l.ip}"`,
-      `"${l.timestamp}"`,
-      `"${(l.details || '').replace(/"/g, '""')}"`
-    ].join(","));
+export const updateEmailTemplates = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+  const adminUser = (req as any).user;
 
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", "attachment; filename=paytune_audit_logs.csv");
-    res.send(csvContent);
-  } catch (error: any) {
-    console.error("exportLogsCSV error:", error);
-    res.status(500).json({ error: "Failed to export logs" });
+  try {
+    const { rowId, config } = await getPlatformConfigObject();
+    const { welcome_template, receipt_template, gift_template, withdrawal_template } = req.body;
+    const next = { ...config };
+    if (welcome_template !== undefined) next.welcome_template = welcome_template;
+    if (receipt_template !== undefined) next.receipt_template = receipt_template;
+    if (gift_template !== undefined) next.gift_template = gift_template;
+    if (withdrawal_template !== undefined) next.withdrawal_template = withdrawal_template;
+
+    if (rowId) {
+      await db
+        .from('platform_settings')
+        .update({
+          setting_value: next,
+          updated_by: isUuid(adminUser?.id) ? adminUser.id : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', rowId);
+    } else {
+      await db.from('platform_settings').insert({
+        setting_key: 'platform_config',
+        setting_group: 'general',
+        setting_value: next,
+        value_type: 'json',
+        is_public: false,
+        updated_by: isUuid(adminUser?.id) ? adminUser.id : null,
+      });
+    }
+
+    logAdminAction({
+      actorUserId: adminUser?.id,
+      actionKey: 'TEMPLATES_UPDATED',
+      targetEntityType: 'platform_settings',
+      description: 'Updated system notification & email templates',
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: 'Email templates updated successfully', settings: next });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/reports/sales
- */
-export const getSalesReport = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const purchases = store.purchases || [];
-    const artists = store.artists || [];
-    const videos = store.videos || [];
+export const getAdminLogs = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
 
-    const artistBreakdown: Record<string, { name: string; revenue: number; transactions: number }> = {};
-    const videoBreakdown: Record<string, { title: string; artist: string; revenue: number; transactions: number }> = {};
+  try {
+    const { admin, action, limit = 50, offset = 0, from, to } = req.query;
+    let query = db
+      .from('admin_action_audit_logs')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+    if (action && action !== 'all') {
+      query = query.ilike('action_key', `%${String(action)}%`);
+    }
+    if (from) query = query.gte('created_at', new Date(String(from)).toISOString());
+    if (to) query = query.lte('created_at', new Date(String(to)).toISOString());
+
+    const { data, count, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+
+    let logs = (data || []).map((l: any) => ({
+      id: l.id,
+      admin: l.actor_user_id || l.actor_role || 'master_admin',
+      action: l.action_key,
+      target: l.target_entity_type || l.target_entity_id || '',
+      ip: l.ip_address || '',
+      timestamp: l.created_at,
+      details: l.description || '',
+      success: l.success,
+    }));
+
+    if (admin) {
+      const q = String(admin).toLowerCase();
+      logs = logs.filter((l) => String(l.admin).toLowerCase().includes(q));
+    }
+
+    return res.json({
+      logs,
+      total: count || logs.length,
+      limit: Number(limit),
+      offset: Number(offset),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const exportLogsCSV = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const { data, error } = await db
+      .from('admin_action_audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const headers = ['ID', 'Actor', 'Action', 'Target Type', 'Target ID', 'IP Address', 'Timestamp', 'Details'];
+    const rows = (data || []).map((l: any) =>
+      [
+        `"${l.id}"`,
+        `"${l.actor_user_id || l.actor_role || ''}"`,
+        `"${l.action_key}"`,
+        `"${(l.target_entity_type || '').replace(/"/g, '""')}"`,
+        `"${l.target_entity_id || ''}"`,
+        `"${l.ip_address || ''}"`,
+        `"${l.created_at}"`,
+        `"${(l.description || '').replace(/"/g, '""')}"`,
+      ].join(',')
+    );
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=paytune_audit_logs.csv');
+    return res.send([headers.join(','), ...rows].join('\n'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getSalesReport = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const [txRes, channelsRes, videosRes, cfg] = await Promise.all([
+      db.from('financial_transactions').select('*').eq('transaction_status', 'succeeded'),
+      db.from('creator_channels').select('id, channel_name'),
+      db.from('videos').select('id, title'),
+      getPlatformConfigObject(),
+    ]);
+
+    const txs = txRes.data || [];
+    const channelMap = new Map<string, string>((channelsRes.data || []).map((c: any) => [String(c.id), String(c.channel_name || '')]));
+    const videoMap = new Map<string, string>((videosRes.data || []).map((v: any) => [String(v.id), String(v.title || '')]));
+    const commissionRate = cfg.config.commission_percentage / 100;
 
     let totalGross = 0;
     let totalVat = 0;
     let totalOwner = 0;
     let totalArtist = 0;
 
-    purchases.forEach((p: any) => {
-      const amount = Number(p.amount_rwf || p.amount || 1000);
-      const vat = Math.round(amount * 0.05);
-      const owner = Math.round(amount * 0.30);
-      const artistShare = amount - vat - owner;
+    const artistBreakdown: Record<string, { name: string; revenue: number; transactions: number }> = {};
+    const videoBreakdown: Record<string, { title: string; artist: string; revenue: number; transactions: number }> = {};
 
-      totalGross += amount;
+    for (const tx of txs) {
+      const gross = Number(tx.gross_amount || 0);
+      const vat = Number(tx.fee_amount || 0);
+      const net = Number(tx.net_amount || Math.max(0, gross - vat));
+      const owner = Math.round(net * commissionRate);
+      const artistShare = Math.max(0, net - owner);
+
+      totalGross += gross;
       totalVat += vat;
       totalOwner += owner;
       totalArtist += artistShare;
 
-      const artId = p.artist_id || "general";
-      const artName = p.artist_name || "Artist";
-      if (!artistBreakdown[artId]) {
-        artistBreakdown[artId] = { name: artName, revenue: 0, transactions: 0 };
-      }
-      artistBreakdown[artId].revenue += artistShare;
-      artistBreakdown[artId].transactions += 1;
+      const chId = tx.creator_channel_id || 'platform';
+      const chName = channelMap.get(chId) || 'Creator';
+      if (!artistBreakdown[chId]) artistBreakdown[chId] = { name: chName, revenue: 0, transactions: 0 };
+      artistBreakdown[chId].revenue += artistShare;
+      artistBreakdown[chId].transactions += 1;
 
-      const vidId = p.video_id || "video-1";
-      const vidTitle = p.video_title || "Video";
-      if (!videoBreakdown[vidId]) {
-        videoBreakdown[vidId] = { title: vidTitle, artist: artName, revenue: 0, transactions: 0 };
+      if (tx.source_record_id) {
+        const vId = tx.source_record_id;
+        const vTitle = videoMap.get(vId) || 'Content';
+        if (!videoBreakdown[vId]) videoBreakdown[vId] = { title: vTitle, artist: chName, revenue: 0, transactions: 0 };
+        videoBreakdown[vId].revenue += gross;
+        videoBreakdown[vId].transactions += 1;
       }
-      videoBreakdown[vidId].revenue += amount;
-      videoBreakdown[vidId].transactions += 1;
-    });
+    }
 
-    res.json({
+    return res.json({
       summary: {
         total_gross_volume: totalGross,
         total_vat_collected: totalVat,
         total_owner_commission: totalOwner,
         total_artist_payouts: totalArtist,
-        total_transactions: purchases.length,
-        currency: "RWF"
+        total_transactions: txs.length,
+        currency: 'RWF',
       },
-      artists: Object.values(artistBreakdown),
-      videos: Object.values(videoBreakdown).slice(0, 10)
-    });
-  } catch (error: any) {
-    console.error("getSalesReport error:", error);
-    res.status(500).json({ error: "Failed to generate sales report" });
-  }
-};
-
-/**
- * GET /api/master/reports/artists
- */
-export const getArtistsReport = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const artists = store.artists || [];
-    const videos = store.videos || [];
-
-    const report = artists.map((a: any) => ({
-      id: a.id,
-      name: a.full_name,
-      total_earnings: a.total_earnings || 0,
-      subscribers: a.subscriber_count || 0,
-      videos_count: videos.filter((v: any) => v.artist_id === a.id).length,
-      status: a.status || (a.is_approved ? "approved" : "pending"),
-      joined_date: a.join_date || a.created_at
-    })).sort((a, b) => b.total_earnings - a.total_earnings);
-
-    res.json(report);
-  } catch (error: any) {
-    console.error("getArtistsReport error:", error);
-    res.status(500).json({ error: "Failed to generate artists report" });
-  }
-};
-
-/**
- * GET /api/master/reports/users
- */
-export const getUsersReport = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const profiles = store.profiles || [];
-    const purchases = store.purchases || [];
-
-    res.json({
-      total_registered: profiles.length,
-      active_buyers: new Set(purchases.map((p: any) => p.user_id)).size,
-      total_user_spending: purchases.reduce((acc, p) => acc + Number(p.amount_rwf || p.amount || 0), 0),
-      growth: [
-        { period: "Week 1", new_users: 14, spending: 34000 },
-        { period: "Week 2", new_users: 28, spending: 68000 },
-        { period: "Week 3", new_users: 42, spending: 112000 },
-        { period: "Week 4", new_users: 65, spending: 195000 }
-      ]
-    });
-  } catch (error: any) {
-    console.error("getUsersReport error:", error);
-    res.status(500).json({ error: "Failed to generate users report" });
-  }
-};
-
-/**
- * GET /api/master/reports/withdrawals
- */
-export const getWithdrawalsReport = async (req: Request, res: Response) => {
-  try {
-    const store = getDbStore();
-    const withdrawals = store.withdrawals || [];
-
-    const totalDisbursed = withdrawals
-      .filter((w: any) => w.status === "completed")
-      .reduce((acc: number, w: any) => acc + Number(w.amount || 0), 0);
-
-    const pendingDisbursements = withdrawals
-      .filter((w: any) => (w.status || "pending") === "pending")
-      .reduce((acc: number, w: any) => acc + Number(w.amount || 0), 0);
-
-    res.json({
-      total_disbursed_rwf: totalDisbursed,
-      pending_disbursements_rwf: pendingDisbursements,
-      count_completed: withdrawals.filter((w: any) => w.status === "completed").length,
-      count_pending: withdrawals.filter((w: any) => (w.status || "pending") === "pending").length,
-      method_distribution: {
-        mtn_momo_percent: 78,
-        airtel_money_percent: 22
-      }
-    });
-  } catch (error: any) {
-    console.error("getWithdrawalsReport error:", error);
-    res.status(500).json({ error: "Failed to generate withdrawals report" });
-  }
-};
-
-/**
- * GET /api/master/profile
- * Get Master Admin profile details (Profile picture and Full name)
- */
-export const getMasterProfile = async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const store = getDbStore();
-    const profiles = store.profiles || [];
-    
-    let master = profiles.find((p: any) => 
-      p.role === "master" || 
-      p.email === "master@paytune.com" || 
-      (user && (p.id === user.id || p.email === user.email))
-    );
-
-    if (!master) {
-      master = {
-        id: user?.id || "master-admin-1",
-        email: user?.email || "master@paytune.com",
-        full_name: "PAYTUNE Master Administrator",
-        avatar_url: "",
-        role: "master"
-      };
-      if (!store.profiles) store.profiles = [];
-      store.profiles.push(master);
-      notifyMutation();
-    }
-
-    res.json({
-      success: true,
-      profile: {
-        id: master.id,
-        email: master.email,
-        full_name: master.full_name || "PAYTUNE Master Administrator",
-        avatar_url: master.avatar_url || master.profile_image || "",
-        role: "master"
-      }
+      artists: Object.values(artistBreakdown).sort((a, b) => b.revenue - a.revenue),
+      videos: Object.values(videoBreakdown).sort((a, b) => b.revenue - a.revenue).slice(0, 10),
     });
   } catch (err: any) {
-    console.error("getMasterProfile error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/master/profile
- * Update Master Admin profile (Full name and Profile Picture only - no bio or phone)
- */
-export const updateMasterProfile = async (req: Request, res: Response) => {
+export const getArtistsReport = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const user = (req as any).user;
-    const { full_name, avatar_url, profile_image } = req.body;
-    const finalAvatar = profile_image || avatar_url;
+    const [artistsRes, channelsRes, earningsRes, followsRes, videosRes] = await Promise.all([
+      db.from('artist_profiles').select('*'),
+      db.from('creator_channels').select('id, owner_user_id'),
+      db.from('creator_earning_accounts').select('creator_channel_id, available_balance, pending_balance, settled_total'),
+      db.from('artist_follows').select('artist_id'),
+      db.from('videos').select('artist_profile_id'),
+    ]);
 
-    const store = getDbStore();
-    if (!store.profiles) store.profiles = [];
-
-    const idx = store.profiles.findIndex((p: any) => 
-      p.role === "master" || 
-      p.email === "master@paytune.com" || 
-      (user && (p.id === user.id || p.email === user.email))
-    );
-
-    const updatedProfile: any = {
-      id: idx >= 0 ? store.profiles[idx].id : (user?.id || "master-admin-1"),
-      email: idx >= 0 ? store.profiles[idx].email : (user?.email || "master@paytune.com"),
-      full_name: full_name !== undefined ? full_name : (idx >= 0 ? store.profiles[idx].full_name : "PAYTUNE Master Administrator"),
-      avatar_url: finalAvatar !== undefined ? finalAvatar : (idx >= 0 ? store.profiles[idx].avatar_url : ""),
-      profile_image: finalAvatar !== undefined ? finalAvatar : (idx >= 0 ? store.profiles[idx].profile_image : ""),
-      role: "master",
-      updated_at: new Date().toISOString()
-    };
-
-    if (idx >= 0) {
-      store.profiles[idx] = { ...store.profiles[idx], ...updatedProfile };
-    } else {
-      store.profiles.push(updatedProfile);
-    }
-    notifyMutation();
-
-    const { supabaseAdmin, isSupabaseConfigured } = await import("../config/supabase");
-    if (isSupabaseConfigured() && user?.id) {
-      try {
-        await supabaseAdmin
-          .from("profiles")
-          .update({
-            full_name: updatedProfile.full_name,
-            avatar_url: updatedProfile.avatar_url,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", user.id);
-      } catch (sbErr) {
-        console.warn("Supabase master profile update note:", sbErr);
-      }
+    const channelByOwner = new Map<string, string>((channelsRes.data || []).map((c: any) => [String(c.owner_user_id), String(c.id)]));
+    const earningsByChannel: Record<string, number> = {};
+    for (const e of earningsRes.data || []) {
+      earningsByChannel[e.creator_channel_id] =
+        (earningsByChannel[e.creator_channel_id] || 0) +
+        Number(e.available_balance || 0) +
+        Number(e.pending_balance || 0) +
+        Number(e.settled_total || 0);
     }
 
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "MASTER_PROFILE_UPDATED",
-      "Master Profile",
-      req.ip || "127.0.0.1",
-      `Master Administrator updated full name to "${updatedProfile.full_name}"`
-    );
+    const followMap: Record<string, number> = {};
+    for (const f of followsRes.data || []) {
+      followMap[f.artist_id] = (followMap[f.artist_id] || 0) + 1;
+    }
 
-    res.json({
-      success: true,
-      message: "Master Admin profile updated successfully.",
-      profile: updatedProfile
-    });
+    const videoMap: Record<string, number> = {};
+    for (const v of videosRes.data || []) {
+      if (v.artist_profile_id) videoMap[v.artist_profile_id] = (videoMap[v.artist_profile_id] || 0) + 1;
+    }
+
+    const report = (artistsRes.data || [])
+      .map((a: any) => {
+        const ownerId = a.primary_contact_user_id || a.created_by_user_id;
+        const chId = ownerId ? channelByOwner.get(ownerId) : null;
+        return {
+          id: a.id,
+          name: a.artist_name,
+          total_earnings: chId ? earningsByChannel[chId] || 0 : 0,
+          subscribers: followMap[a.id] || 0,
+          videos_count: videoMap[a.id] || 0,
+          status: a.record_status === 'suspended' ? 'blocked' : a.approval_status,
+          joined_date: a.created_at,
+        };
+      })
+      .sort((a, b) => b.total_earnings - a.total_earnings);
+
+    return res.json(report);
   } catch (err: any) {
-    console.error("updateMasterProfile error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/master/analytics
- * Returns total platform views, total videos count, and videos sorted by views descending
- */
-export const getMasterAnalytics = async (req: Request, res: Response) => {
+export const getUsersReport = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
   try {
-    const store = getDbStore();
-    const rawVideos = store.videos || [];
-    const artists = store.artists || [];
+    const [profilesRes, txRes] = await Promise.all([
+      db.from('profiles').select('user_id, created_at'),
+      db
+        .from('financial_transactions')
+        .select('user_id, gross_amount, created_at')
+        .eq('transaction_status', 'succeeded'),
+    ]);
 
-    const artistMap: Record<string, string> = {};
-    for (const a of artists) {
-      if (a.id) artistMap[a.id] = a.full_name || a.username || 'Artist';
-      if (a.user_id) artistMap[a.user_id] = a.full_name || a.username || 'Artist';
-    }
+    const profiles = profilesRes.data || [];
+    const txs = txRes.data || [];
 
-    const videos = rawVideos.map((v: any) => {
-      const artistName =
-        v.artist_name ||
-        v.artists?.full_name ||
-        v.artist_profiles?.full_name ||
-        artistMap[v.artist_id] ||
-        'PAYTUNE Creator';
-
-      return {
-        id: v.id,
-        title: v.title || 'Untitled Track',
-        artist_id: v.artist_id,
-        artist_name: artistName,
-        views: Number(v.views || 0),
-        price_rwf: Number(v.price_rwf || 0),
-        price_usd: Number(v.price_usd || 0),
-        is_free: !!v.is_free,
-        thumbnail_url: v.thumbnail_url || '',
-        uploaded_at: v.uploaded_at || v.created_at || new Date().toISOString()
-      };
-    }).sort((a: any, b: any) => b.views - a.views);
-
-    const totalPlatformViews = videos.reduce((acc: number, v: any) => acc + (v.views || 0), 0);
-    const totalVideos = videos.length;
+    const now = Date.now();
+    const growth = [3, 2, 1, 0].map((weeksAgo, idx) => {
+      const end = now - weeksAgo * 7 * 24 * 60 * 60 * 1000;
+      const start = end - 7 * 24 * 60 * 60 * 1000;
+      const newUsers = profiles.filter((p: any) => {
+        const t = new Date(p.created_at).getTime();
+        return t >= start && t < end;
+      }).length;
+      const spending = txs
+        .filter((tx: any) => {
+          const t = new Date(tx.created_at).getTime();
+          return t >= start && t < end;
+        })
+        .reduce((s: number, tx: any) => s + Number(tx.gross_amount || 0), 0);
+      return { period: `Week ${idx + 1}`, new_users: newUsers, spending };
+    });
 
     return res.json({
-      totalPlatformViews,
-      totalVideos,
-      videos
+      total_registered: profiles.length,
+      active_buyers: new Set(txs.map((t: any) => t.user_id).filter(Boolean)).size,
+      total_user_spending: txs.reduce((s: number, t: any) => s + Number(t.gross_amount || 0), 0),
+      growth,
     });
   } catch (err: any) {
-    console.error("getMasterAnalytics error:", err);
-    return res.status(500).json({ error: err.message || "Failed to fetch master analytics" });
+    return res.status(500).json({ error: err.message });
   }
 };
 
+export const getWithdrawalsReport = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const { data, error } = await db
+      .from('creator_withdrawal_requests')
+      .select('requested_amount, withdrawal_status, creator_payout_methods(provider_name)');
+
+    if (error) return res.status(500).json({ error: error.message });
+    const list = data || [];
+
+    const totalDisbursed = list
+      .filter((w: any) => w.withdrawal_status === 'paid')
+      .reduce((s: number, w: any) => s + Number(w.requested_amount || 0), 0);
+
+    const pendingDisbursements = list
+      .filter((w: any) => ['requested', 'under_review', 'approved', 'queued', 'processing'].includes(w.withdrawal_status))
+      .reduce((s: number, w: any) => s + Number(w.requested_amount || 0), 0);
+
+    let mtnCount = 0;
+    let airtelCount = 0;
+    for (const w of list) {
+      const prov = String((w as any).creator_payout_methods?.provider_name || '').toLowerCase();
+      if (prov.includes('airtel')) airtelCount++;
+      else if (prov.includes('mtn')) mtnCount++;
+    }
+    const totalProv = mtnCount + airtelCount;
+
+    return res.json({
+      total_disbursed_rwf: totalDisbursed,
+      pending_disbursements_rwf: pendingDisbursements,
+      count_completed: list.filter((w: any) => w.withdrawal_status === 'paid').length,
+      count_pending: list.filter((w: any) => ['requested', 'under_review', 'approved'].includes(w.withdrawal_status)).length,
+      method_distribution: {
+        mtn_momo_percent: totalProv > 0 ? Math.round((mtnCount / totalProv) * 100) : 0,
+        airtel_money_percent: totalProv > 0 ? Math.round((airtelCount / totalProv) * 100) : 0,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMasterProfile = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const reqUser = (req as any).user;
+  if (!reqUser?.id) return res.status(401).json({ error: 'Unauthorized' });
+
+  const db = getDb();
+  try {
+    const [profileRes, authRes] = await Promise.all([
+      db.from('profiles').select('*').eq('user_id', reqUser.id).maybeSingle(),
+      db.auth.admin.getUserById(reqUser.id).catch(() => ({ data: { user: reqUser } })),
+    ]);
+
+    const profile = profileRes.data;
+    const authUser = authRes?.data?.user || reqUser;
+
+    return res.json({
+      success: true,
+      profile: {
+        id: reqUser.id,
+        email: authUser?.email || '',
+        full_name: profile?.display_name || authUser?.user_metadata?.full_name || 'Master Administrator',
+        avatar_url: profile?.avatar_storage_path || '',
+        role: 'master',
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateMasterProfile = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const reqUser = (req as any).user;
+  if (!reqUser?.id) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { full_name, avatar_url, profile_image } = req.body;
+  const finalAvatar = profile_image !== undefined ? profile_image : avatar_url;
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  try {
+    const patch: Record<string, any> = {
+      user_id: reqUser.id,
+      updated_at: now,
+    };
+    if (full_name !== undefined) patch.display_name = String(full_name).trim();
+    if (finalAvatar !== undefined) patch.avatar_storage_path = finalAvatar || null;
+
+    const { data: updated, error } = await db
+      .from('profiles')
+      .upsert(patch, { onConflict: 'user_id' })
+      .select('*')
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    logAdminAction({
+      actorUserId: reqUser.id,
+      actionKey: 'MASTER_PROFILE_UPDATED',
+      targetEntityType: 'profile',
+      targetUserId: reqUser.id,
+      description: `Updated master profile display name to "${updated.display_name}"`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Master Admin profile updated successfully.',
+      profile: {
+        id: reqUser.id,
+        email: reqUser.email || '',
+        full_name: updated.display_name || 'Master Administrator',
+        avatar_url: updated.avatar_storage_path || '',
+        role: 'master',
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getMasterAnalytics = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+  const db = getDb();
+
+  try {
+    const [videosRes, artistsRes] = await Promise.all([
+      db.from('videos').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('artist_profiles').select('id, artist_name'),
+    ]);
+
+    const artistMap = new Map((artistsRes.data || []).map((a: any) => [a.id, a.artist_name]));
+    const videos = (videosRes.data || [])
+      .map((v: any) => {
+        const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
+        return {
+          id: v.id,
+          title: v.title,
+          artist_id: v.artist_profile_id || v.creator_channel_id,
+          artist_name: artistMap.get(v.artist_profile_id) || meta.artist_name || 'Creator',
+          views: Number(meta.view_count ?? meta.views ?? 0),
+          price_rwf: Number(meta.price_rwf || 0),
+          price_usd: Number(meta.price_usd || 0),
+          is_free: Boolean(v.is_free),
+          thumbnail_url: meta.thumbnail_url || '',
+          uploaded_at: v.published_at || v.created_at,
+        };
+      })
+      .sort((a, b) => b.views - a.views);
+
+    const totalPlatformViews = videos.reduce((acc, v) => acc + v.views, 0);
+    return res.json({
+      totalPlatformViews,
+      totalVideos: videos.length,
+      videos,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch master analytics' });
+  }
+};

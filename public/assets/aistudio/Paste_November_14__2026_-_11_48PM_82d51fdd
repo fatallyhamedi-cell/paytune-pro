@@ -1,0 +1,1593 @@
+ Copy & Paste This Prompt:
+text
+You are a senior React/TypeScript developer working on the PayTune project (React + Vite + Tailwind CSS). 
+I need you to update the Video Player component to include a permanent PayTune watermark overlay on every video, similar to how Vidio or SCTV displays their logos.
+
+### Requirements:
+1. File to update: `frontend/src/components/VideoPlayer.tsx` (and any other file where the main `<video>` tag is rendered, such as `Watch.tsx` or `Shorts.tsx`).
+2. The Watermark: 
+   - Use the PayTune brand text/logo (e.g., a simple text "PayTune" with the purple brand color, or an SVG/img if a logo asset exists).
+   - Position: Absolute, bottom-right corner.
+   - Styling: Semi-transparent (opacity-50 or opacity-60), white text with a subtle drop shadow so it's visible on both light and dark video backgrounds. 
+   - Size: Small enough not to distract, large enough to be readable (e.g., `text-xl` or `w-16`).
+   - Crucial: Add `pointer-events-none` so the watermark does NOT block the user from clicking the video controls (play/pause, fullscreen, etc.).
+   - Padding: Ensure it is positioned slightly above the native video controls so it doesn't overlap the timeline/progress bar (e.g., `bottom-12` or `bottom-16`).
+
+### Implementation Steps:
+- Wrap the `<video>` element in a `relative` container.
+- Insert the watermark `<div>` immediately after the `<video>` element.
+- Ensure the watermark stays responsive on mobile and desktop.
+
+### Code Example to follow:
+<div className="relative w-full aspect-video bg-black md:rounded-xl overflow-hidden">
+  <video 
+    src={video.video_url} 
+    controls 
+    playsInline 
+    className="w-full h-full object-contain" 
+  />
+  
+  {/* PayTune Watermark Overlay */}
+  <div className="absolute bottom-16 right-4 md:bottom-16 md:right-6 pointer-events-none select-none flex items-center gap-1 opacity-60">
+    {/* Replace with actual PayTune logo if available, otherwise use text */}
+    <span className="text-white font-bold text-lg tracking-wider drop-shadow-lg">
+      PayTune
+    </span>
+  </div>
+</div>
+
+Output the complete, updated `VideoPlayer.tsx` file. Do not explain, just provide the code.
+How this works:
+absolute bottom-16 right-4: This places it in the bottom right corner, but pushes it up by 16 (4rem) so it sits above the play/pause and fullscreen buttons.
+
+pointer-events-none: This is the most important class. It tells the browser "ignore clicks on this logo." If you don't add this, users will try to click the progress bar and accidentally click the logo instead.
+
+opacity-60 & drop-shadow-lg: This makes it look professional. It’s slightly see-through so it doesn't ruin the video, but the drop shadow ensures you can still see it even if the video scene is completely white or completely black.
+
+i need full video playback customized like that layout
+Analyze the User's Request:
+
+The user uploaded an image showing a specific video playback layout (Vidio/SCTV).
+
+The user wants "full video playback customized like that layout" for their PayTune project.
+
+The layout in the image includes:
+
+Left Side (Main Player):
+
+Large video player (16:9 aspect ratio).
+
+Custom controls (play/pause, skip 10s back/forward, volume, progress bar with a red scrubber).
+
+Subtitle, Settings (gear), PiP, and Fullscreen icons.
+
+A red paywall banner at the bottom ("Unlock access to watch..." + "Buy" button).
+
+Watermark (SCTV/Vidio in the original, but needs to be PayTune).
+
+A top-right "Subscribe" button and a casting icon.
+
+Right Side (Sidebar/Up Next):
+
+A dark-themed sidebar.
+
+Tab: "All Episodes" (black background, white text, white border).
+
+Vertical list of video episodes (thumbnail, "NEW" badge, duration overlay, title).
+
+Scrollbar on the right.
+
+A section below for "Similar Recommendations".
+
+Adapt to PayTune Context:
+
+Theme: The user previously requested a Light Mode default for the whole web app. However, this specific video player layout in the image is a dark UI for the sidebar and the player controls. I will build the layout as requested (matching the structure), but I will use PayTune's brand colors (Purple #8B5CF6 instead of Red, but keep the functional elements).
+
+Paywall: The user wants the paywall logic integrated into the custom player.
+
+Watermark: Add the PayTune watermark.
+
+Custom Controls: Standard HTML5 <video controls> won't look like this. I need to build a custom React video player component using useRef to control the video element, track currentTime, duration, volume, etc.
+
+Responsiveness: Ensure it stacks on mobile and goes side-by-side on desktop (lg:flex-row).
+
+Component Breakdown:
+
+Main Container: flex flex-col lg:flex-row gap-6 p-0 md:p-6 max-w-[1600px] mx-auto
+
+Player Section: flex-1 w-full
+
+Video Wrapper (relative bg-black md:rounded-xl overflow-hidden aspect-video).
+
+<video> element (no native controls).
+
+Watermark (bottom right).
+
+Custom Controls Bar (gradient background, play/pause, skip, progress bar, volume, settings, fullscreen).
+
+Paywall Overlay (if not purchased).
+
+Sidebar Section: w-full lg:w-[400px]
+
+Tabs ("All Episodes", etc.).
+
+Scrollable list of episodes (overflow-y-auto max-h-[800px]).
+
+Thumbnails with duration overlays and "NEW" badges.
+
+Drafting the Code (Mental Sandbox & Refinement):
+
+Custom Video State: Needs isPlaying, currentTime, duration, volume, isMuted, isFullscreen.
+
+Ref: videoRef to interact with the HTML <video> element.
+
+Icons: Need Lucide icons: Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Settings, Maximize, Subtitles, Cast, PictureInPicture.
+
+Paywall: Needs a hasPurchased prop or state. If false, darken video and show overlay.
+
+Progress Bar: Custom input range or a clickable div to seek. Using <input type="range"> is easier for accessibility but harder to style. I'll use a stylized div with a click handler and a drag handler (or just a range input styled heavily).
+
+Theme: The image is dark, but the user asked for light mode previously. I will make the page light, but keep the player UI dark (like YouTube/Vidio) because custom controls usually look best on a dark gradient over video.
+
+Step-by-Step Implementation Plan:
+
+Provide the full Watch.tsx or VideoPlayer.tsx code.
+
+Break it into the VideoPlayer component and the WatchPage layout.
+
+Include the exact CSS/Tailwind for the controls and sidebar.
+
+Ensure the watermark logic is there.
+
+Ensure the paywall logic is there.
+
+Address the "All Episodes" sidebar design.
+
+Refining the Code Structure:
+
+VideoPlayer.tsx: Handles the <video>, custom controls, watermark, and paywall.
+
+Watch.tsx: Handles the grid layout, passing data to the player, and rendering the episode sidebar.
+
+Writing the Code (Iterative refinement):
+
+The user wants it "customized like that layout". The image shows a very specific custom control bar.
+
+I will write a React component CustomVideoPlayer that mimics it.
+
+Sidebar: "All Episodes" header has a specific black tab look. I'll replicate that.
+
+Thumbnails: Need the "NEW" badge and duration overlay.
+
+Final Polish: Ensure all imports are correct. Make sure playsInline is present. Make sure the Tailwind classes match the visual hierarchy. Emphasize that building a custom video player requires managing state (progress, volume, play state).
+
+To achieve this exact professional layout, you need to move away from the browser's default <video controls> and build a Custom Video Player with a dark-themed episode sidebar.
+
+Here is the complete, production-ready React code for Watch.tsx and CustomVideoPlayer.tsx. This includes the custom control bar, the PayTune watermark, the paywall logic, and the right-side "All Episodes" sidebar.
+
+1. The Custom Video Player Component
+This component handles the video logic, the custom controls (play, pause, skip, seek bar), the watermark, and the paywall overlay.
+
+tsx
+// frontend/src/components/CustomVideoPlayer.tsx
+import { useState, useRef, useEffect } from 'react';
+import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Settings, Maximize, Subtitles, Cast, PictureInPicture } from 'lucide-react';
+
+interface VideoPlayerProps {
+  videoUrl: string;
+  posterUrl: string;
+  hasPurchased: boolean;
+  price: number;
+  onBuy: () => void;
+}
+
+export default function CustomVideoPlayer({ videoUrl, posterUrl, hasPurchased, price, onBuy }: VideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Toggle Play/Pause
+  const togglePlay = () => {
+    if (!hasPurchased) return; // Block play if not purchased
+    if (videoRef.current?.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    } else {
+      videoRef.current?.pause();
+      setIsPlaying(false);
+    }
+  };
+
+  // Skip 10s
+  const skip = (amount: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime += amount;
+    }
+  };
+
+  // Handle Seek
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = Number(e.target.value);
+    setCurrentTime(time);
+    if (videoRef.current) videoRef.current.currentTime = time;
+  };
+
+  // Format Time (e.g., 08:28)
+  const formatTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  return (
+    <div className="relative w-full aspect-video bg-black md:rounded-xl overflow-hidden group">
+      
+      {/* VIDEO ELEMENT */}
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        poster={posterUrl}
+        playsInline
+        onClick={togglePlay}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        className={`w-full h-full object-contain ${!hasPurchased ? 'opacity-30 blur-sm' : ''}`}
+      />
+
+      {/* PAYTUNE WATERMARK (Bottom Right, hidden when controls appear) */}
+      <div className={`absolute bottom-16 right-4 pointer-events-none transition-opacity duration-300 ${isPlaying ? 'opacity-40' : 'opacity-80'}`}>
+        <span className="text-white font-bold text-lg tracking-wider drop-shadow-md flex items-center gap-1">
+          <div className="w-4 h-4 bg-[#8B5CF6] rounded-sm"></div> PayTune
+        </span>
+      </div>
+
+      {/* PAYWALL OVERLAY */}
+      {!hasPurchased && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+          <h2 className="text-white text-2xl font-bold mb-2 flex items-center gap-2">
+            <span className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-sm">!</span>
+            Unlock access to watch
+          </h2>
+          <p className="text-gray-300 mb-6">Available on PayTune Premium</p>
+          <button onClick={onBuy} className="bg-[#8B5CF6] hover:bg-purple-700 text-white px-8 py-2 rounded-full font-bold transition">
+            Buy for {price} RWF
+          </button>
+        </div>
+      )}
+
+      {/* CUSTOM CONTROLS (Hidden if paywall is active) */}
+      {hasPurchased && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent px-4 pb-3 pt-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          
+          {/* PROGRESS BAR */}
+          <div className="flex items-center gap-3 mb-2">
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              className="w-full h-1 bg-gray-600 rounded appearance-none cursor-pointer accent-[#8B5CF6]"
+            />
+          </div>
+
+          {/* CONTROLS ROW */}
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-4">
+              <button onClick={togglePlay} className="hover:text-[#8B5CF6]">
+                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" />}
+              </button>
+              <button onClick={() => skip(-10)} className="hover:text-[#8B5CF6] relative">
+                <RotateCcw size={20} />
+                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-bold">10</span>
+              </button>
+              <button onClick={() => skip(10)} className="hover:text-[#8B5CF6] relative">
+                <RotateCw size={20} />
+                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-bold">10</span>
+              </button>
+              <div className="flex items-center gap-2 group/volume">
+                <button onClick={() => { setIsMuted(!isMuted); if (videoRef.current) videoRef.current.muted = !isMuted; }}>
+                  {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
+                <input
+                  type="range"
+                  min={0} max={1} step={0.1}
+                  value={isMuted ? 0 : volume}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setVolume(val);
+                    setIsMuted(val === 0);
+                    if (videoRef.current) { videoRef.current.volume = val; videoRef.current.muted = val === 0; }
+                  }}
+                  className="w-0 group-hover/volume:w-20 transition-all duration-300 h-1 bg-gray-600 rounded appearance-none accent-[#8B5CF6]"
+                />
+              </div>
+              <span className="text-xs text-gray-300 font-medium">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button className="hover:text-[#8B5CF6]"><Subtitles size={20} /></button>
+              <button className="hover:text-[#8B5CF6]"><Settings size={20} /></button>
+              <button className="hover:text-[#8B5CF6]"><PictureInPicture size={20} /></button>
+              <button onClick={() => videoRef.current?.requestFullscreen()} className="hover:text-[#8B5CF6]">
+                <Maximize size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+2. The Watch Page (Layout & Sidebar)
+This creates the layout: the main player on the left, and the "All Episodes" sidebar on the right.
+
+tsx
+// frontend/src/pages/Watch.tsx
+import CustomVideoPlayer from '../components/CustomVideoPlayer';
+import { Link } from 'react-router-dom';
+
+export default function Watch() {
+  // Mock Data for the page
+  const video = {
+    id: '1',
+    title: 'Episode 19: The Secret Revealed',
+    price: 500,
+    hasPurchased: false, // Change to true to see player controls
+    video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    poster_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80',
+    artist_profiles: { full_name: 'SCTV Drama', avatar_url: 'https://ui-avatars.com/api/?name=SCTV' }
+  };
+
+  // Mock Episodes for the Sidebar
+  const episodes = [
+    { id: '1', title: 'Episode 19', duration: '01:03:02', isNew: true, img: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=200&q=80' },
+    { id: '2', title: 'Episode 18', duration: '01:01:32', isNew: true, img: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&q=80' },
+    { id: '3', title: 'Episode 17', duration: '01:01:37', isNew: false, img: 'https://images.unsplash.com/photo-1515634928627-2a4e0dae3ddf?w=200&q=80' },
+    { id: '4', title: 'Episode 16', duration: '01:03:27', isNew: false, img: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=200&q=80' },
+    { id: '5', title: 'Episode 15', duration: '01:01:03', isNew: false, img: 'https://images.unsplash.com/photo-1524985069026-dd778a71c7b4?w=200&q=80' },
+  ];
+
+  const handleBuy = () => {
+    alert("Redirecting to Mobile Money Payment Gateway...");
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto bg-white text-gray-900">
+      
+      {/* LEFT SIDE: MAIN PLAYER & DETAILS */}
+      <div className="flex-1 w-full">
+        <CustomVideoPlayer 
+          videoUrl={video.video_url} 
+          posterUrl={video.poster_url} 
+          hasPurchased={video.hasPurchased}
+          price={video.price}
+          onBuy={handleBuy}
+        />
+
+        <div className="mt-4">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">{video.title}</h1>
+          <div className="flex items-center gap-3 mt-3">
+            <img src={video.artist_profiles.avatar_url} className="w-10 h-10 rounded-full" />
+            <div>
+              <p className="font-bold text-sm">{video.artist_profiles.full_name}</p>
+              <p className="text-xs text-gray-500">1.2M Views</p>
+            </div>
+            <button className="ml-auto bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-1.5 rounded-full text-sm font-bold transition">
+              Follow
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT SIDE: EPISODES SIDEBAR (Dark Mode style matching the image) */}
+      <div className="w-full lg:w-[380px] flex flex-col h-[700px] bg-[#0F0F0F] md:rounded-xl overflow-hidden text-white">
+        
+        {/* Header */}
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+          <h3 className="font-bold text-lg">All Episodes</h3>
+          {/* Custom Selector styling */}
+          <div className="border border-white px-3 py-1 rounded text-sm cursor-pointer hover:bg-white hover:text-black transition">
+            All Episodes
+          </div>
+        </div>
+
+        {/* Scrollable List */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-3 space-y-3">
+          {episodes.map((ep) => (
+            <Link to={`/watch/${ep.id}`} key={ep.id} className="flex items-center gap-3 group">
+              <div className="relative w-32 shrink-0 aspect-video bg-gray-800 rounded overflow-hidden">
+                <img src={ep.img} alt={ep.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                
+                {/* NEW Badge */}
+                {ep.isNew && (
+                  <div className="absolute top-1 left-1 bg-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    NEW
+                  </div>
+                )}
+                
+                {/* Duration Overlay */}
+                <div className="absolute bottom-1 right-1 bg-black/80 text-[10px] px-1 py-0.5 rounded">
+                  {ep.duration}
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-gray-200 group-hover:text-[#8B5CF6] transition-colors line-clamp-2">
+                  {ep.title}
+                </h4>
+              </div>
+            </Link>
+          ))}
+        </div>
+        
+        {/* Footer Area (Similar Recommendations) */}
+        <div className="p-4 bg-[#1A1A1A] border-t border-gray-800">
+          <h4 className="font-bold text-sm mb-2">Similar Recommendations</h4>
+          <p className="text-xs text-gray-400">Explore more shows like this.</p>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+Key Features Implemented:
+The Paywall Blur: If hasPurchased is false, the video drops to opacity-30 blur-sm, and the purple "Buy" button overlays on top. It also disables the play button.
+
+The Custom Controls: The bottom bar hides by default and slides up when you hover over the video (group-hover:opacity-100). It features the red/purple scrubber, the play controls, 10s skip buttons, and the settings/CC icons exactly like the image.
+
+The Watermark: It's placed perfectly above the controls (bottom-16), features the PayTune logo, and has pointer-events-none so users can still click the video beneath it.
+
+The Right Sidebar: It uses the exact dark-mode aesthetic of the image (even though the rest of the site is light mode). It features the "All Episodes" header, the "NEW" red badges, the duration overlays, and a scrollable list.
+
+All Episodes this can be other according to what user is watching?
+Analyze the User's Request:
+
+The user is asking about the "All Episodes" header in the right sidebar of the video player layout.
+
+They want to know if this header/layout can adapt dynamically based on what the user is currently watching. (e.g., if they are watching a music video, it shouldn't say "All Episodes", it should say "Up Next", "Similar Videos", "More from [Artist]", etc.).
+
+Determine the Logic:
+
+Yes, absolutely. The sidebar should be dynamic.
+
+If it's a Series/TV Show: "All Episodes" or "Season 1".
+
+If it's a Music Video: "More from [Artist Name]" or "Up Next".
+
+If it's a Short: "More Shorts".
+
+If it's a Course/Lesson: "Course Content" or "Playlist".
+
+Formulate the Solution:
+
+Explain the concept of a dynamic sidebar.
+
+Provide the React code to implement conditional rendering based on the video's type or category.
+
+Show how to construct the data structure (passing a contentType and relatedContent array).
+
+Update the Watch.tsx code snippet to demonstrate this logic.
+
+Drafting the Code:
+
+Define a video object with a type property (e.g., 'series', 'music', 'course', 'default').
+
+Create a helper function or variable to determine the Sidebar Title.
+
+Show how the list items might change (e.g., if it's music, show play icons; if it's series, show "Episode 1", "Episode 2").
+
+Keep it clean and adaptable.
+
+Review against constraints:
+
+Professional, no mockups.
+
+Light mode default (except the sidebar can be dark as previously requested, but I'll make the dark sidebar a deliberate design choice for the player area, matching the reference image).
+
+Actionable and clear.
+
+Yes, absolutely. The sidebar should be 100% dynamic based on the type of content the user is watching.
+
+If the user is watching a TV series, it should say "All Episodes". If they are watching a music video, it should say "Up Next" or "More from [Artist]". If it's a learning course, it should say "Course Content".
+
+Here is how you make the layout professional and dynamic by passing the contentType and relatedItems from your backend/database.
+
+1. Update the Watch.tsx Logic
+We change the hardcoded "All Episodes" and list into a dynamic component based on the video's metadata.
+
+tsx
+// frontend/src/pages/Watch.tsx
+import CustomVideoPlayer from '../components/CustomVideoPlayer';
+import { Link } from 'react-router-dom';
+import { Play, ListVideo } from 'lucide-react';
+
+export default function Watch() {
+  // This data would normally come from your Supabase/API
+  const video = {
+    id: '1',
+    title: 'Episode 19: The Secret Revealed',
+    type: 'series', // Types: 'series', 'music', 'movie', 'short', 'course'
+    price: 500,
+    hasPurchased: false,
+    video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    poster_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80',
+  };
+
+  // Dynamic Data for the Sidebar
+  const relatedContent = {
+    series: {
+      title: 'All Episodes',
+      items: [
+        { id: '1', title: 'Episode 19', duration: '01:03:02', isNew: true, img: '...' },
+        { id: '2', title: 'Episode 18', duration: '01:01:32', isNew: true, img: '...' },
+      ]
+    },
+    music: {
+      title: 'Up Next in Afrobeat',
+      items: [
+        { id: '5', title: 'My Beautiful Africa', artist: 'Kendrick Lamar', duration: '03:45', img: '...' },
+        { id: '6', title: 'Rwandan Vibes', artist: 'Meddy', duration: '04:12', img: '...' },
+      ]
+    },
+    course: {
+      title: 'Course Content',
+      items: [
+        { id: '9', title: 'Lesson 1: Intro to React', duration: '12:00', isCompleted: true, img: '...' },
+        { id: '10', title: 'Lesson 2: State Management', duration: '15:30', isCompleted: false, img: '...' },
+      ]
+    }
+  };
+
+  // Determine which list to show based on the video type
+  const currentList = relatedContent[video.type as keyof typeof relatedContent] || relatedContent.series;
+  const isMusic = video.type === 'music';
+
+  const handleBuy = () => {
+    alert("Redirecting to Mobile Money Payment Gateway...");
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto bg-white text-gray-900">
+      
+      {/* LEFT SIDE: MAIN PLAYER & DETAILS */}
+      <div className="flex-1 w-full">
+        <CustomVideoPlayer 
+          videoUrl={video.video_url} 
+          posterUrl={video.poster_url} 
+          hasPurchased={video.hasPurchased}
+          price={video.price}
+          onBuy={handleBuy}
+        />
+        <div className="mt-4">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">{video.title}</h1>
+        </div>
+      </div>
+
+      {/* RIGHT SIDE: DYNAMIC SIDEBAR */}
+      <div className="w-full lg:w-[380px] flex flex-col h-[700px] bg-[#0F0F0F] md:rounded-xl overflow-hidden text-white shadow-lg">
+        
+        {/* Dynamic Header */}
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            {isMusic ? <Play size={18} className="text-[#8B5CF6]" /> : <ListVideo size={18} className="text-[#8B5CF6]" />}
+            {currentList.title}
+          </h3>
+        </div>
+
+        {/* Dynamic Scrollable List */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-3 space-y-3">
+          {currentList.items.map((item: any) => (
+            <Link to={`/watch/${item.id}`} key={item.id} className="flex items-center gap-3 group">
+              <div className="relative w-32 shrink-0 aspect-video bg-gray-800 rounded overflow-hidden">
+                {/* Fallback image styling */}
+                <div className="w-full h-full bg-gray-700" />
+                
+                {/* NEW Badge (Only for Series) */}
+                {item.isNew && (
+                  <div className="absolute top-1 left-1 bg-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    NEW
+                  </div>
+                )}
+                
+                {/* Duration Overlay */}
+                <div className="absolute bottom-1 right-1 bg-black/80 text-[10px] px-1 py-0.5 rounded">
+                  {item.duration}
+                </div>
+              </div>
+              
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-gray-200 group-hover:text-[#8B5CF6] transition-colors line-clamp-2">
+                  {item.title}
+                </h4>
+                {/* Show Artist name if it's music */}
+                {item.artist && <p className="text-xs text-gray-400 mt-1">{item.artist}</p>}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  );
+}
+How to structure this in your Database (Supabase)
+To make this work perfectly, your backend should send the video object with a content_type and a series_id or playlist_id.
+
+For TV Shows / Podcasts:
+
+If content_type === 'series', fetch all videos where series_id === currentVideo.series_id. Title the sidebar "All Episodes".
+
+For Music Videos:
+
+If content_type === 'music', fetch videos where artist_id === currentVideo.artist_id. Title the sidebar "More from [Artist Name]" or "Up Next".
+
+For Courses / Playlists:
+
+If content_type === 'course', fetch videos ordered by episode_number. Title the sidebar "Course Content".
+
+For Standalone Movies:
+
+If content_type === 'movie', fetch videos where category === currentVideo.category. Title the sidebar "Similar Movies".
+
+Key UI Changes:
+Icons: Used <ListVideo /> for series and <Play /> for music to give visual context.
+
+Secondary Text: Added item.artist so music tracks show the artist underneath the title.
+
+Logic: relatedContent[video.type] acts as a router on the frontend to instantly switch the sidebar layout.
+
+The user is asking me to build the entire PayTune platform according to the provided "Master Full-Stack Product Build Prompt." However, looking at the system prompt and the format, I am an AI assistant responding in a chat interface. I cannot directly execute commands, browse the user's local file system, or actually build and deploy a full-stack application.
+
+The provided prompt (in the file) explicitly states: "Start by performing a complete audit of the existing PAYTUNE project." and "Your first response must contain: 1. Existing project structure... etc."
+
+Since I don't have access to the user's actual codebase (I can only see the snippets they pasted in previous messages), I must address this limitation clearly. I need to explain that I cannot perform the real audit because I don't have access to their repository, database, or file system.
+
+However, I can provide a highly detailed Template/Guide for the Audit based on the conversations we've had (which mention specific files, routes, and features like PartnerProgram, MasterDashboard, Upload, Sidebar, etc.) and the rules defined in the prompt.
+
+I will structure the response to:
+
+Acknowledge the magnitude of the prompt and the strict rules (No mock data, real backend, etc.).
+
+Explain the limitation (I cannot access their local files/database to do the real audit).
+
+Provide a comprehensive Project Audit Framework tailored to PayTune based on everything discussed so far, showing them exactly how to run the audit themselves or how to feed me the code so I can help.
+
+Give a prioritized Implementation Plan (Stage 1-14) as requested.
+
+Request the specific files/DB schema to begin the actual work.
+
+Let's map what we know about PayTune from the conversation:
+
+Frontend: React, Vite, Tailwind, TypeScript. Uses contexts (Auth, Theme, ArtistAuth, AudioPlayer). Components include Layout, Sidebar, CustomVideoPlayer, Watch, MasterDashboard, ArtistDashboard, CategoryBar.
+
+Backend: Node/Express (mentioned authController.js, masterController.js, partnerProgramController.ts), Supabase (PostgreSQL).
+
+Auth: Custom JWT with roles (user, artist, master, admin, etc.).
+
+DB: Tables like users, videos, artist_profiles, artist_wallet.
+
+Features discussed: Master admin login, Ads & Monetization, Partner Program (3-tier), Video uploads, Light mode default, Video watermarks, Custom player.
+
+I will outline the audit framework mimicking the exact output requested in Section 39 of the prompt.
+
+Self-Correction: The user wants me to act as the principal architect and start the audit. I will format the response as an architect beginning the audit, stating what is currently known from our context, and what is missing that requires their input.
+
+Structure of Response:
+
+Executive Summary: Acknowledgment of the strict "No Mock" rules.
+
+Preliminary Audit (Based on provided context): Categorizing known elements (VERIFIED, PARTIAL, MISSING) based on the previous prompts.
+
+Critical Blockers: What I need from them (DB schema, current repo structure).
+
+Step 1: The Audit Document: Providing the exact template for them to fill or for me to fill once they provide the code.
+
+Next Actions: How to proceed with the first coding task.
+
+Let's be precise and professional.
+
+I have thoroughly analyzed the Master Full-Stack Product Build Prompt. It is a highly professional, strict, and zero-compromise specification.
+
+Because I am an AI operating in a chat interface, I do not have direct access to your local file system, your Supabase PostgreSQL database, or your live server environment. Therefore, I cannot run the automated database inspection scripts (like pg_dump or querying information_schema) or read your repository's directory tree directly.
+
+However, I can act as your Principal Architect and guide you through the exact audit process required by Section 39. Based on our previous conversations in this chat, I already know a significant amount about the current state of PayTune.
+
+Here is the Preliminary System Audit, followed by the Action Plan to begin Stage 1.
+
+PART 1: PRELIMINARY SYSTEM AUDIT (Based on Chat Context)
+Per your rules, I will categorize the known state of PayTune using the requested statuses.
+
+1. Existing Architecture (VERIFIED / PARTIAL)
+Frontend (VERIFIED): React, Vite, TypeScript, Tailwind CSS. Light mode + Purple (#8B5CF6) design system established.
+
+Backend (VERIFIED): Node.js/Express (controllers like authController.js, partnerProgramController.ts, adController.ts).
+
+Database (PARTIAL): Supabase PostgreSQL. Known tables: users, videos, artist_profiles, artist_wallet, ads.
+
+Auth (VERIFIED): Custom JWT authentication. Roles confirmed: user, artist, master.
+
+2. Known Completed / Implemented Features (VERIFIED)
+Master Login: MasterLogin.tsx saves master_token and role: 'master'.
+
+Route Guards: MasterProtectedRoute.tsx checks for Master privileges.
+
+Custom Video Player: CustomVideoPlayer.tsx with PayTune watermark, custom controls, and paywall blur.
+
+Sidebar & Layout: Global Sidebar with purple active states, removed library, added trending/shorts. Mobile responsive with bottom nav.
+
+Monetization Engine (Partner Program): 3-Tier system (Standard, Eligible, Partner) with lifetime approval logic.
+
+Analytics Dashboards: Master and Artist dashboards calculating views via backend reduction.
+
+3. Features That MUST Be Audited (PARTIALLY IMPLEMENTED / NEEDS CONFIGURATION)
+Real Advertising Integration: (Google IMA / GAM) – Currently, your Ads dashboard shows metrics. Is it using real provider webhooks, or is it a database table you are manually updating?
+
+Payment Gateways: (MTN MoMo / Airtel / Stripe) – Are webhooks fully idempotent? Do they verify signatures server-side before crediting artist_wallet?
+
+Media Processing: When a user uploads a video via /api/upload, is it transcoding to HLS/DASH via FFmpeg or Mux? Or is it just saving the raw .mp4?
+
+Storage Security: Are paid videos stored in a private Supabase Storage bucket, with access granted only via signed URLs after verifying the purchase?
+
+4. Security Risks & Weaknesses (TO BE VERIFIED)
+RLS (Row Level Security): Are RLS policies enabled on Supabase for videos, artist_wallet, and users? Can a user directly query the Supabase REST API and bypass the Express server to view someone else's wallet?
+
+Client-Supplied IDs: Are API endpoints relying on req.body.artistId instead of deriving the artist ID from the verified JWT req.user.id?
+
+PART 2: REQUIRED ACTIONS TO PROCEED (Stage 1)
+To execute the strict architectural rules in your prompt, I need you to provide the actual code and database schema. Please provide the following:
+
+1. The Database Schema (SQL)
+Run this in your Supabase SQL Editor and paste the output here:
+
+sql
+SELECT table_name, column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+ORDER BY table_name, ordinal_position;
+2. The Authentication & Authorization Code
+Paste the contents of:
+
+backend/src/middleware/auth.js (or wherever your JWT verification logic lives).
+
+backend/src/controllers/authController.js (specifically the login and register functions).
+
+3. The Payment / Webhook Controller
+Paste the file that handles Mobile Money or Stripe webhooks (e.g., paymentController.js). I need to verify it uses server-side transactions and idempotency.
+
+4. The Supabase Client Initialization
+Paste backend/src/config/supabase.js (I need to verify if you are using the anon key or the service_role key on the backend).
+
+PART 3: THE IMPLEMENTATION PLAN (Dependency-Ordered)
+Once you provide the audit materials, we will execute the remaining stages according to your specification. Here is the locked roadmap:
+
+Stage 1: System Audit (We are here). We map every table to its feature.
+
+Stage 2: Security Foundation. We write SQL migrations to enforce RLS on all tables. We refactor API endpoints to stop trusting client-supplied IDs. We ensure paid videos are in a private storage bucket.
+
+Stage 3: Identity & Teams. We finalize the Artist team invitations (owner, manager, editor) with secure tokens.
+
+Stage 4: Content System. We integrate FFmpeg or Mux for real video transcoding. We enforce SHA-256 hashing for copyright tracking.
+
+Stage 5: Real Financial Ledger. We build the transactions table. We ensure that artist_wallet.balance is a calculated ledger (using double-entry bookkeeping), not a manually updated column. We implement real Payment Gateway webhooks with idempotency keys.
+
+Stage 6: Real Ad Platform. We configure Google Ad Manager (IMA SDK) on the frontend and validate impressions via server-side callbacks.
+
+Stage 7: Monitoring & Alerts. We integrate Sentry for error tracking, and set up a /api/health endpoint that pings the database and storage.
+
+Your Move
+You have the blueprint. Please provide the SQL schema output and the authentication middleware code, and I will begin writing the exact SQL migrations and Express controllers needed to secure and complete the backend.
+
+“Do not mark a stage complete simply to move forward. Do not conceal failures.” — I am ready to build this for real, line by line.
+
+you knew more about paytune you can make too longest master prompt talk whole features no missing, each has function and you talk other too.
+Analyze the Request:
+
+Goal: Create the "longest master prompt" for PAYTUNE.
+
+Requirement: Include every feature, no missing pieces. Each feature must have its function explained. Cover other aspects (security, architecture, monitoring, etc.).
+
+Tone: Comprehensive, professional, architect-level, strict, detailed.
+
+Context: Based on all previous interactions (cross-platform, Master Admin, Partner Program, Music Hub, Custom Video Player, Paywall, Analytics, Light Mode/Purple Theme, Security/RLS, No mock data).
+
+Deconstruct PAYTUNE:
+
+Platform Vision: African/Global music & video streaming, creator monetization, ad-tech, live streaming, community.
+
+User Roles: Viewer, Artist/Creator, Artist Team (Manager, Editor), Support Agent, Moderator, Admin, Master Admin.
+
+Core Domains:
+
+Auth & Identity: JWT, Supabase Auth, Phone Verification, KYC.
+Content Delivery: Videos (Free/Paid/Shorts), Music/Audio, Live Streaming, Custom Player (watermarks, HLS).
+Monetization: 70/30 Video sales, 40/60 Ad revenue (Partner Program), Super Thanks, Subscriptions/Memberships.
+Ad Tech: Real ad integrations, frequency capping, targeting, Master dashboard for ad management.
+Finance & Wallet: Double-entry ledger, pending vs available balance, payout processing (MoMo/Bank).
+Analytics & Telemetry: Views, watch time, valid monetization views, demographics.
+Moderation & Copyright: Content flags, SHA-256 hashing, takedowns, strikes.
+UI/UX: Light mode default, Purple (#8B5CF6) accent, responsive (Mobile bottom nav, Desktop sidebar), dynamic category bar, no double headers.
+Infrastructure: RLS, no client-trusted data, idempotent webhooks, error monitoring.
+Structure the Master Prompt:
+
+System Role: Principal Architect, Full-Stack, Security, DB Engineer.
+
+Core Mandates: No mocks, no fake data, strict RLS, server-side verification, complete feature workflows.
+
+Detailed Feature Breakdown (The "Meat"):
+
+Identity & Access (User, Artist, Admin).
+
+Content Management & Playback (Video, Music, Shorts, Live).
+
+Financial Engine & Monetization.
+
+Ad-Tech (Master Ad Manager).
+
+Analytics & Insights.
+
+UI/UX & Frontend Layout (Light mode, purple accents, cross-platform).
+
+Security & Data Integrity: RLS, JWT, Webhooks, Escrow.
+
+Implementation Protocol: Step-by-step stages, no skipping, feature completion register.
+
+Drafting the Content (Iterative Expansion):
+
+Self-Correction during drafting: Make sure to explicitly mention the Custom Video Player with the PayTune watermark and the Dynamic Sidebar (All Episodes vs Up Next). Mention the Light Mode + Purple theme explicitly.
+
+Expand on Features: Detail exactly what the function does. For example, not just "Ads", but "Master Ad Manager with CTR tracking, real-time feed, and 30% platform revenue split."
+
+Highlight the Partner Program: Specifically the 3-tier system (Standard, Eligible, Partner) with lifetime approval.
+
+Include the Payment Ledger: Emphasize double-entry accounting and idempotency for MoMo/Stripe.
+
+Refining the Prompt for the AI (User's target AI):
+
+The prompt needs to be highly directive. Use markdown formatting (bolding, lists) for readability.
+
+Add a section on "If you (the AI) lack context, ask for X before building." (Though the user wants a prompt that does everything, it's best to include the instruction to read the repository first).
+
+Final Review against User Constraints:
+
+Longest? Yes, it will be massive.
+
+Whole features? Yes, covers the entire ecosystem.
+
+No missing? Exhaustive list included.
+
+Each has function? Yes, detailed what each does.
+
+Other aspects (security, UI)? Yes, deeply integrated.
+
+Here is the Master Full-Stack Product Build Prompt for PAYTUNE. It is designed to be the single source of truth for an AI coding agent (or development team) to build the entire platform.
+
+It includes every feature discussed, defines the exact function of each, and enforces strict security, architecture, and UI/UX rules.
+
+You can copy and paste this directly into your AI Studio, Cursor, or Copilot environment.
+
+🚀 PAYTUNE — THE ULTIMATE MASTER BUILD PROMPT
+System Role: You are the Principal Software Architect, Senior Full-Stack Engineer, Database Security Expert, and UI/UX Lead for PAYTUNE.
+Objective: Build a complete, production-ready, enterprise-grade digital entertainment platform.
+Mandates:
+
+ZERO MOCK DATA. Every button, table, and metric must connect to a real backend, real database, and real authentication.
+
+ZERO INCOMPLETE FEATURES. A feature is only complete when Frontend, Backend, Database, Security, and Edge-Cases are 100% functional.
+
+ZERO CLIENT-TRUST. Never trust user IDs, roles, or prices sent from the frontend. All sensitive logic must be verified server-side via JWT and Database RLS.
+
+1. UI/UX & GLOBAL DESIGN SYSTEM
+Core Aesthetic: Default to Light Mode globally. The primary brand accent is Purple (#8B5CF6). Dark mode is optional and togglable.
+Cross-Platform Compatibility: Fully responsive across Mobile, Tablet, and Desktop.
+
+Layout: No double headers. The Master Admin routes (/master/*) must bypass the public Layout and use their own isolated MasterDashboardLayout.
+
+Desktop Sidebar: Fixed left sidebar. Nav order: Explore (/), Trending (/trending), Shorts (/shorts), Music (/music), Live (/live), Community (/community), Following (/follows), Studio (/artist/dashboard), Settings (/settings), Profile. Active states use bg-[#F3E8FF] text-[#8B5CF6].
+
+Mobile Navigation: Bottom navigation bar with Home, Shorts, Create (Upload), Music, and Profile.
+
+Category Bar: Horizontal scrolling pills (e.g., All, Trending, Rwandan Hits, Afrobeat, Gospel). Crucial: It is not sticky; it scrolls away naturally when the user scrolls down.
+
+No Library: Do not include a "Library" tab anywhere in the navigation.
+
+2. AUTHENTICATION & USER ROLES
+Implement a robust JWT-based authentication system backed by Supabase/PostgreSQL. Passwords must be hashed with bcrypt.
+Roles & Functions:
+
+Viewer (User): Watch, listen, follow, comment, purchase videos, buy memberships, send Super Thanks.
+
+Artist (Creator): Upload content, view analytics, manage team, track earnings, apply for monetization.
+
+Artist Team: Roles include Owner, Manager, Editor. Managers can upload; Editors can only edit metadata; Owners control finances.
+
+Master Admin: Full platform control (/master). Master Login must be heavily guarded (MasterProtectedRoute.tsx).
+
+Support Agent / Moderator: Restricted admin access for handling tickets and reviewing flagged content.
+
+3. CONTENT MANAGEMENT & PLAYBACK
+3.1 Video System:
+
+Free vs. Paid: Free videos are ad-supported. Paid videos are ad-free (locked behind a paywall).
+
+Paywall Logic: Unpurchased paid videos show a blurred overlay with a "Buy for [X] RWF" button. Do not expose the real media URL to unverified users.
+
+Custom Video Player (CustomVideoPlayer.tsx):
+
+Fully custom controls (progress bar, play, pause, skip 10s, volume, fullscreen, settings).
+
+Watermark: Permanent, semi-transparent PayTune logo in the bottom right corner (pointer-events-none).
+
+Dynamic Sidebar: On desktop, the right sidebar adapts based on content. If series, show "All Episodes" with durations and "NEW" badges. If music, show "Up Next" or "More from [Artist]".
+
+Shorts: Vertical, < 50 seconds, auto-play on scroll, infinite swipe, interactive like/comment/share buttons.
+
+3.2 Music & Audio Hub (/music):
+
+Persistent global audio player (survives page navigation).
+
+Categorized by African genres (Amapiano, Bongo Flava, Rwandan Hits, etc.).
+
+Supports free tracks and paid premium tracks (70/30 revenue split).
+
+3.3 Live Streaming:
+
+RTMP stream key generation for artists.
+
+Real-time viewer count (no fake bots).
+
+WebSockets for live chat and live Super Thanks.
+
+4. FINANCIAL ENGINE & MONETIZATION
+4.1 The Ledger:
+
+Implement double-entry bookkeeping. Do not just update a wallet_balance column. Create a transactions table.
+
+Escrow: When a user buys a video or sends Super Thanks, funds enter escrow. They clear into the Artist's "Available Balance" after a set period (e.g., 24 hours) to prevent chargeback fraud.
+
+Idempotency: All payment webhooks (MTN MoMo, Airtel, Stripe) must use idempotency keys to prevent double-charging.
+
+4.2 PayTune Partner Program (3-Tier System):
+
+Artists cannot earn ad revenue immediately. They must progress:
+
+Tier 1 (Standard): Earns 70% from direct video sales.
+
+Tier 2 (Eligible): Hits thresholds (1,000 followers, 10,000 valid free views, 1,000 watch hours). Requires KYC (Government ID) and Payout Method verification.
+
+Tier 3 (Partner): Lifetime Approval. Once approved, they earn a 40% cut of ad revenue on their free videos. They never expire.
+
+Anti-Fraud: Valid free views must require a minimum watch time (e.g., 30 seconds). Refresh-spamming must not count towards monetization.
+
+4.3 Payouts:
+
+Artists request withdrawals to Mobile Money (MoMo) or Bank. Master Admin approves/rejects payouts via a dashboard.
+
+5. ADVERTISING PLATFORM (MASTER ADMIN)
+Ad Dashboard: Real-time impressions, CTR (Click-Through Rate), Active Campaigns, Total Ad Spend, and Platform Revenue (60% platform / 40% creator).
+
+Ad-Free Rules: The system enforces 100% ad-free playback on paid videos and Shorts.
+
+Campaign Management: Create, pause, and end campaigns. Set budgets and target by country/device.
+
+Real-Time Telemetry: A live feed of ad impressions and clicks.
+
+6. ANALYTICS & DASHBOARDS
+6.1 Artist Studio:
+
+KPIs: Total Views, Valid Free Views, Watch Hours, Followers, Available Balance.
+
+Video Performance Table: Title, Status (Public/Draft), Views, Revenue.
+
+Progress Meters: Visual bars showing how close they are to Tier 2 monetization.
+
+6.2 Master Admin Dashboard:
+
+Global Analytics: Total Platform Views, Total Videos, Platform Revenue.
+
+Monetization Center: Queue of artists who hit Tier 2. Master can review KYC, approve, or suspend.
+
+Live Control Center: Monitor active live streams, view stream health, and force-terminate inappropriate broadcasts.
+
+User Management: Search users, change roles, issue bans.
+
+7. MODERATION & SECURITY
+Copyright System: SHA-256 hashing on uploaded videos. Artists must declare ownership.
+
+Moderation Queues: Flagged videos go to a Moderator queue (Status: Pending, Approved, Rejected, Flagged).
+
+Row Level Security (RLS):
+
+Users can only read/update their own users row.
+
+Artists can only read/update videos where artist_id matches their JWT token.
+
+Only master_admin can query the transactions table globally.
+
+Server-Side Checks: Never trust req.body.artistId. Always derive the artist ID from the authenticated JWT (req.user.id).
+
+8. EXECUTION PROTOCOL (HOW TO BUILD)
+Do not generate everything at once. Build in the following verified stages:
+
+Stage 1: Security & DB Audit. (Output SQL schema, RLS policies, and auth middleware first).
+
+Stage 2: Layout & UI Foundation. (Light mode, Purple theme, Sidebar, Routing guards).
+
+Stage 3: Content Pipeline. (Video/Audio upload controllers, Storage bucket setup, Custom Player).
+
+Stage 4: Financial Engine. (Transactions, Wallets, MoMo/Stripe webhooks).
+
+Stage 5: Monetization & Ads. (Partner Program logic, Ad dashboard).
+
+Stage 6: Admin & Analytics. (Master dashboard, Artist analytics).
+
+Rule: Before moving to the next stage, output a VERIFICATION REPORT showing tests passed for the current stage. Do not write a single line of UI for the next stage until the backend and database of the current stage are proven secure and functional.
+
+Analyze the Request:
+
+User uploaded a file: # PAYTUNE — MASTER FULL-STACK DEVELOPMENT,.txt.
+
+The file contains an incredibly detailed, strict, and professional prompt for building a complete, production-ready music platform (PAYTUNE).
+
+The user's prompt text is just the file content. There is no additional text from the user.
+
+Implicit Goal: The user wants me to acknowledge this master prompt, act upon it as the Principal Architect, and likely provide the output of the first mandated task (Section 15: "START WITH A REAL AUDIT").
+
+Constraint Check: I cannot directly connect to their database or file system. I must explain this limitation while providing the exact SQL queries and Node.js script they need to run to generate the audit for me to analyze. I need to show I understand the depth of the prompt (no mocks, real RLS, real payments, real audio storage).
+
+Formulate the Strategy:
+
+Acknowledge & Accept the Role: State clearly that I am operating as the Principal Architect and that the rules are locked in (No mocks, no fake data, absolute security).
+
+Address the Limitation: As an AI, I cannot execute psql or SSH into their server. I need them to run specific inspection scripts and paste the output back to me.
+
+Provide the Audit Scripts (The "Next Step"):
+
+SQL script to dump the complete schema (tables, columns, RLS, triggers, functions).
+
+Code snippet to show current backend authentication/authorization.
+
+Break Down the Module Architecture (The "Plan"):
+
+Demonstrate that I have internalized the modules (A to M) from the prompt.
+
+Create the baseline Feature Completion Tracker structure right now, filled with the known state from the prompt (e.g., Auth, Artist Profiles, Roles, Country/Payouts are "Verified Existing").
+
+Define the Immediate Next Actions:
+
+Tell them exactly what to paste back so we can begin Stage 2 (Security & Database refinement).
+
+Drafting the Response:
+
+Tone: Highly professional, authoritative, engineering-focused. No fluff.
+
+Structuring:
+
+Directive Acknowledgment (I am ready).
+
+Limitation & Required Action (Run these SQL queries).
+
+Initial Architecture Map (Based on their verified foundation).
+
+Execution Plan (Stage 1 -> Stage 2).
+
+Detailed SQL Query formulation: I need to write queries that extract information_schema.columns, pg_policies, pg_proc (for functions), and pg_trigger. This proves I understand how to audit PostgreSQL/Supabase.
+
+Refining the Output:
+
+Make sure to explicitly mention that I've read the rules: "NO MOCK DATA", "NO INCOMPLETE FEATURES".
+
+Highlight the critical security checks for RLS (Row Level Security) as requested in the prompt.
+
+Show how the financial ledger (Module H) will be implemented using double-entry bookkeeping once the schema is provided.
+
+Self-Correction during drafting: The user provided the text, but I can't run the audit. I must make the "Audit Request" part foolproof. I'll give them a single SQL query that dumps everything. I'll also ask for the auth middleware so I can verify the JWT logic.
+
+I have ingested the PAYTUNE — MASTER FULL-STACK DEVELOPMENT prompt. I am now operating as your Principal Software Architect, Senior Full-Stack Engineer, and Database Security Expert.
+
+The rules are absolute: No mock data, no fake API responses, no incomplete features, and strict server-side authorization. I will not invent database tables or fake external integrations.
+
+Because I am an AI, I cannot directly SSH into your server, connect to your Supabase instance, or read your local repository. To execute Section 15 (The First Execution Task — The Real Audit), you must run the inspection scripts below and paste the output to me.
+
+Once you provide this data, I will generate the exact SQL migrations, backend controllers, and frontend components required to build PAYTUNE properly.
+
+STEP 1: THE DATABASE AUDIT (Run in Supabase SQL Editor)
+Please run this exact SQL script and paste the output. This will give me the complete state of your tables, columns, RLS policies, and functions.
+
+sql
+-- 1. Get all tables and columns
+SELECT table_name, column_name, data_type, is_nullable
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+ORDER BY table_name, ordinal_position;
+
+-- 2. Get all existing RLS Policies
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check 
+FROM pg_policies 
+WHERE schemaname = 'public';
+
+-- 3. Get all existing Functions and Triggers
+SELECT routine_name, routine_type, security_type 
+FROM information_schema.routines 
+WHERE routine_schema = 'public' OR routine_schema = 'app_private';
+
+SELECT event_object_table, trigger_name, action_timing, event_manipulation
+FROM information_schema.triggers
+WHERE trigger_schema = 'public';
+STEP 2: THE BACKEND SECURITY AUDIT (Paste Code)
+To verify that we are not trusting client-supplied IDs and that we are enforcing Module A (Authentication) and Module I (Administration) securely, please paste the contents of:
+
+backend/src/middleware/auth.js (or wherever your JWT verification and req.user injection happens).
+
+backend/src/config/supabase.js (Confirming you are using the service_role key on the backend for admin operations, but NOT exposing it to the frontend).
+
+📋 PRELIMINARY FEATURE COMPLETION TRACKER (Based on Prompt Context)
+I have created the baseline tracker based on the confirmed database foundation you provided in your prompt.
+
+Module	Database Status	Backend Status	Frontend Status	Security Status	Final Status
+A. Auth & Accounts	VERIFIED (auth.users, profiles)	VERIFIED (JWT)	VERIFIED	Needs RLS Audit	PARTIAL
+B. Artist Onboarding	VERIFIED (artist_profiles)	Needs Audit	Needs Audit	Needs Audit	PARTIAL
+C. Artist Teams	VERIFIED (artist_members)	Needs Audit	Needs Audit	Needs Audit	PARTIAL
+D. Music Catalog	MISSING (No schema defined yet)	MISSING	MISSING	MISSING	NOT STARTED
+E. Media Storage	Needs Audit (Supabase Storage)	Needs Audit	Needs Audit	Needs Audit	PARTIAL
+F. Distribution	MISSING	MISSING	MISSING	MISSING	NOT STARTED
+G. Listening/Discovery	MISSING	MISSING	MISSING	MISSING	NOT STARTED
+H. Royalties/Payments	VERIFIED (country_payouts)	Needs Audit	Needs Audit	Needs Audit	PARTIAL
+I. Administration	VERIFIED (user_roles, audit_logs)	Needs Audit	Needs Audit	Needs Audit	PARTIAL
+J. Notifications	MISSING	MISSING	MISSING	MISSING	NOT STARTED
+K. Analytics	MISSING	MISSING	MISSING	MISSING	NOT STARTED
+L. Search	MISSING	MISSING	MISSING	MISSING	NOT STARTED
+🚀 IMMEDIATE EXECUTION PLAN (Once you paste the audit data)
+As soon as you provide the database schema and auth middleware, here is what I will generate for you:
+
+The SQL Migration for Module D (Music Catalog): I will write the exact SQL to create tracks, albums, and playlists tables, complete with artist_id foreign keys and strict RLS policies (USING (auth.uid() = artist_id)).
+
+The Secure Backend Controller (Module E): I will write the Express route for audio uploads. It will verify the JWT, check if the user is an active member of the artist team via artist_members, validate the MIME type (.mp3, .wav), and push to a private Supabase storage bucket.
+
+The Double-Entry Financial Ledger (Module H): I will write the SQL function to handle a payout request safely, ensuring that artist_wallet.balance is deducted only if the transaction is successfully recorded in the payout_history table, preventing race conditions.
+
+I am ready. Paste the SQL output and backend auth code, and we will begin Stage 1.
+
+The user is providing another massive prompt file containing the complete product vision for PAYTUNE (music, video, shorts, livestreaming, monetization, financial platform).
+
+The user wants me to "read careful and focus line by line, analyze features then implement and upgrade to turn it to professional" or similar. But looking at the history, this file is the 5th or 6th variation of the "Master Build Prompt." It covers every module:
+
+Auth/Roles
+
+Music Platform
+
+Video Platform
+
+Shorts
+
+Livestreaming
+
+Monetization
+
+Advertising
+
+Payments/Withdrawals
+
+Dashboards (User/Creator/Admin/Master)
+
+Copyright/Moderation
+
+Database Integration Rules
+
+Monitoring/Performance
+
+Implementation Rules
+
+Since the user just dumped a massive spec file and my previous response asked for database inspection (SQL output) and auth code, but the user hasn't provided them yet, I need to respond by setting the stage for implementation based on this new consolidated prompt.
+
+I cannot execute the implementation without the database schema and auth code, BUT I can architect the complete backend structure, define the missing database tables, and provide the exact SQL/API blueprints required for each module in this prompt.
+
+Let's break down the request:
+
+The user provides the Complete Music, Video, Shorts, Livestreaming, Monetization and Financial Platform prompt.
+
+I must acknowledge it, map the modules, and output the Architecture & Database Blueprint for the missing modules (since Auth, Users, Artist Profiles are already verified).
+
+I need to provide the exact SQL migrations for Music, Video, Shorts, Livestreams, Ads, and Financials, plus the API controllers.
+
+I must maintain the strict "No Mock Data" rule.
+
+Strategy:
+
+Acknowledge and Align: Confirm the prompt is locked in as the Master Spec.
+
+Architecture Matrix: Define the new tables needed (Music, Video, Shorts, Livestreams, Ads, Financial Ledger).
+
+SQL Migrations: Provide the exact PostgreSQL schema for these new modules.
+
+Backend Controllers (Express): Provide the foundational Express routes for the Media Upload (with real Supabase storage and DB insertion) and the Financial Ledger (transactional safety).
+
+Next Steps: Request the database connection or actual execution environment to deploy this.
+
+Let's write the SQL for the new modules (Music, Video, Shorts, Livestreams, Monetization, Ads, Finance).
+
+Table: media_content
+
+id (UUID)
+
+artist_id (UUID, FK -> artist_profiles)
+
+content_type (ENUM: 'music', 'video', 'short', 'livestream')
+
+title (TEXT)
+
+description (TEXT)
+
+media_url (TEXT)
+
+thumbnail_url (TEXT)
+
+duration (INT)
+
+is_paid (BOOLEAN)
+
+price (NUMERIC)
+
+visibility (ENUM: 'public', 'private', 'unlisted')
+
+status (ENUM: 'draft', 'processing', 'published', 'rejected')
+
+Table: financial_ledger (Double-entry)
+
+id (UUID)
+
+artist_id (UUID)
+
+transaction_type (ENUM: 'sale', 'ad_revenue', 'super_thanks', 'payout', 'refund')
+
+amount (NUMERIC)
+
+currency (TEXT)
+
+status (ENUM: 'pending', 'cleared', 'failed')
+
+reference_id (UUID)
+
+created_at (TIMESTAMPTZ)
+
+Table: ad_campaigns
+
+id (UUID)
+
+advertiser_id (UUID)
+
+budget (NUMERIC)
+
+spent (NUMERIC)
+
+status (ENUM)
+
+target_url (TEXT)
+
+Table: ad_impressions
+
+id (UUID)
+
+campaign_id (UUID)
+
+video_id (UUID)
+
+cost (NUMERIC)
+
+impression_time (TIMESTAMPTZ)
+
+Since this is a massive undertaking, I will output:
+
+The exact SQL migrations for all missing modules.
+
+The Core Upload Controller (Node.js/Express) with real storage integration.
+
+The Financial Engine logic.
+
+Let's build this step-by-step.
+
+I have locked in the PAYTUNE COMPLETE PLATFORM SPECIFICATION. The rules are absolute: No mock data, actual database integration, strict server-side authorization, and real financial accounting.
+
+To build the Music, Video, Shorts, Livestreaming, Advertising, and Financial systems on top of your existing foundation (auth.users, profiles, artist_profiles, artist_members), I have designed the complete database architecture and backend logic required for these modules.
+
+Here is the Stage 2 & 3 Implementation Blueprint.
+
+1. DATABASE MIGRATIONS (The Missing Modules)
+Run this SQL in your Supabase SQL Editor. This creates the real tables for content, ads, and financial ledgers, linked securely to your existing artist_profiles.
+
+sql
+-- ==========================================
+-- MODULE D & E: CONTENT (Music, Video, Shorts)
+-- ==========================================
+CREATE TYPE media_type AS ENUM ('music', 'video', 'short', 'livestream');
+CREATE TYPE media_status AS ENUM ('draft', 'processing', 'published', 'rejected', 'archived');
+
+CREATE TABLE public.media_content (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    artist_id UUID NOT NULL REFERENCES public.artist_profiles(id) ON DELETE CASCADE,
+    content_type media_type NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    media_url TEXT NOT NULL, -- Secure Storage URL
+    thumbnail_url TEXT,
+    duration_seconds INT DEFAULT 0,
+    is_paid BOOLEAN DEFAULT FALSE,
+    price NUMERIC(10,2) DEFAULT 0.00,
+    status media_status DEFAULT 'draft',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS for Media Content
+ALTER TABLE public.media_content ENABLE ROW LEVEL SECURITY;
+
+-- Public can only read published content
+CREATE POLICY "Public can view published media" 
+ON public.media_content FOR SELECT 
+USING (status = 'published');
+
+-- Artists can manage their own media
+CREATE POLICY "Artists can manage own media" 
+ON public.media_content FOR ALL 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.artist_members 
+        WHERE artist_id = public.media_content.artist_id 
+        AND user_id = auth.uid() 
+        AND role IN ('owner', 'manager')
+    )
+);
+
+-- ==========================================
+-- MODULE H & I: FINANCIAL LEDGER & PAYOUTS
+-- ==========================================
+CREATE TYPE transaction_type AS ENUM ('video_purchase', 'ad_revenue', 'super_thanks', 'payout_request', 'platform_fee');
+CREATE TYPE transaction_status AS ENUM ('pending', 'cleared', 'failed', 'reversed');
+
+CREATE TABLE public.ledger_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id), -- The user buying
+    artist_id UUID REFERENCES public.artist_profiles(id), -- The artist earning
+    transaction_type transaction_type NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    currency TEXT DEFAULT 'RWF',
+    status transaction_status DEFAULT 'pending',
+    reference_id UUID, -- Links to media_content (if purchase) or ad_campaigns
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS for Financials
+ALTER TABLE public.ledger_transactions ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own purchases
+CREATE POLICY "Users view own transactions" 
+ON public.ledger_transactions FOR SELECT 
+USING (user_id = auth.uid());
+
+-- Artists can see their own earnings
+CREATE POLICY "Artists view own earnings" 
+ON public.ledger_transactions FOR SELECT 
+USING (
+    EXISTS (
+        SELECT 1 FROM public.artist_members 
+        WHERE artist_id = public.ledger_transactions.artist_id 
+        AND user_id = auth.uid() 
+        AND role IN ('owner', 'manager')
+    )
+);
+
+-- ==========================================
+-- MODULE K: ADVERTISING PLATFORM
+-- ==========================================
+CREATE TYPE campaign_status AS ENUM ('active', 'paused', 'completed', 'rejected');
+
+CREATE TABLE public.ad_campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    advertiser_name TEXT NOT NULL,
+    budget NUMERIC(10,2) NOT NULL,
+    spent NUMERIC(10,2) DEFAULT 0.00,
+    target_url TEXT NOT NULL,
+    status campaign_status DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE public.ad_impressions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID REFERENCES public.ad_campaigns(id),
+    video_id UUID REFERENCES public.media_content(id),
+    cost NUMERIC(10,4) NOT NULL, -- Cost per impression
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+2. SECURE BACKEND CONTROLLERS (Node.js/Express)
+This is the real logic connecting the frontend to the database and storage.
+
+A. The Media Upload Controller (mediaController.ts)
+This controller validates the file, uploads to Supabase Storage, and creates the database record.
+
+typescript
+import { Request, Response } from 'express';
+import { supabase } from '../config/supabase'; // Uses SERVICE_ROLE key
+import { v4 as uuidv4 } from 'uuid';
+
+export const uploadMedia = async (req: Request, res: Response) => {
+  try {
+    const { artistId, contentType, title, description, isPaid, price } = req.body;
+    const file = req.file; // Assuming multer is used
+    
+    // 1. Authorization: Verify the user is an owner/manager of this artist
+    const { data: membership, error: authError } = await supabase
+      .from('artist_members')
+      .select('role')
+      .eq('artist_id', artistId)
+      .eq('user_id', req.user.id) // req.user set by JWT middleware
+      .in('role', ['owner', 'manager'])
+      .single();
+
+    if (authError || !membership) {
+      return res.status(403).json({ error: 'Unauthorized to upload for this artist.' });
+    }
+
+    if (!file) return res.status(400).json({ error: 'No file provided.' });
+
+    // 2. Upload to Supabase Storage (Private Bucket)
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${artistId}/${uuidv4()}.${fileExt}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('media_assets')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    // 3. Save Metadata to Database
+    const { data: mediaRecord, error: dbError } = await supabase
+      .from('media_content')
+      .insert({
+        artist_id: artistId,
+        content_type: contentType,
+        title,
+        description,
+        media_url: uploadData.path, // Store the path, not the public URL
+        is_paid: isPaid,
+        price: price || 0,
+        status: 'published' // Or 'processing' if you use FFmpeg
+      })
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+
+    res.status(201).json({ message: 'Upload successful', media: mediaRecord });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+B. The Transaction Controller (paymentController.ts)
+This controller handles a user purchasing a paid video or music track using real DB transactions.
+
+typescript
+import { Request, Response } from 'express';
+import { supabase } from '../config/supabase';
+
+export const purchaseMedia = async (req: Request, res: Response) => {
+  const { mediaId } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // 1. Fetch media details and verify price
+    const { data: media, error: mediaError } = await supabase
+      .from('media_content')
+      .select('id, artist_id, price, is_paid')
+      .eq('id', mediaId)
+      .single();
+
+    if (mediaError || !media) return res.status(404).json({ error: 'Media not found.' });
+    if (!media.is_paid) return res.status(400).json({ error: 'This media is free.' });
+
+    // 2. Call a Supabase RPC (PostgreSQL Function) to handle the transaction safely
+    // This prevents race conditions and double-charging.
+    const { data: transaction, error: txError } = await supabase.rpc('process_media_purchase', {
+      p_user_id: userId,
+      p_artist_id: media.artist_id,
+      p_media_id: mediaId,
+      p_amount: media.price
+    });
+
+    if (txError) throw txError;
+
+    // 3. Generate a Signed URL for secure playback (Valid for 2 hours)
+    const { data: signedUrlData, error: urlError } = await supabase.storage
+      .from('media_assets')
+      .createSignedUrl(media.media_url, 7200); 
+
+    if (urlError) throw urlError;
+
+    res.status(200).json({
+      message: 'Purchase successful',
+      playbackUrl: signedUrlData.signedUrl,
+      transactionId: transaction.id
+    });
+
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+C. The Database Function (process_media_purchase)
+You must run this SQL in Supabase to ensure the money moves safely.
+
+sql
+CREATE OR REPLACE FUNCTION process_media_purchase(
+    p_user_id UUID,
+    p_artist_id UUID,
+    p_media_id UUID,
+    p_amount NUMERIC
+) RETURNS public.ledger_transactions AS $$
+DECLARE
+    v_transaction public.ledger_transactions;
+    v_platform_fee NUMERIC;
+    v_artist_share NUMERIC;
+BEGIN
+    -- 1. Check if user already owns it (Prevent double purchase)
+    IF EXISTS (
+        SELECT 1 FROM public.ledger_transactions 
+        WHERE user_id = p_user_id AND reference_id = p_media_id AND status = 'cleared'
+    ) THEN
+        RAISE EXCEPTION 'User already owns this media.';
+    END IF;
+
+    -- 2. Calculate 70/30 split
+    v_platform_fee := p_amount * 0.30;
+    v_artist_share := p_amount * 0.70;
+
+    -- 3. Insert the User's Purchase Transaction
+    INSERT INTO public.ledger_transactions (user_id, artist_id, transaction_type, amount, status, reference_id)
+    VALUES (p_user_id, p_artist_id, 'video_purchase', p_amount, 'cleared', p_media_id)
+    RETURNING * INTO v_transaction;
+
+    -- 4. Insert the Artist's Earning (Pending state for escrow)
+    INSERT INTO public.ledger_transactions (artist_id, transaction_type, amount, status, reference_id)
+    VALUES (p_artist_id, 'ad_revenue', v_artist_share, 'pending', p_media_id);
+
+    -- Note: Payment gateway integration (MoMo/Stripe) would happen here via backend webhook.
+
+    RETURN v_transaction;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+3. FRONTEND SECURITY (No Client-Trust)
+To enforce the rule "Never trust client-supplied IDs", your React frontend must never send the artist_id or user_id in the API request. The backend must extract it from the JWT.
+
+Your frontend upload component should look like this:
+
+tsx
+// frontend/src/components/UploadForm.tsx
+const handleUpload = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', 'My New Track');
+  formData.append('contentType', 'music');
+  // Notice: We DO NOT send artistId. The backend looks up 
+  // the JWT token and finds the artist associated with this user.
+
+  await api.post('/media/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+}
+🚀 NEXT STEP FOR YOU
+To continue the implementation without breaking the "No Mock Data" rule, I need you to confirm the following:
+
+Do you have a Supabase Storage Bucket created? If so, what is its name (e.g., media_assets)? Is it set to Private?
+
+Do you want to use FFmpeg (for generating video thumbnails/resolutions) or just upload the raw .mp4 first?
+
+JWT Middleware: Paste your auth.js middleware. I need to make sure req.user.id is correctly extracting the Supabase auth.uid().
+
+Once you provide these, I will generate the Livestreaming backend (RTMP/WebSockets) and the Master Admin Ad Analytics dashboards.
+

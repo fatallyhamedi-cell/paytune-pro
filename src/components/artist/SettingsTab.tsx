@@ -13,7 +13,7 @@ import {
   Upload,
   Loader2
 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 
 interface SettingsTabProps {
   artist: any;
@@ -46,7 +46,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
       else setUploadingBanner(true);
 
       const endpoint = type === 'banner' ? '/api/upload/banner' : '/api/upload/avatar';
-      const res = await axios.post(endpoint, formData, {
+      const res = await api.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -108,7 +108,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
 
     try {
       await Promise.allSettled([
-        axios.put('/api/artist/profile', {
+        api.put('/api/artist/profile', {
           full_name: fullName,
           bio,
           avatar_url: avatarUrl,
@@ -120,7 +120,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ artist, onUpdateSucces
           twitter,
           spotify
         }),
-        axios.put('/api/artist/settings/notifications', {
+        api.put('/api/artist/settings/notifications', {
           notify_purchases: smsPurchaseAlerts,
           notify_withdrawals: payoutConfirmations,
           notify_comments: fanCommentAlerts,

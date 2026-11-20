@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { supabase } from '../config/supabase';
+import { rawSupabaseAdmin, supabase, supabaseAdmin } from '../config/supabase';
+import { getJwtSecret } from '../utils/jwtSecret';
 
 export const authenticateArtist = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const rawHeader = req.headers.authorization || (req.headers['x-access-token'] as string);
     if (!rawHeader) {
-      return res.status(401).json({ error: 'No token provided' });
+      return res.status(401).json({ error: 'No authentication token provided' });
     }
 
     let token = rawHeader.trim();
@@ -15,70 +16,87 @@ export const authenticateArtist = async (req: Request, res: Response, next: Next
     }
 
     if (!token || token === 'null' || token === 'undefined') {
-      return res.status(401).json({ error: 'No token provided' });
+      return res.status(401).json({ error: 'Invalid authentication token' });
     }
 
-    // 1. Check bypass or test artist tokens
-    if (token.startsWith('impersonate_')) {
-      const artistId = token.replace('impersonate_', '');
-      (req as any).userId = artistId;
-      (req as any).artistId = artistId;
-      (req as any).role = 'artist';
-      (req as any).user = { id: artistId, role: 'artist' };
-      return next();
-    }
+    const db = rawSupabaseAdmin || supabaseAdmin || supabase;
+    const secretsToTry = Array.from(
+      new Set(
+        [getJwtSecret(), process.env.JWT_SECRET, process.env.SUPABASE_JWT_SECRET]
+          .filter((s): s is string => Boolean(s && s.trim().length >= 16))
+          .map((s) => s.trim())
+      )
+    );
 
-    if (token === 'master_token' || token === 'master_secret_jwt_token' || token.startsWith('master_')) {
-      (req as any).userId = 'master-admin-uuid-001';
-      (req as any).artistId = 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d';
-      (req as any).role = 'artist';
-      (req as any).user = { id: 'master-admin-uuid-001', role: 'MASTER_ADMIN' };
-      return next();
-    }
+    let resolvedUserId: string | null = null;
+    let resolvedArtistId: string | null = null;
+    let resolvedRole = 'artist';
+    let tokenPayload: any = null;
 
-    // 2. Local JWT verification
-    try {
-      const jwtSecret = process.env.JWT_SECRET || 'paytune_jwt_secret_key_2026';
-      const decoded = jwt.verify(token, jwtSecret) as any;
-      if (decoded && (decoded.role === 'artist' || decoded.artistId || decoded.role === 'MASTER_ADMIN')) {
-        (req as any).userId = decoded.userId || decoded.id;
-        (req as any).artistId = decoded.artistId || decoded.userId || decoded.id;
-        (req as any).role = decoded.role || 'artist';
-        (req as any).user = decoded;
-        return next();
-      }
-    } catch {}
-
-    // 3. Supabase Auth session token verification
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (!error && user) {
-      let { data: artist } = await supabase.from('artists').select('*').eq('user_id', user.id).maybeSingle();
-      if (!artist) {
-        const { data: artistById } = await supabase.from('artists').select('*').eq('id', user.id).maybeSingle();
-        artist = artistById;
-      }
-      if (!artist && (user.user_metadata?.role === 'artist' || user.email?.includes('artist'))) {
-        const { data: firstArtist } = await supabase.from('artists').select('*').limit(1).maybeSingle();
-        artist = firstArtist;
-      }
-
-      if (artist) {
-        (req as any).userId = user.id;
-        (req as any).artistId = artist.id;
-        (req as any).role = 'artist';
-        (req as any).user = user;
-        (req as any).roleData = artist;
-        return next();
+    for (const secret of secretsToTry) {
+      try {
+        const decoded = jwt.verify(token, secret) as any;
+        const roleLower = String(decoded?.role || '').toLowerCase();
+        if (decoded && (roleLower === 'artist' || roleLower === 'creator' || roleLower === 'master_admin' || roleLower === 'master' || decoded.artistId || decoded.channelId)) {
+          resolvedUserId = decoded.userId || decoded.id || decoded.sub || null;
+          resolvedArtistId = decoded.artistId || null;
+          resolvedRole = decoded.role || 'artist';
+          tokenPayload = decoded;
+          break;
+        }
+      } catch {
+        // Try next secret or fall through to Supabase Auth verification
       }
     }
 
-    // Fallback: If in dev environment, allow first artist
-    (req as any).userId = 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d';
-    (req as any).artistId = 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d';
-    (req as any).role = 'artist';
-    (req as any).user = { id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d', role: 'artist' };
+    if (!resolvedUserId) {
+      const authClient = supabaseAdmin || supabase;
+      const { data: { user }, error } = await authClient.auth.getUser(token);
+      if (!error && user) {
+        resolvedUserId = user.id;
+        tokenPayload = user;
+      }
+    }
+
+    if (!resolvedUserId) {
+      return res.status(401).json({ error: 'Invalid or expired authentication token' });
+    }
+
+    // Resolve authoritative artist profile & creator channel in PostgreSQL
+    let artistProfile: any = null;
+    if (resolvedArtistId) {
+      const { data } = await db.from('artist_profiles').select('*').eq('id', resolvedArtistId).maybeSingle();
+      artistProfile = data;
+    }
+    if (!artistProfile) {
+      const { data } = await db
+        .from('artist_profiles')
+        .select('*')
+        .or(`created_by_user_id.eq.${resolvedUserId},primary_contact_user_id.eq.${resolvedUserId}`)
+        .limit(1)
+        .maybeSingle();
+      artistProfile = data;
+    }
+
+    const { data: channel } = await db
+      .from('creator_channels')
+      .select('*')
+      .or(`owner_user_id.eq.${resolvedUserId},created_by_user_id.eq.${resolvedUserId}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (!artistProfile && !channel && resolvedRole !== 'master_admin' && resolvedRole !== 'MASTER_ADMIN') {
+      return res.status(403).json({ error: 'Artist profile or creator channel required' });
+    }
+
+    (req as any).userId = resolvedUserId;
+    (req as any).artistId = artistProfile?.id || channel?.id || resolvedArtistId;
+    (req as any).channelId = channel?.id || null;
+    (req as any).role = resolvedRole;
+    (req as any).user = tokenPayload;
+    (req as any).roleData = artistProfile || channel;
     return next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };

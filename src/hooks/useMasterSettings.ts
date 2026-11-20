@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterPlatformSettings {
   platform_name: string;
@@ -29,27 +29,21 @@ export const useMasterSettings = () => {
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/settings", { headers });
+      const res = await api.get("/api/master/settings");
       if (res.data) {
         setSettings(res.data);
       }
     } catch (err: any) {
       console.error("useMasterSettings error:", err);
-      setError(err.message || "Failed to load platform settings");
+      setError(err.response?.data?.error || err.message || "Failed to load platform settings");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders]);
+  }, []);
 
   useEffect(() => {
     fetchSettings();
@@ -60,8 +54,7 @@ export const useMasterSettings = () => {
       setSaving(true);
       setError(null);
       setSaveSuccess(false);
-      const headers = getHeaders();
-      const res = await axios.put("/api/master/settings", updated, { headers });
+      const res = await api.put("/api/master/settings", updated);
       if (res.data && res.data.settings) {
         setSettings(res.data.settings);
         setSaveSuccess(true);
@@ -69,7 +62,7 @@ export const useMasterSettings = () => {
       }
       return res.data;
     } catch (err: any) {
-      setError(err.message || "Failed to update platform settings");
+      setError(err.response?.data?.error || err.message || "Failed to update platform settings");
       throw err;
     } finally {
       setSaving(false);
@@ -84,8 +77,7 @@ export const useMasterSettings = () => {
   }) => {
     try {
       setSaving(true);
-      const headers = getHeaders();
-      const res = await axios.put("/api/master/settings/email-templates", templates, { headers });
+      const res = await api.put("/api/master/settings/email-templates", templates);
       if (res.data && res.data.settings) {
         setSettings(res.data.settings);
         setSaveSuccess(true);

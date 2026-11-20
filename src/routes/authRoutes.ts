@@ -1,41 +1,25 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import { supabase, supabaseAdmin, supabaseProjectInfo } from '../config/supabase';
+import { rawSupabaseAdmin, resolveSupabaseKeys, supabase, supabaseAdmin, supabaseProjectInfo } from '../config/supabase';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
+import { getJwtSecret } from '../utils/jwtSecret';
 import {
+  registerArtist,
   loginArtist,
-  verifyArtistPhone,
-  resendArtistOtp,
-  detectArtistCountry
+  detectArtistCountry,
+  getArtistMe
 } from '../controllers/artistAuthController';
-import { getDbStore } from '../config/supabase_mock';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'paytune_jwt_secret_key_2026';
 const JWT_EXPIRES_IN = '7d';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Mount artist auth routes directly on /api/auth as well
+router.post('/artist/register', optionalAuthenticate, registerArtist);
 router.post('/artist/login', loginArtist);
-router.post('/artist/verify-phone', optionalAuthenticate, verifyArtistPhone);
-router.post('/artist/resend-otp', optionalAuthenticate, resendArtistOtp);
 router.get('/artist/geo/detect', detectArtistCountry);
+router.get('/artist/me', authenticate, getArtistMe);
 
-// Master Admin initial account reference
-const demoUsers: Record<string, { id: string; email: string; fullName: string; role: string }> = {
-  'master@paytune.com': {
-    id: 'master-admin-uuid-001',
-    email: 'master@paytune.com',
-    fullName: 'Master Admin',
-    role: 'master'
-  }
-};
-
-/**
- * Generate a standard PAYTUNE JWT Bearer token
- */
 function generateToken(user: { id: string; email: string; role?: string; fullName?: string }): string {
   return jwt.sign(
     {
@@ -50,36 +34,30 @@ function generateToken(user: { id: string; email: string; role?: string; fullNam
         role: user.role || 'user'
       }
     },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: JWT_EXPIRES_IN }
   );
 }
 
 /**
  * POST /api/auth/register
- * User registration with email + password + full validation
+ * Registers user strictly via Supabase Auth & creates PostgreSQL profile + role assignment.
  */
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName } = req.body || {};
+    const { email, password, fullName, username } = req.body || {};
 
     const errors: Record<string, string> = {};
-
-    // 1. Email validation
     if (!email || typeof email !== 'string' || !email.trim()) {
       errors.email = 'Email address is required.';
     } else if (!EMAIL_REGEX.test(email.trim())) {
-      errors.email = 'Please provide a valid email address (e.g. name@example.com).';
+      errors.email = 'Please provide a valid email address.';
     }
-
-    // 2. Password validation
     if (!password || typeof password !== 'string') {
       errors.password = 'Password is required.';
     } else if (password.length < 6) {
       errors.password = 'Password must be at least 6 characters long.';
     }
-
-    // 3. Full name validation
     if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
       errors.fullName = 'Full name is required.';
     } else if (fullName.trim().length < 2) {
@@ -97,81 +75,73 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim();
+    const baseUsername =
+      typeof username === 'string' && username.trim()
+        ? username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24)
+        : cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '').slice(0, 23) || 'user';
+    const cleanUsername = `${baseUsername || 'user'}_${Date.now().toString(36).slice(-4)}`.slice(0, 30);
 
-    // 4. Try Supabase Auth SignUp
-    let userRecord: any = null;
-    let authError: any = null;
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: password,
-        options: {
-          data: {
-            full_name: cleanName
-          }
-        }
-      });
-      if (error) {
-        authError = error;
-      } else if (data?.user) {
-        userRecord = data.user;
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: { full_name: cleanName.slice(0, 100), username: cleanUsername, role: 'user' }
       }
-    } catch (err: any) {
-      authError = err;
+    });
+
+    if (error || !data?.user) {
+      const msg = error?.message || 'Unable to register account with Supabase Auth.';
+      const isDuplicate = msg.toLowerCase().includes('already') || msg.toLowerCase().includes('registered');
+      const isRateLimit = msg.toLowerCase().includes('rate limit');
+      return res.status(isDuplicate ? 409 : isRateLimit ? 429 : 400).json({
+        success: false,
+        error: isDuplicate ? 'account_exists' : isRateLimit ? 'rate_limited' : 'registration_failed',
+        message: msg
+      });
     }
 
-    // If Supabase failed due to network or already registered, handle gracefully
-    if (authError && !userRecord) {
-      const msg = authError.message || String(authError);
-      if (msg.includes('already registered') || msg.includes('unique constraint')) {
-        return res.status(400).json({
-          success: false,
-          error: 'validation_failed',
-          message: 'An account with this email address already exists. Please sign in instead.',
-          errors: { email: 'Email already registered.' }
+    const client = rawSupabaseAdmin || supabaseAdmin;
+    const nowIso = new Date().toISOString();
+    try {
+      await client.from('profiles').upsert({
+        user_id: data.user.id,
+        display_name: cleanName.slice(0, 100),
+        username: `${baseUsername.slice(0, 23) || 'user'}_${data.user.id.slice(0, 6)}`.slice(0, 30),
+        account_status: 'active',
+        preferred_language_code: 'en',
+        created_at: nowIso,
+        updated_at: nowIso,
+      }, { onConflict: 'user_id' });
+
+      const { data: existingRoles } = await client
+        .from('user_role_assignments')
+        .select('id')
+        .eq('user_id', data.user.id)
+        .eq('role', 'user')
+        .limit(1);
+      if (!existingRoles || existingRoles.length === 0) {
+        await client.from('user_role_assignments').insert({
+          user_id: data.user.id,
+          role: 'user',
+          is_active: true,
         });
       }
-
-      // Fallback user record for instant preview continuity
-      const fallbackId = 'usr_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-      userRecord = {
-        id: fallbackId,
-        email: cleanEmail,
-        user_metadata: { full_name: cleanName, role: 'user' }
-      };
-      demoUsers[cleanEmail] = {
-        id: fallbackId,
-        email: cleanEmail,
-        fullName: cleanName,
-        role: 'user'
-      };
-    }
-
-    // Create profile in profiles table
-    try {
-      await supabase.from('profiles').insert({
-        id: userRecord.id,
-        full_name: cleanName,
-        username: cleanEmail.split('@')[0] + Math.floor(Math.random() * 1000)
-      });
     } catch {
-      // Ignored if table is not yet migrated
+      // Profile sync handled best-effort if trigger already created row
     }
 
-    const token = generateToken({
-      id: userRecord.id,
-      email: cleanEmail,
-      role: 'user',
-      fullName: cleanName
-    });
+    const requiresEmailConfirmation = !data.session?.access_token;
 
     return res.status(201).json({
       success: true,
-      message: 'Account registered successfully.',
-      token,
+      requiresEmailConfirmation,
+      message: data.session
+        ? 'Account registered successfully.'
+        : 'Account created. Please check your email to confirm before signing in.',
+      token: data.session?.access_token || null,
+      redirectTo: data.session ? '/dashboard' : '/auth',
       user: {
-        id: userRecord.id,
+        id: data.user.id,
         email: cleanEmail,
         fullName: cleanName,
         role: 'user'
@@ -188,12 +158,11 @@ router.post('/register', async (req: Request, res: Response) => {
 
 /**
  * POST /api/auth/login
- * User login with email + password
+ * Authenticates strictly via Supabase Auth + resolves RBAC role from DB.
  */
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body || {};
-
     const errors: Record<string, string> = {};
 
     if (!email || typeof email !== 'string' || !email.trim()) {
@@ -213,146 +182,89 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-
-    // Check if user is an artist
-    const { data: maybeArtist } = await supabaseAdmin
-      .from('artists')
-      .select('id')
-      .ilike('email', cleanEmail)
-      .maybeSingle();
-
-    const store = getDbStore();
-    const mockArtist = (store.artists || []).find((a: any) => a.email?.toLowerCase() === cleanEmail);
-
-    if (req.body?.role === 'artist' || maybeArtist || mockArtist) {
+    if (req.body?.role === 'artist') {
       return loginArtist(req, res);
     }
 
-    // 1. Check Supabase `users` table directly (from Master DB schema)
-    let userRecord: any = null;
-    let authError: any = null;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password
+    });
 
-    try {
-      const { data: dbUser, error: dbError } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('email', cleanEmail)
-        .maybeSingle();
-
-      if (dbUser && !dbError) {
-        let validPassword = false;
-        if (dbUser.password_hash) {
-          try {
-            validPassword = await bcrypt.compare(password, dbUser.password_hash);
-          } catch (e) {}
-        }
-
-        // Master admin fallback password check
-        if (!validPassword && (dbUser.role === 'master' || dbUser.role === 'MASTER_ADMIN' || cleanEmail === 'master@paytune.com')) {
-          validPassword =
-            password === 'PaytuneMaster2025!' ||
-            password === 'MasterAdmin#2026!' ||
-            password === 'Paytune2025!';
-        }
-
-        if (validPassword) {
-          userRecord = {
-            id: dbUser.id,
-            email: dbUser.email,
-            full_name: dbUser.full_name || 'Master Admin',
-            role: (dbUser.role === 'MASTER_ADMIN' || cleanEmail === 'master@paytune.com') ? 'master' : (dbUser.role || 'user')
-          };
-        }
-      }
-    } catch (e) {
-      // Ignore DB read failure and proceed to fallbacks
-    }
-
-    // 2. Direct master credentials verification
-    if (!userRecord && cleanEmail === 'master@paytune.com') {
-      const isMasterPass =
-        password === 'PaytuneMaster2025!' ||
-        password === 'MasterAdmin#2026!' ||
-        password === 'Paytune2025!';
-
-      if (isMasterPass) {
-        userRecord = {
-          id: 'master-admin-uuid-001',
-          email: 'master@paytune.com',
-          full_name: 'Master Admin',
-          role: 'master'
-        };
-      }
-    }
-
-    // 3. Try Supabase Auth for standard buyers/users
-    if (!userRecord) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: password
-        });
-        if (error) {
-          authError = error;
-        } else if (data?.user) {
-          userRecord = {
-            id: data.user.id,
-            email: cleanEmail,
-            full_name: data.user.user_metadata?.full_name || cleanEmail.split('@')[0],
-            role: cleanEmail === 'master@paytune.com' ? 'master' : (data.user.user_metadata?.role || 'user')
-          };
-        }
-      } catch (err: any) {
-        authError = err;
-      }
-    }
-
-    // 4. Check demo users fallback
-    if (!userRecord && demoUsers[cleanEmail]) {
-      const isDemoMaster = cleanEmail === 'master@paytune.com' && (
-        password === 'PaytuneMaster2025!' ||
-        password === 'MasterAdmin#2026!' ||
-        password === 'Paytune2025!'
-      );
-      if (isDemoMaster || cleanEmail !== 'master@paytune.com') {
-        const demo = demoUsers[cleanEmail];
-        userRecord = {
-          id: demo.id,
-          email: demo.email,
-          role: 'master',
-          full_name: demo.fullName
-        };
-        authError = null;
-      }
-    }
-
-    if (!userRecord) {
+    if (error || !data?.user) {
+      const msg = error?.message || 'Invalid email or password.';
+      const isUnconfirmed = msg.toLowerCase().includes('email not confirmed');
       return res.status(401).json({
         success: false,
-        error: 'invalid_credentials',
-        message: authError?.message || 'Invalid email or password. Please check your credentials.'
+        error: isUnconfirmed ? 'email_not_confirmed' : 'invalid_credentials',
+        message: isUnconfirmed
+          ? 'Your email address has not been confirmed. Please check your inbox before signing in.'
+          : 'Invalid email or password.'
       });
     }
 
-    const effectiveRole = (userRecord.role === 'MASTER_ADMIN' || cleanEmail === 'master@paytune.com')
-      ? 'master'
-      : (userRecord.role || 'user');
+    const client = rawSupabaseAdmin || supabaseAdmin;
+    const [{ data: roleRows }, { data: artistProfile }, { data: profileData }] = await Promise.all([
+      client.from('user_role_assignments').select('role').eq('user_id', data.user.id).eq('is_active', true),
+      client
+        .from('artist_profiles')
+        .select('*')
+        .or(`created_by_user_id.eq.${data.user.id},primary_contact_user_id.eq.${data.user.id}`)
+        .maybeSingle(),
+      client.from('profiles').select('*').eq('user_id', data.user.id).maybeSingle(),
+    ]);
 
-    const token = generateToken({
-      id: userRecord.id,
-      email: cleanEmail,
-      role: effectiveRole,
-      fullName: userRecord.full_name || cleanEmail.split('@')[0]
-    });
+    if (profileData?.account_status === 'suspended') {
+      return res.status(403).json({
+        success: false,
+        error: 'account_blocked',
+        message: 'Your account has been suspended. Please contact PAYTUNE support.'
+      });
+    }
+
+    let resolvedRole = 'user';
+    const roles = (roleRows || []).map((r: any) => String(r.role).toLowerCase());
+    if (roles.includes('master_admin') || roles.includes('master')) {
+      resolvedRole = 'master';
+    } else if (roles.includes('admin')) {
+      resolvedRole = 'admin';
+    } else if (artistProfile || roles.includes('artist')) {
+      resolvedRole = 'artist';
+    }
+
+    const fullName =
+      profileData?.display_name ||
+      artistProfile?.artist_name ||
+      data.user.user_metadata?.full_name ||
+      cleanEmail.split('@')[0];
+
+    const redirectTo =
+      resolvedRole === 'master' || resolvedRole === 'admin'
+        ? '/master'
+        : resolvedRole === 'artist'
+        ? '/artist/dashboard'
+        : '/dashboard';
+
+    const token =
+      data.session?.access_token ||
+      generateToken({
+        id: data.user.id,
+        email: cleanEmail,
+        role: resolvedRole,
+        fullName
+      });
 
     return res.json({
       success: true,
       token,
+      role: resolvedRole,
+      redirectTo,
+      artist: artistProfile || null,
       user: {
-        id: userRecord.id,
+        id: data.user.id,
         email: cleanEmail,
-        full_name: userRecord.full_name || cleanEmail.split('@')[0],
-        role: effectiveRole
+        full_name: fullName,
+        role: resolvedRole
       }
     });
   } catch (err: any) {
@@ -366,16 +278,19 @@ router.post('/login', async (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/google/status
- * Check Google OAuth status in Supabase project
  */
-router.get('/google/status', async (req: Request, res: Response) => {
+router.get('/google/status', async (_req: Request, res: Response) => {
   const projectId = supabaseProjectInfo.projectId;
   const supabaseUrl = supabaseProjectInfo.url;
   const callbackUrl = `${supabaseUrl}/auth/v1/callback`;
   const setupUrl = `https://supabase.com/dashboard/project/${projectId}/auth/providers`;
 
   try {
-    const settingsRes = await fetch(`${supabaseUrl}/auth/v1/settings`);
+    const { anonKey, serviceKey } = resolveSupabaseKeys();
+    const apiKey = anonKey || serviceKey;
+    const settingsRes = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+      headers: apiKey ? { apikey: apiKey } : {},
+    });
     let googleEnabled = false;
     if (settingsRes.ok) {
       const settings = await settingsRes.json();
@@ -389,11 +304,11 @@ router.get('/google/status', async (req: Request, res: Response) => {
       callbackUrl,
       setupUrl,
       error: googleEnabled ? null : 'unsupported_provider',
-      message: googleEnabled 
-        ? 'Google OAuth provider is active.' 
+      message: googleEnabled
+        ? 'Google OAuth provider is active.'
         : 'Google OAuth provider is not enabled in your Supabase dashboard settings.'
     });
-  } catch (err: any) {
+  } catch {
     return res.json({
       supported: false,
       projectId,
@@ -406,90 +321,14 @@ router.get('/google/status', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * POST /api/auth/google/demo
- * Instant Google Sign-In generator (returns valid JWT Bearer token)
- */
-router.post('/google/demo', async (req: Request, res: Response) => {
-  try {
-    const email = (req.body?.email || 'fatallyhamedi@gmail.com').trim().toLowerCase();
-    const fullName = (req.body?.fullName || email.split('@')[0]).trim();
-
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'validation_failed',
-        message: 'A valid Google email address is required.'
-      });
-    }
-
-    // Strict requirement: No Google OAuth for artists (only users)
-    const requestedRole = req.body?.role;
-    if (requestedRole === 'artist') {
-      return res.status(403).json({
-        success: false,
-        error: 'google_auth_forbidden_for_artists',
-        message: 'Google Sign-In is only available for fans and users. Artists must sign in with their email and password.'
-      });
-    }
-
-    // Check if email already belongs to an artist
-    const { data: existingArtist } = await supabaseAdmin
-      .from('artists')
-      .select('id')
-      .ilike('email', email)
-      .maybeSingle();
-
-    const store = getDbStore();
-    const mockArtist = (store.artists || []).find((a: any) => a.email?.toLowerCase() === email);
-
-    if (existingArtist || mockArtist) {
-      return res.status(403).json({
-        success: false,
-        error: 'google_auth_forbidden_for_artists',
-        message: 'Google Sign-In is not allowed for artist accounts. Artists must sign in using their email and password.'
-      });
-    }
-
-    const userId = 'usr_google_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-    const token = generateToken({
-      id: userId,
-      email,
-      fullName,
-      role: 'user'
-    });
-
-    demoUsers[email] = {
-      id: userId,
-      email,
-      fullName,
-      role: 'user'
-    };
-
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: userId,
-        email,
-        fullName,
-        role: 'user',
-        provider: 'google'
-      }
-    });
-  } catch (err: any) {
-    return res.status(500).json({
-      success: false,
-      error: 'server_error',
-      message: err?.message || 'Failed to authenticate Google user.'
-    });
-  }
+router.post('/google/demo', (_req: Request, res: Response) => {
+  return res.status(410).json({
+    success: false,
+    error: 'demo_auth_disabled',
+    message: 'Simulated Google Sign-In has been disabled. Use configured Supabase Google OAuth.'
+  });
 });
 
-/**
- * GET /api/auth/me
- * Protected endpoint returning authenticated user profile
- */
 router.get('/me', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
@@ -501,17 +340,126 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    const client = rawSupabaseAdmin || supabaseAdmin;
+    let [{ data: roleRows }, { data: artistProfile }, { data: channel }, { data: profileData }] = await Promise.all([
+      client.from('user_role_assignments').select('role').eq('user_id', user.id).eq('is_active', true),
+      client
+        .from('artist_profiles')
+        .select('*')
+        .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+        .maybeSingle(),
+      client
+        .from('creator_channels')
+        .select('*')
+        .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+        .maybeSingle(),
+      client.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
+    ]);
+
+    // Auto-provision missing profile row for newly signed-up Supabase Auth users
+    if (!profileData) {
+      const nowIso = new Date().toISOString();
+      const fallbackName =
+        user.user_metadata?.full_name ||
+        (user.email ? String(user.email).split('@')[0] : 'PAYTUNE Member');
+      const baseHandle = (user.user_metadata?.username || fallbackName || 'user')
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, 23) || 'user';
+      const fallbackUsername = `${baseHandle}_${String(user.id).slice(0, 6)}`.slice(0, 30);
+
+      const { data: insertedProfile } = await client
+        .from('profiles')
+        .upsert(
+          {
+            user_id: user.id,
+            username: fallbackUsername,
+            display_name: String(fallbackName).slice(0, 100),
+            preferred_language_code: 'en',
+            account_status: 'active',
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+          { onConflict: 'user_id' }
+        )
+        .select('*')
+        .maybeSingle();
+
+      if (insertedProfile) {
+        profileData = insertedProfile;
+      }
+    }
+
+    const roles = (roleRows || []).map((r: any) => String(r.role).toLowerCase());
+    if (roles.length === 0) {
+      try {
+        await client.from('user_role_assignments').insert({
+          user_id: user.id,
+          role: 'user',
+          is_active: true,
+        });
+      } catch {
+        // Ignore non-fatal role bootstrap conflict
+      }
+    }
+
+    let resolvedRole = 'user';
+    const fullName =
+      profileData?.display_name ||
+      user.user_metadata?.full_name ||
+      user.email?.split('@')[0] ||
+      'User';
+
+    let roleData: any = {
+      ...(profileData || { user_id: user.id, display_name: fullName }),
+      id: user.id,
+      full_name: fullName,
+      role: 'user',
+    };
+
+    if (roles.includes('master_admin') || roles.includes('master')) {
+      resolvedRole = 'master';
+      roleData = {
+        id: user.id,
+        is_master: true,
+        role: 'master',
+        full_name: fullName,
+      };
+    } else if (roles.includes('admin')) {
+      resolvedRole = 'admin';
+      roleData = {
+        ...(profileData || {}),
+        id: user.id,
+        role: 'admin',
+        full_name: fullName,
+      };
+    } else if (artistProfile || channel) {
+      resolvedRole = 'artist';
+      roleData = {
+        ...(artistProfile || channel),
+        id: artistProfile?.id || channel?.id,
+        user_id: user.id,
+        channel_id: channel?.id || null,
+        full_name: artistProfile?.artist_name || channel?.channel_name || fullName,
+        role: 'artist',
+      };
+    }
+
     return res.json({
       success: true,
       user: {
         id: user.id,
         email: user.email,
-        role: user.role || user.user_metadata?.role || 'user',
-        fullName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+        role: resolvedRole,
+        fullName,
         metadata: user.user_metadata || {}
-      }
+      },
+      profile: profileData || null,
+      artist: artistProfile || null,
+      channel: channel || null,
+      roleData,
     });
-  } catch (err: any) {
+  } catch {
     return res.status(500).json({
       success: false,
       error: 'server_error',
@@ -520,31 +468,16 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-/**
- * POST /api/auth/refresh
- * Refresh current session JWT
- */
 router.post('/refresh', authenticate, async (req: Request, res: Response) => {
-  try {
-    const user = (req as any).user;
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role || 'user',
-      fullName: user.user_metadata?.full_name || user.email?.split('@')[0]
-    });
+  const user = (req as any).user;
+  const token = generateToken({
+    id: user.id,
+    email: user.email,
+    role: user.role || 'user',
+    fullName: user.user_metadata?.full_name || user.email?.split('@')[0]
+  });
 
-    return res.json({
-      success: true,
-      token
-    });
-  } catch (err: any) {
-    return res.status(401).json({
-      success: false,
-      error: 'Unauthorized',
-      message: 'Failed to refresh token.'
-    });
-  }
+  return res.json({ success: true, token });
 });
 
 export default router;

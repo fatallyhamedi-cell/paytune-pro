@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterArtist {
   id: string;
@@ -28,18 +28,11 @@ export const useMasterArtists = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [autoApproveActive, setAutoApproveActive] = useState<boolean>(false);
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchArtists = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/artists", {
-        headers,
+      const res = await api.get("/api/master/artists", {
         params: {
           status: statusFilter,
           search: searchQuery,
@@ -52,62 +45,55 @@ export const useMasterArtists = () => {
       }
     } catch (err: any) {
       console.error("useMasterArtists error:", err);
-      setError(err.message || "Failed to load artists");
+      setError(err.response?.data?.error || err.message || "Failed to load artists");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, statusFilter, searchQuery, sortBy]);
+  }, [statusFilter, searchQuery, sortBy]);
 
   useEffect(() => {
     fetchArtists();
   }, [fetchArtists]);
 
   const approveArtist = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.put(`/api/master/artists/${id}/approve`, {}, { headers });
+    const res = await api.put(`/api/master/artists/${id}/approve`, {});
     fetchArtists();
     return res.data;
   };
 
   const blockArtist = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.put(`/api/master/artists/${id}/block`, {}, { headers });
+    const res = await api.put(`/api/master/artists/${id}/block`, {});
     fetchArtists();
     return res.data;
   };
 
   const unblockArtist = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.put(`/api/master/artists/${id}/unblock`, {}, { headers });
+    const res = await api.put(`/api/master/artists/${id}/unblock`, {});
     fetchArtists();
     return res.data;
   };
 
   const deleteArtist = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.delete(`/api/master/artists/${id}`, { headers });
+    const res = await api.delete(`/api/master/artists/${id}`);
     fetchArtists();
     return res.data;
   };
 
   const impersonateArtist = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.post(`/api/master/artists/impersonate/${id}`, {}, { headers });
+    const res = await api.post(`/api/master/artists/impersonate/${id}`, {});
     return res.data;
   };
 
   const bulkAction = async (action: "approve" | "block" | "delete") => {
     if (selectedIds.length === 0) return;
-    const headers = getHeaders();
-    const res = await axios.post("/api/master/artists/bulk-action", { action, ids: selectedIds }, { headers });
+    const res = await api.post("/api/master/artists/bulk-action", { action, ids: selectedIds });
     setSelectedIds([]);
     fetchArtists();
     return res.data;
   };
 
   const toggleAutoApprove = async (approveExisting: boolean = false) => {
-    const headers = getHeaders();
-    const res = await axios.put("/api/master/artists/toggle-auto-approve", { approve_existing: approveExisting }, { headers });
+    const res = await api.put("/api/master/artists/toggle-auto-approve", { approve_existing: approveExisting });
     if (res.data) {
       setAutoApproveActive(res.data.auto_approve_artists);
       fetchArtists();

@@ -197,12 +197,18 @@ export const Library: React.FC = () => {
                   className="relative aspect-video bg-black cursor-pointer overflow-hidden"
                   onClick={() => navigate(`/watch/${video.id}`)}
                 >
-                  <img
-                    src={video.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"}
-                    alt={video.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
+                  {video.thumbnail_url ? (
+                    <img
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-neutral-900 flex items-center justify-center">
+                      <Play className="w-8 h-8 text-[#FFB300]/50" />
+                    </div>
+                  )}
 
                   {/* Duration Badge */}
                   <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/80 backdrop-blur-md rounded text-[10px] font-mono text-white font-medium">
@@ -224,12 +230,11 @@ export const Library: React.FC = () => {
 
                   {/* Progress Bar */}
                   {hasProgress && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                      <div
-                        className="h-full bg-[#FFB300]"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
+                    <progress
+                      value={progressPercent}
+                      max={100}
+                      className="absolute bottom-0 left-0 right-0 w-full h-1 block appearance-none [&::-webkit-progress-bar]:bg-white/20 [&::-webkit-progress-value]:bg-[#FFB300] [&::-moz-progress-bar]:bg-[#FFB300]"
+                    />
                   )}
                 </div>
 

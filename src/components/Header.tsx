@@ -2,27 +2,25 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Plus,
-  Bell,
   Sun,
   Moon,
   Video,
   Radio,
   LayoutDashboard,
-  Music,
   Settings,
   LogOut,
   X,
-  Flame,
-  CheckCircle,
-  ExternalLink,
   ArrowLeft,
-  Globe,
-  User
+  User,
+  Sparkles
 } from "lucide-react";
-import axios from "axios";
+import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
+import { useArtistAuth } from "../contexts/ArtistAuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { useCurrency } from "../contexts/CurrencyContext";
 import Logo from "./Logo";
@@ -40,6 +38,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface HeaderProps {
   onMenuClick?: () => void;
+  sidebarCollapsed?: boolean;
+  mobileMenuOpen?: boolean;
 }
 
 interface Suggestion {
@@ -50,8 +50,9 @@ interface Suggestion {
   artist_id?: string;
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, sidebarCollapsed = false, mobileMenuOpen = false }: HeaderProps) {
   const { user, signOut, roleData } = useAuth();
+  const { artist } = useArtistAuth();
   const { theme, toggleTheme } = useTheme();
   const { currentCountry, countries, setCountryByCode } = useCurrency();
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  const isArtist = Boolean(roleData?.momo_code || roleData?.role === "artist");
+  const isArtist = Boolean(artist || roleData?.momo_code || roleData?.role === "artist");
 
   // Auto-suggest logic with debouncing
   useEffect(() => {
@@ -73,30 +74,31 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await axios.get(`/api/videos?q=${encodeURIComponent(searchQuery.trim())}&limit=6`);
+        const res = await api.get(`/api/videos?q=${encodeURIComponent(searchQuery.trim())}&limit=6`);
         const videos = Array.isArray(res.data) ? res.data : (res.data.videos || []);
         
         const list: Suggestion[] = [];
         const seenArtists = new Set<string>();
 
         videos.forEach((v: any) => {
+          const resolvedArtistId = v.artist_id || v.artists?.id;
           list.push({
             id: String(v.id),
             title: v.title,
             artist_name: v.artist_name || v.artists?.full_name,
             type: "video",
-            artist_id: String(v.artist_id || v.artists?.id)
+            artist_id: resolvedArtistId ? String(resolvedArtistId) : undefined
           });
 
           const artistName = v.artist_name || v.artists?.full_name;
-          if (artistName && !seenArtists.has(artistName.toLowerCase())) {
+          if (artistName && resolvedArtistId && !seenArtists.has(artistName.toLowerCase())) {
             seenArtists.add(artistName.toLowerCase());
             list.push({
-              id: `artist-${v.artist_id || 1}`,
+              id: `artist-${resolvedArtistId}`,
               title: artistName,
               artist_name: "Verified Channel",
               type: "artist",
-              artist_id: String(v.artist_id || 1)
+              artist_id: String(resolvedArtistId)
             });
           }
         });
@@ -229,17 +231,27 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </div>
       ) : (
         <>
-          {/* Left: Hamburger & Logo */}
+          {/* Left: Sidebar Toggle & Logo */}
           <div className="flex items-center gap-2">
             <Button
               id="header-hamburger-btn"
               variant="ghost"
               size="icon"
-              className="hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white rounded-full h-9 w-9"
+              className="hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white rounded-full h-9 w-9 cursor-pointer"
               onClick={onMenuClick}
-              aria-label="Toggle navigation menu"
+              aria-label={sidebarCollapsed ? "Expand navigation sidebar" : "Toggle navigation sidebar"}
+              aria-expanded={typeof window !== "undefined" && window.innerWidth >= 768 ? !sidebarCollapsed : mobileMenuOpen}
             >
-              <Menu className="w-5 h-5" />
+              <span className="md:hidden">
+                <Menu className="w-5 h-5" />
+              </span>
+              <span className="hidden md:inline-flex">
+                {sidebarCollapsed ? (
+                  <PanelLeftOpen className="w-5 h-5" />
+                ) : (
+                  <PanelLeftClose className="w-5 h-5" />
+                )}
+              </span>
             </Button>
             <Logo />
           </div>
@@ -448,13 +460,23 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     <LayoutDashboard className="w-4 h-4 mr-2 text-purple-600" />
                     <span>My Dashboard</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="cursor-pointer rounded-xl py-2 px-2.5 text-xs focus:bg-gray-100 dark:focus:bg-neutral-800"
-                    onClick={() => navigate("/artist/dashboard")}
-                  >
-                    <Video className="w-4 h-4 mr-2 text-red-500" />
-                    <span>Creator Studio</span>
-                  </DropdownMenuItem>
+                  {isArtist ? (
+                    <DropdownMenuItem
+                      className="cursor-pointer rounded-xl py-2 px-2.5 text-xs focus:bg-gray-100 dark:focus:bg-neutral-800"
+                      onClick={() => navigate("/artist/dashboard")}
+                    >
+                      <Video className="w-4 h-4 mr-2 text-purple-600" />
+                      <span>Creator Studio</span>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      className="cursor-pointer rounded-xl py-2 px-2.5 text-xs focus:bg-gray-100 dark:focus:bg-neutral-800"
+                      onClick={() => navigate("/artist/signup")}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+                      <span>Become an Artist</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     className="cursor-pointer rounded-xl py-2 px-2.5 text-xs focus:bg-gray-100 dark:focus:bg-neutral-800"
                     onClick={() => navigate("/settings")}

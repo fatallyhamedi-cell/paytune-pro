@@ -1,0 +1,1138 @@
+# PAYTUNE — MASTER FULL-STACK DEVELOPMENT, DATABASE INTEGRATION & PRODUCTION IMPLEMENTATION PROMPT
+
+## 1. PROJECT IDENTITY AND MISSION
+
+You are acting as a senior software architect, principal full-stack engineer, database architect, backend engineer, security engineer, DevOps engineer, QA engineer, and product engineer.
+
+Your mission is to build PAYTUNE into a complete, professional, production-ready music platform with fully functional frontend, backend, database integration, authentication, artist management, music distribution, payments, administration, analytics, notifications, and operational monitoring.
+
+PAYTUNE must be a real working application.
+
+This is not a prototype, UI demonstration, school project, or static dashboard.
+
+Every feature must connect to real backend functionality and the actual database. Every important action must execute real business logic, validate permissions, persist its result, handle errors, and return accurate feedback to the user.
+
+**ABSOLUTE REQUIREMENTS:**
+- NO MOCK DATA.
+- NO FAKE API RESPONSES.
+- NO PLACEHOLDER BUSINESS LOGIC.
+- NO HARDCODED DASHBOARD STATISTICS.
+- NO SIMULATED PAYMENTS.
+- NO FAKE MUSIC UPLOADS.
+- NO FAKE AUTHENTICATION.
+- NO DEMONSTRATION-ONLY BUTTONS.
+- NO INVENTED DATABASE TABLES OR COLUMNS.
+- NO DUPLICATE DATABASE OBJECTS.
+- NO SILENT DATABASE REPLACEMENTS.
+- NO INCOMPLETE FEATURES PRESENTED AS COMPLETED.
+- NO CLIENT-SIDE SECURITY AS A SUBSTITUTE FOR SERVER-SIDE AUTHORIZATION.
+
+Do not hide incomplete functionality behind attractive UI designs.
+
+If a feature depends on an external provider, implement its real integration using documented APIs, secure credentials, and appropriate error handling. If credentials or provider access are unavailable, clearly identify the integration as BLOCKED and explain exactly what is required. Never simulate a successful operation.
+
+---
+
+## 2. EXISTING PAYTUNE DATABASE — VERIFIED FOUNDATION
+
+PAYTUNE already has an existing PostgreSQL/Supabase database foundation.
+
+The following objects and capabilities have been inspected and confirmed during previous database work. Treat them as existing infrastructure.
+
+Do not recreate, rename, replace, or duplicate them without first proving that a change is necessary and receiving explicit approval.
+
+### 2.1 Authentication and user identity
+
+Confirmed:
+- Supabase `auth.users` exists.
+- Authentication user identity uses `auth.users.id`.
+- Authentication includes phone-related fields such as `phone`, `phone_confirmed_at`, and `confirmed_at`.
+- `public.profiles` exists.
+- The profile primary user reference is `user_id`, not an assumed `id` column.
+
+Requirements:
+- Use the authenticated Supabase identity.
+- Do not trust user IDs supplied by the browser.
+- Do not create a second authentication system.
+- Connect application profiles to the existing authentication identity.
+- Verify phone confirmation using the actual authentication state.
+
+### 2.2 Artist profiles
+
+Confirmed existing table: `public.artist_profiles`.
+
+Inspected columns include:
+- `id`
+- `artist_name`
+- `artist_handle`
+- `artist_type`
+- `bio_en`
+- `bio_rw`
+- `avatar_path`
+- `banner_path`
+- `website_url`
+- `country_code`
+- `primary_language_code`
+- `created_by_user_id`
+- `primary_contact_user_id`
+- `record_status`
+- `verification_status`
+- `approval_status`
+- `is_public`
+- `approved_by_user_id`
+- `approved_at`
+- `rejection_reason`
+- timestamps
+
+Existing artist types:
+- solo
+- group
+- band
+- orchestra
+- other
+
+Existing record statuses:
+- active
+- inactive
+- suspended
+- archived
+
+Existing verification statuses:
+- not_submitted
+- pending
+- under_review
+- verified
+- rejected
+- expired
+
+Existing moderation statuses:
+- pending
+- approved
+- rejected
+- flagged
+- restricted
+
+Requirements:
+- Build artist registration and profile management around the existing table.
+- Preserve its existing constraints and indexes.
+- Do not assume every artist is automatically approved.
+- Respect the difference between account status, verification status, and moderation status.
+- Support bilingual English and Kinyarwanda profile information where the existing schema provides it.
+- Ensure public profile visibility respects `is_public`, record status, approval status, and applicable privacy rules.
+
+### 2.3 Artist membership and team access
+
+Confirmed:
+- `public.artist_members` exists.
+- Existing artist member roles:
+  - owner
+  - manager
+  - artist
+  - editor
+- Active membership and active owner uniqueness indexes exist.
+
+Requirements:
+- Implement artist-team management using existing membership records.
+- Support invitations, acceptance, revocation, and role management only where actual database structures and functions support them.
+- Verify that a user can access only the artist accounts to which that user has active authorized membership.
+- Enforce permissions on the server and database.
+- Do not allow client-supplied artist IDs or roles to grant access.
+
+### 2.4 Artist verification
+
+Confirmed:
+- `public.artist_verification_requests` exists.
+- Existing function `public.submit_artist_verification(uuid,text,jsonb)` exists.
+- Existing function `public.get_artist_verification_status(uuid)` exists.
+- An index prevents multiple open verification requests for the same artist.
+- Evidence is validated as a JSON array.
+- The submission function checks authorized artist ownership or membership.
+- The submission function uses transaction locking.
+- Verification-related update triggers and constraints exist.
+
+Important incomplete area:
+The full review, approval, rejection, expiry, and lifecycle synchronization workflow has not yet been verified.
+
+Requirements:
+- Inspect the exact existing columns and functions before implementation.
+- Implement the complete review workflow against the real schema.
+- Synchronize artist verification status correctly.
+- Record reviewer identity and timestamps.
+- Validate evidence securely.
+- Prevent unauthorized verification decisions.
+- Preserve the existing one-open-request constraint.
+- Handle rejection reasons, resubmissions, and expiry correctly.
+- Do not invent review column names or assume a scheduler exists.
+
+### 2.5 Phone verification and OTP security
+
+Confirmed:
+- `public.artist_phone_verification_events` exists.
+- OTP event types include:
+  - otp_requested
+  - otp_resent
+  - otp_verified
+  - otp_verification_failed
+  - phone_change_requested
+  - phone_change_verified
+- Existing event logging function:
+  `app_private.record_artist_phone_verification_event(...)`
+- Existing rate-limit reservation function:
+  `app_private.reserve_artist_phone_otp_attempt(...)`
+- Rate limiting includes cooldown and short-term and long-term limits.
+- The event table uses RLS and restricted privileges.
+- Service-role access is required for the inspected event functions.
+
+Requirements:
+- Integrate with actual Supabase Auth phone OTP functionality or a documented supported provider.
+- Use the existing logging and reservation functions.
+- Never expose the service-role key to the browser.
+- Use secure, consistent phone-number hashing.
+- Handle failed delivery, expired OTPs, repeated requests, and phone changes.
+- Do not report a phone number as verified until the authentication provider confirms verification.
+- Verify the real SMS integration before marking this feature complete.
+
+### 2.6 Roles, permissions, and administration
+
+Confirmed:
+- `public.user_role_assignments` exists.
+- `public.admin_permissions` exists.
+- `public.admin_role_permissions` exists.
+- `public.admin_action_audit_logs` exists.
+- Existing user roles:
+  - user
+  - support_agent
+  - moderator
+  - admin
+  - master_admin
+
+Confirmed authorization helpers:
+- `app_private.has_active_role(p_role paytune_user_role)`
+- `app_private.is_master_admin()`
+- `app_private.has_artist_access(uuid)`
+- `app_private.is_artist_member(uuid)`
+
+The inspected role helpers use database-backed authorization and `auth.uid()`.
+
+Requirements:
+- Use existing database-backed authorization.
+- Never accept an admin role, actor ID, or permission level from client input.
+- Implement permission checks for every administrative action.
+- Implement secure role assignment and revocation.
+- Record important administrative actions in the existing audit log.
+- Support user management, artist moderation, verification review, reports, and support workflows only after inspecting the relevant database structures.
+- Keep admin privileges separate from artist ownership and private artist-dashboard access.
+- Master admin access must not automatically grant access to private artist dashboards.
+
+### 2.7 Country, currency, and payout foundation
+
+Confirmed:
+- `countries`
+- `country_currencies`
+- `country_payout_settings`
+- `currencies`
+
+The payout settings contain configuration related to withdrawal limits, fees, verification requirements, tax requirements, manual review, supported payout methods, and provider configuration.
+
+Existing payout method types:
+- bank_transfer
+- mobile_money
+- digital_wallet
+- other
+
+Existing payout attempt statuses:
+- pending
+- submitted
+- processing
+- succeeded
+- failed
+- cancelled
+- reversed
+
+Requirements:
+- Reuse existing country and currency configuration.
+- Respect country-specific payout settings.
+- Build real payout workflows using actual payout records, balances, providers, and transaction logic found in the database.
+- Do not assume that payout configuration means payouts are already operational.
+- Verify all financial tables, relationships, constraints, and functions before implementing the payout system.
+
+---
+
+## 3. DATABASE COMPLETION STATUS — DO NOT MISREPRESENT IT
+
+Use the following status classification when planning and reporting development.
+
+### Confirmed existing database foundation
+
+These objects have been inspected:
+- Authentication references and profiles.
+- Artist profiles.
+- Artist memberships.
+- Artist verification requests.
+- Phone verification event logging.
+- OTP rate-limit functions.
+- User role assignments.
+- Admin permission tables.
+- Admin action audit logs.
+- Country and currency configuration.
+- Country payout configuration.
+- Several authorization functions, triggers, constraints, and indexes.
+
+### Existing functionality inspected but not fully integration-tested
+
+- Artist profile creation.
+- Phone verification event recording.
+- OTP attempt reservation and rate limiting.
+- Artist verification submission.
+- Artist verification status retrieval.
+- Role-based authorization helpers.
+- Artist membership authorization helpers.
+
+### Incomplete or unverified functionality
+
+The following must be audited and completed where necessary:
+- Complete artist onboarding lifecycle.
+- Real SMS/OTP delivery and verification integration.
+- Full artist verification review lifecycle.
+- Artist approval and rejection administration.
+- Complete artist suspension and reactivation workflow.
+- Full RLS policy audit.
+- Private dashboard isolation tests.
+- Full admin management workflows.
+- Complete payout execution.
+- Revenue and royalty calculation.
+- Complete music upload and distribution workflows.
+- Notifications.
+- Reporting and analytics.
+- Operational monitoring and alerting.
+- End-to-end testing and deployment verification.
+
+**Important:** The presence of a database table, function, trigger, or enum does not prove that the corresponding product feature is complete.
+
+Do not mark any feature COMPLETE until its frontend, backend, database integration, authorization, error handling, and tests have been verified.
+
+---
+
+## 4. MANDATORY DATABASE DISCOVERY BEFORE DEVELOPMENT
+
+Before changing the database or writing backend queries, inspect the actual connected database.
+
+Generate a complete inventory of:
+
+1. Schemas.
+2. Tables.
+3. Columns and data types.
+4. Primary keys.
+5. Foreign keys.
+6. Unique constraints.
+7. Check constraints.
+8. Indexes.
+9. Enum types and their exact values.
+10. Views and materialized views.
+11. Functions and their complete definitions.
+12. Function owners and security-definer settings.
+13. Function execute permissions.
+14. Triggers and trigger functions.
+15. RLS enabled and forced status.
+16. Every RLS policy and its complete expression.
+17. Table and sequence privileges.
+18. Storage buckets and storage policies.
+19. Extensions.
+20. Scheduled jobs and background processing.
+21. Existing integrations and configuration dependencies.
+
+Use the actual connected database as the source of truth.
+
+Do not infer missing columns from frontend designs.
+
+Do not replace an existing function simply because you would prefer another implementation.
+
+Before each schema change:
+- Identify the existing object.
+- Explain the missing requirement.
+- Explain the proposed change.
+- Identify dependencies.
+- Preserve existing data.
+- Make the migration safe and reversible where practical.
+- Verify the result after execution.
+
+All database migrations must be ordered, version-controlled, and repeatable without creating duplicates.
+
+If you cannot inspect the connected database, stop database-dependent implementation and request the appropriate secure connection or schema inspection access. Never claim that the database has been inspected when it has not.
+
+---
+
+## 5. COMPLETE PAYTUNE PRODUCT MODULES
+
+Build the following product modules as a connected system.
+
+### MODULE A — USER AUTHENTICATION AND ACCOUNT MANAGEMENT
+
+Implement:
+- User registration.
+- Login and logout.
+- Phone OTP authentication.
+- Phone number verification.
+- Account recovery.
+- Secure session management.
+- Profile management.
+- Account settings.
+- Account deactivation and deletion workflows.
+- Device/session security where supported.
+- User notifications and preferences.
+- Secure handling of authentication errors.
+
+Every operation must use real authentication and database records.
+
+### MODULE B — ARTIST ONBOARDING AND PROFILE MANAGEMENT
+
+Implement:
+- Artist registration.
+- Solo and group artist profiles.
+- Unique artist handles.
+- Profile editing.
+- Artist biographies.
+- Profile image and banner management.
+- Website and social links where supported.
+- Country and language settings.
+- Public/private profile settings.
+- Artist approval status.
+- Verification submission and status.
+- Team membership management.
+- Artist account lifecycle.
+
+Respect the existing database structure and permissions.
+
+### MODULE C — ARTIST TEAM AND COLLABORATION
+
+Implement:
+- Team invitations.
+- Invitation acceptance and rejection.
+- Role assignment.
+- Role updates.
+- Member removal.
+- Ownership protection.
+- Membership history where supported.
+- Secure team activity records.
+- Permission-based access to artist resources.
+
+A team member must only access the actions permitted by their active role.
+
+### MODULE D — MUSIC CATALOG AND RELEASE MANAGEMENT
+
+Inspect the existing schema before building.
+
+Implement the complete music catalog where supported:
+- Tracks.
+- Albums.
+- EPs.
+- Singles.
+- Artists and contributors.
+- Songwriters and producers.
+- Genre and language metadata.
+- Release dates.
+- Track ordering.
+- Cover artwork.
+- Audio files.
+- Explicit-content indicators.
+- Copyright and ownership metadata.
+- Release status.
+- Metadata editing.
+- Draft and submission workflows.
+- Release review and moderation.
+- Publishing and takedown workflows.
+
+Do not invent existing music tables. Create only genuinely missing structures after schema inspection.
+
+### MODULE E — AUDIO AND MEDIA STORAGE
+
+Implement real storage integrations:
+- Secure audio uploads.
+- Cover-art uploads.
+- Profile images.
+- File validation.
+- MIME-type verification.
+- File-size limits.
+- Secure storage paths.
+- Upload progress.
+- Retry and failure handling.
+- Metadata extraction where technically supported.
+- Audio processing where required.
+- Secure access to private assets.
+- Public access only to approved assets.
+
+Use actual storage services. Do not store fake file paths as successful uploads.
+
+### MODULE F — MUSIC DISTRIBUTION
+
+Build the distribution system based on verified database structures and real provider capabilities.
+
+Where supported, implement:
+- Distribution submission.
+- Release validation.
+- Delivery status.
+- Platform availability.
+- Provider integration.
+- Release updates.
+- Takedown requests.
+- Error reporting.
+- Delivery history.
+- Release analytics.
+
+Clearly distinguish between internal release management and actual delivery to external streaming platforms.
+
+Never claim that music has been distributed if no provider confirms delivery.
+
+### MODULE G — LISTENING AND DISCOVERY
+
+Implement applicable music discovery functionality:
+- Public music catalog.
+- Artist pages.
+- Search.
+- Genre filters.
+- Language filters.
+- Release discovery.
+- Track pages.
+- Playlists.
+- Listening history.
+- Favorites.
+- Following artists.
+- User libraries.
+- Recommendations based on real usage data where available.
+
+Implement real audio playback with proper media handling.
+
+Never invent play counts, listener statistics, or recommendation data.
+
+### MODULE H — ROYALTIES, EARNINGS AND PAYMENTS
+
+This is a financially sensitive module.
+
+Inspect all existing financial tables and functions before implementation.
+
+Build the complete financial workflow where supported:
+- Revenue ingestion.
+- Royalty calculations.
+- Revenue allocation.
+- Artist earnings.
+- Collaborator splits.
+- Available balances.
+- Pending balances.
+- Transaction history.
+- Withdrawal requests.
+- Withdrawal validation.
+- Country-specific fees.
+- Minimum and maximum withdrawal limits.
+- Required verification.
+- Tax requirements.
+- Manual review.
+- Payout processing.
+- Failed payouts.
+- Reversals.
+- Reconciliation.
+- Financial audit history.
+
+Requirements:
+- Use precise monetary arithmetic and appropriate database numeric types.
+- Use transactional accounting.
+- Prevent duplicate payouts.
+- Use idempotency keys where appropriate.
+- Maintain immutable financial history.
+- Never allow users to modify their own earnings or payout status.
+- Verify external provider responses before recording payment success.
+- Never simulate financial transactions.
+- Clearly distinguish estimated revenue from confirmed revenue.
+
+### MODULE I — ADMINISTRATION AND MODERATION
+
+Build a professional administrative platform.
+
+Implement:
+- Secure admin login and authorization.
+- Admin dashboard.
+- User management.
+- Artist management.
+- Artist verification review.
+- Artist approval and rejection.
+- Suspension and reactivation.
+- Music moderation.
+- Release moderation.
+- Content reports.
+- Abuse and fraud investigations.
+- Support management.
+- Permission management.
+- Role assignment.
+- Administrative audit history.
+- Operational status and system alerts.
+
+Every administrative operation must be permission-checked on the backend and recorded in audit history where appropriate.
+
+### MODULE J — NOTIFICATIONS AND COMMUNICATION
+
+Implement:
+- In-app notifications.
+- Email notifications.
+- SMS notifications where applicable.
+- Artist verification updates.
+- Membership invitations.
+- Release status updates.
+- Payment status updates.
+- Security alerts.
+- Account notifications.
+- Notification preferences.
+- Read/unread state.
+- Delivery status.
+- Retry handling.
+
+Integrate real notification providers. If a provider is not configured, show a clear configuration requirement rather than pretending the notification was delivered.
+
+### MODULE K — ANALYTICS AND REPORTING
+
+Build real analytics for:
+
+Artists:
+- Track performance.
+- Streams and plays.
+- Listener statistics.
+- Release performance.
+- Audience growth.
+- Earnings.
+- Royalty reports.
+- Geographic performance where data exists.
+- Time-based comparisons.
+
+Administrators:
+- Registered users.
+- Active users.
+- Artist registrations.
+- Artist approval rates.
+- Verification processing.
+- Releases.
+- Music engagement.
+- Financial operations.
+- Payout performance.
+- Platform health.
+- Errors and operational trends.
+
+All figures must come from actual records or explicitly identified external analytics data.
+
+Never generate placeholder statistics to fill empty dashboard sections.
+
+### MODULE L — SEARCH AND CONTENT DISCOVERY
+
+Implement:
+- Global search.
+- Artist search.
+- Track search.
+- Album search.
+- Release search.
+- Category and genre filtering.
+- Pagination.
+- Sorting.
+- Search validation.
+- Performance optimization.
+
+Respect public visibility and authorization rules in all search results.
+
+### MODULE M — SUPPORT AND USER REPORTING
+
+Implement:
+- Support tickets.
+- Issue categories.
+- Ticket status.
+- Priority.
+- Assignment.
+- Internal notes where authorized.
+- User responses.
+- Abuse reports.
+- Report review.
+- Resolution history.
+- Secure support-agent permissions.
+
+Use actual backend records and enforce access controls.
+
+---
+
+## 6. NON-NEGOTIABLE SECURITY ARCHITECTURE
+
+Security is a core product requirement, not an optional feature.
+
+### Private dashboard isolation
+
+Ordinary users may access only their own private dashboard and private records.
+
+Artists may access only the dashboard and private records of the specific artist profiles they own or are explicitly and actively authorized to access.
+
+An artist must never access another artist's private dashboard or records without verified authorization.
+
+Authorization must be derived from:
+- Authenticated identity.
+- Actual database ownership.
+- Active artist membership.
+- Explicit assigned permissions.
+- Database-enforced RLS policies.
+
+Never trust:
+- Client-supplied user IDs.
+- Client-supplied artist IDs as proof of access.
+- Client-supplied role names.
+- Hidden frontend controls.
+- Local storage permissions.
+- Unsigned or unverified identity claims.
+
+### Database security
+
+- Preserve and audit RLS.
+- Enable RLS on tables containing private user data.
+- Use restrictive policies where appropriate.
+- Audit SECURITY DEFINER functions.
+- Use an empty or otherwise safely controlled search path for security-sensitive functions.
+- Revoke unnecessary privileges.
+- Keep service-role credentials server-side only.
+- Prevent SQL injection.
+- Validate all inputs.
+- Use safe database transactions.
+- Prevent unauthorized object access.
+- Protect storage objects with appropriate policies.
+
+### Financial security
+
+- Prevent unauthorized balance modification.
+- Prevent duplicate transactions.
+- Maintain accurate transaction history.
+- Protect payout destinations.
+- Verify payout provider responses.
+- Record administrative financial actions.
+- Implement reconciliation and exception handling.
+
+### Application security
+
+- Secure API endpoints.
+- Protect against CSRF where relevant.
+- Protect against XSS.
+- Apply rate limits.
+- Validate uploaded files.
+- Protect sensitive environment variables.
+- Use secure session handling.
+- Log security events without exposing secrets.
+- Apply appropriate request size limits.
+- Implement appropriate CORS configuration.
+
+---
+
+## 7. PROFESSIONAL FRONTEND AND USER EXPERIENCE
+
+Build a modern, responsive, premium-quality application.
+
+Required interfaces:
+- Public landing page.
+- Authentication pages.
+- User dashboard.
+- Artist dashboard.
+- Artist public profile.
+- Artist onboarding.
+- Artist team management.
+- Music catalog.
+- Release management.
+- Music upload interface.
+- Distribution management.
+- Earnings and payments.
+- Notifications.
+- Account settings.
+- Support center.
+- Admin dashboard.
+- Admin management pages.
+
+Requirements:
+- Responsive desktop, tablet, and mobile layouts.
+- Consistent design system.
+- Clear navigation.
+- Accessible controls.
+- Loading states.
+- Empty states based on actual database results.
+- Meaningful error states.
+- Success feedback only after real backend confirmation.
+- Pagination and filtering.
+- Search interfaces.
+- Secure route protection.
+- Correct role-based navigation.
+
+Do not create decorative buttons that have no working action.
+
+Every displayed action must have a real implementation or be clearly disabled with an explanation of its dependency.
+
+---
+
+## 8. BACKEND AND API ARCHITECTURE
+
+Create a maintainable and secure backend architecture.
+
+Requirements:
+- Clear separation between frontend and backend responsibilities.
+- Reusable business services.
+- Secure database access.
+- Input validation.
+- Authorization middleware.
+- Consistent error responses.
+- Logging.
+- Transaction management.
+- Idempotent operations where required.
+- Pagination and filtering.
+- Rate limiting.
+- Background processing where needed.
+- API documentation.
+- Versioned API contracts where appropriate.
+
+All API endpoints must:
+1. Authenticate the request where required.
+2. Validate input.
+3. Authorize the requested operation.
+4. Execute real business logic.
+5. Persist changes safely.
+6. Handle failures.
+7. Return a consistent response.
+8. Record relevant audit events.
+
+Never implement security solely in frontend components.
+
+---
+
+## 9. PERFORMANCE AND SCALABILITY
+
+Optimize PAYTUNE for reliability and increasing usage.
+
+Database:
+- Appropriate indexes.
+- Efficient queries.
+- Query plan analysis.
+- Pagination.
+- Avoid N+1 queries.
+- Efficient joins.
+- Connection management.
+- Transaction optimization.
+- Avoid unnecessary database writes.
+
+Frontend:
+- Code splitting.
+- Lazy loading.
+- Image optimization.
+- Efficient state management.
+- Caching where appropriate.
+- Avoid unnecessary rendering.
+- Responsive media loading.
+
+Backend:
+- Request timeouts.
+- Efficient API responses.
+- Background jobs.
+- Queue processing where necessary.
+- Retry policies.
+- Idempotency.
+- Resource limits.
+- External API timeouts.
+
+Audio and storage:
+- Use appropriate media delivery and caching.
+- Avoid loading entire audio files unnecessarily.
+- Use streaming-compatible delivery.
+- Handle interrupted uploads and playback.
+
+Never sacrifice authorization or financial correctness for performance.
+
+---
+
+## 10. MONITORING, OBSERVABILITY AND PLATFORM HEALTH
+
+PAYTUNE must include operational monitoring to improve reliability and performance over time.
+
+Implement real monitoring for:
+
+### Application monitoring
+- Application uptime.
+- API response times.
+- Request volume.
+- Error rates.
+- Failed requests.
+- Slow endpoints.
+- Authentication failures.
+- Unexpected application crashes.
+
+### Database monitoring
+- Query performance.
+- Slow queries.
+- Connection utilization.
+- Database errors.
+- Lock contention.
+- Transaction failures.
+- Storage usage.
+- Index performance.
+- RLS-related failures where observable.
+
+### Security monitoring
+- Repeated failed login attempts.
+- OTP abuse.
+- Rate-limit rejections.
+- Suspicious account activity.
+- Unauthorized access attempts.
+- Permission failures.
+- Administrative actions.
+- Sensitive financial operations.
+
+### Financial monitoring
+- Failed payouts.
+- Reversed payouts.
+- Duplicate transaction attempts.
+- Reconciliation discrepancies.
+- Unusual withdrawal patterns.
+- Provider failures.
+
+### Media and distribution monitoring
+- Upload failures.
+- Processing failures.
+- Missing media.
+- Playback errors.
+- Distribution provider failures.
+- Delayed delivery.
+
+### Operational dashboard
+
+Provide administrators with:
+- Current platform health.
+- Service availability.
+- API performance.
+- Error trends.
+- Database performance indicators.
+- Queue and background-job status.
+- External provider health.
+- Security event summaries.
+- Financial processing status.
+
+### Alerting
+
+Configure appropriate alerts for:
+- Critical application failures.
+- Database availability issues.
+- Unusual authentication activity.
+- Repeated OTP abuse.
+- Failed payment operations.
+- Provider outages.
+- Background-job failures.
+- Unexpected performance degradation.
+
+Monitoring must use real measurements and real event data. Never fabricate uptime, response time, or performance statistics.
+
+---
+
+## 11. TESTING AND QUALITY ASSURANCE
+
+No feature is complete without testing.
+
+Create and execute appropriate:
+
+### Database tests
+- Schema validation.
+- Constraint validation.
+- Function tests.
+- Trigger tests.
+- RLS tests.
+- Permission tests.
+- Transaction tests.
+- Migration tests.
+
+### Authentication tests
+- Registration.
+- Login.
+- Logout.
+- OTP verification.
+- Expired OTP.
+- Rate limiting.
+- Unauthorized requests.
+- Session expiration.
+
+### Artist tests
+- Artist creation.
+- Duplicate handle rejection.
+- Membership authorization.
+- Invitation lifecycle.
+- Role restrictions.
+- Verification submission.
+- Review and approval.
+- Suspension and reactivation.
+
+### Financial tests
+- Balance accuracy.
+- Transaction integrity.
+- Duplicate payout prevention.
+- Invalid withdrawal rejection.
+- Provider failure handling.
+- Reversal handling.
+- Reconciliation.
+
+### Security tests
+- Cross-user access attempts.
+- Cross-artist access attempts.
+- Unauthorized admin access.
+- Privilege escalation.
+- RLS bypass attempts.
+- Service-role exposure checks.
+- Storage access restrictions.
+
+### End-to-end tests
+Test real user journeys from registration to the actual completion of each feature.
+
+Do not use mock data to claim production integration tests passed.
+
+Test environments may use clearly identified test accounts and provider sandbox environments, but sandbox results must never be reported as real production transactions.
+
+---
+
+## 12. IMPLEMENTATION RULES — NO PARTIAL DELIVERY DISGUISED AS COMPLETE
+
+Work systematically.
+
+For every feature, use these stages:
+
+**STAGE 1 — DISCOVER**
+Inspect existing database objects, backend services, frontend pages, and external integrations.
+
+**STAGE 2 — CLASSIFY**
+Classify the feature as:
+- EXISTING AND VERIFIED.
+- EXISTING BUT NOT TESTED.
+- PARTIALLY IMPLEMENTED.
+- MISSING.
+- BLOCKED BY EXTERNAL DEPENDENCY.
+
+**STAGE 3 — PLAN**
+Explain the actual missing work and identify dependencies.
+
+**STAGE 4 — IMPLEMENT**
+Build the real frontend, backend, database integration, authorization, and validation.
+
+**STAGE 5 — TEST**
+Run tests against the actual connected backend and database.
+
+**STAGE 6 — VERIFY**
+Verify the result and report any remaining limitations.
+
+**STAGE 7 — DOCUMENT**
+Update API documentation, migration records, configuration documentation, and feature status.
+
+Do not skip stages.
+
+Do not mark a feature complete because its page has been created.
+
+Do not move forward while a critical security, financial, or data-integrity defect remains unresolved.
+
+When a feature is blocked, continue independent work where safe, but never fake the blocked integration.
+
+---
+
+## 13. REQUIRED FEATURE COMPLETION REPORT
+
+Maintain a feature implementation tracker.
+
+For every module, record:
+
+| Field | Required information |
+|---|---|
+| Module | Exact PAYTUNE module |
+| Existing database objects | Actual inspected objects |
+| Existing backend | Actual existing implementation |
+| Missing work | Specific missing functionality |
+| Frontend status | Not started / partial / verified |
+| Backend status | Not started / partial / verified |
+| Database status | Not started / partial / verified |
+| Security status | Not tested / failed / passed |
+| Integration status | Not configured / blocked / tested |
+| Test status | Not run / failed / passed |
+| Final status | Blocked / In progress / Complete |
+| Evidence | Actual tests, files, queries, and results |
+
+A module may be marked COMPLETE only when all required layers have been implemented and tested.
+
+Never use percentages without a measurable basis.
+
+Never report a test as passed if it was not actually executed.
+
+---
+
+## 14. REQUIRED FINAL DELIVERABLES
+
+Build and maintain:
+
+1. Complete PAYTUNE application.
+2. Complete responsive frontend.
+3. Complete backend services and APIs.
+4. Integration with the existing database.
+5. Ordered database migrations for genuinely missing objects.
+6. Authentication and authorization.
+7. Artist management.
+8. Music catalog and release management.
+9. Media upload and storage.
+10. Distribution integrations where configured.
+11. Financial and payout workflows.
+12. Admin management.
+13. Analytics and reporting.
+14. Notifications.
+15. Monitoring and alerting.
+16. Automated tests.
+17. API documentation.
+18. Database documentation.
+19. Environment configuration documentation.
+20. Deployment documentation.
+21. Backup and recovery procedures.
+22. Security audit report.
+23. Performance audit report.
+24. Feature completion tracker.
+
+Do not include fake credentials, secrets, or invented provider integrations.
+
+Never commit `.env` secrets to source control.
+
+---
+
+## 15. FIRST EXECUTION TASK — START WITH A REAL AUDIT
+
+Before building the full application, perform these tasks:
+
+1. Inspect the existing project files and determine the actual frontend and backend architecture.
+2. Connect to the actual PAYTUNE database using the authorized connection.
+3. Inspect the complete database schema and all relevant security settings.
+4. Compare the actual database against the confirmed PAYTUNE foundation described in this prompt.
+5. Identify existing features and avoid rebuilding them.
+6. Identify missing database structures and missing backend functionality.
+7. Identify incomplete external integrations.
+8. Identify security risks and performance problems.
+9. Produce a complete implementation plan ordered by dependencies and risk.
+10. Start implementing the project systematically, preserving the existing database.
+
+Do not stop after producing a plan. Continue implementation wherever the necessary access and information are available.
+
+If access is missing, identify the exact missing dependency and continue with independent tasks.
+
+### FINAL DIRECTIVE
+
+Build PAYTUNE as one coherent, secure, scalable, production-oriented music platform.
+
+The existing PAYTUNE database is the source of truth for the database layer. Preserve all verified working functionality.
+
+Do not create an imaginary database to fit your preferred code.
+
+Do not replace existing authorization with weaker frontend checks.
+
+Do not invent business rules, financial calculations, provider integrations, or database fields.
+
+Do not produce a visually complete but functionally empty application.
+
+Every feature must work with real data and real backend operations.
+
+Every security-sensitive action must be authorized by the server and database.
+
+Every financial operation must be accurate, auditable, and protected against duplication.
+
+Every important failure must be observable.
+
+Every completion claim must be backed by actual implementation and test evidence.
+
+**The goal is not to make PAYTUNE look complete. The goal is to make PAYTUNE actually complete, reliable, secure, maintainable, and ready for real users.**

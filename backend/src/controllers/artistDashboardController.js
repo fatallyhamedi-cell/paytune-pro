@@ -4,110 +4,83 @@ const db = supabaseAdmin || supabase;
 
 /**
  * GET /api/artist/dashboard
- * Returns { balance, totalVideos, totalViews, videos } along with extended stats & artist profile.
+ * Real PostgreSQL/Supabase dashboard summary using artist_profiles, creator_channels, videos, creator_earning_accounts.
  */
 exports.getDashboard = async (req, res) => {
   try {
-    const artistId = req.artistId || req.artist?.id || req.user?.id;
     const userId = req.artistUserId || req.user?.id;
+    const artistIdParam = req.artistId || req.artist?.id;
 
     let artist = null;
-
-    // 1. Resolve artist record from DB
-    try {
-      if (artistId) {
-        const { data } = await db.from('artists').select('*').eq('id', artistId).maybeSingle();
-        if (data) artist = data;
-      }
-      if (!artist && userId) {
-        const { data } = await db.from('artists').select('*').eq('user_id', userId).maybeSingle();
-        if (data) artist = data;
-      }
-      if (!artist && req.user?.email) {
-        const { data } = await db.from('artists').select('*').ilike('email', req.user.email).maybeSingle();
-        if (data) artist = data;
-      }
-    } catch (dbErr) {
-      console.warn('[artistDashboardController] DB lookup notice:', dbErr);
+    if (artistIdParam) {
+      const { data } = await db.from('artist_profiles').select('*').eq('id', artistIdParam).maybeSingle();
+      if (data) artist = data;
+    }
+    if (!artist && userId) {
+      const { data } = await db
+        .from('artist_profiles')
+        .select('*')
+        .or(`created_by_user_id.eq.${userId},primary_contact_user_id.eq.${userId}`)
+        .maybeSingle();
+      if (data) artist = data;
     }
 
-    // 2. Fallback to mock store if in test/mock mode
     if (!artist) {
-      try {
-        const { getDbStore } = require('../../src/config/supabase_mock');
-        const store = getDbStore();
-        const artistList = store?.artists || [];
-        artist = artistList.find((a) => 
-          (artistId && a.id === artistId) || 
-          (userId && a.user_id === userId) ||
-          (req.user?.email && a.email?.toLowerCase() === req.user.email.toLowerCase())
-        ) || artistList[0];
-      } catch (mockErr) {
-        // Safe fallback
-      }
+      return res.status(404).json({ error: 'Artist profile not found in database.' });
     }
 
-    const currentArtistId = artist?.id || artistId || 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d';
+    const ownerId = artist.primary_contact_user_id || artist.created_by_user_id || userId;
+    const { data: channel } = await db
+      .from('creator_channels')
+      .select('id')
+      .or(`owner_user_id.eq.${ownerId},created_by_user_id.eq.${ownerId}`)
+      .maybeSingle();
 
-    // 3. Fetch artist's videos
-    let videos = [];
-    try {
-      const { data: vData } = await db
-        .from('videos')
-        .select('id, title, price_rwf, price_usd, is_free, views, thumbnail_url, uploaded_at, artist_id')
-        .eq('artist_id', currentArtistId)
-        .order('uploaded_at', { ascending: false });
-      if (vData) videos = vData;
-    } catch (vErr) {
-      console.warn('[artistDashboardController] Video read notice:', vErr);
-    }
+    const { data: vData, error: vErr } = await db
+      .from('videos')
+      .select('id, title, is_free, metadata, created_at, published_at')
+      .eq('artist_profile_id', artist.id)
+      .order('created_at', { ascending: false });
+    if (vErr) throw vErr;
 
-    if (videos.length === 0) {
-      try {
-        const { getDbStore } = require('../../src/config/supabase_mock');
-        const store = getDbStore();
-        videos = (store?.videos || []).filter((v) => v.artist_id === currentArtistId);
-      } catch (e) {}
-    }
+    const videos = vData || [];
+    const formattedVideos = videos.map((v) => {
+      const meta = (v.metadata && typeof v.metadata === 'object') ? v.metadata : {};
+      return {
+        id: v.id,
+        title: v.title || 'Untitled',
+        views: Number(meta.views_count || meta.view_count || 0),
+        price_rwf: Number(meta.price_rwf || 0),
+        price_usd: Number(meta.price_usd || 0),
+        is_free: !!v.is_free,
+        thumbnail_url: meta.thumbnail_url || '',
+        uploaded_at: v.published_at || v.created_at
+      };
+    });
 
-    // Format videos with views
-    const formattedVideos = videos.map((v) => ({
-      id: v.id,
-      title: v.title || 'Untitled Track',
-      views: Number(v.views || 0),
-      price_rwf: Number(v.price_rwf || 0),
-      price_usd: Number(v.price_usd || 0),
-      is_free: !!v.is_free,
-      thumbnail_url: v.thumbnail_url || '',
-      uploaded_at: v.uploaded_at || v.created_at || new Date().toISOString()
-    }));
-
-    const totalViews = formattedVideos.reduce((sum, v) => sum + (v.views || 0), 0);
+    const totalViews = formattedVideos.reduce((sum, v) => sum + v.views, 0);
     const totalVideos = formattedVideos.length;
 
-    // 4. Fetch wallet balance
     let balance = 0;
     let pendingBalance = 0;
     let totalEarned = 0;
-
-    try {
-      const { data: wallet } = await db
-        .from('artist_wallet')
-        .select('*')
-        .eq('artist_id', currentArtistId)
+    if (channel?.id) {
+      const { data: acct } = await db
+        .from('creator_earning_accounts')
+        .select('available_balance, pending_balance, settled_total')
+        .eq('creator_channel_id', channel.id)
         .maybeSingle();
-
-      if (wallet) {
-        balance = Number(wallet.balance || 0);
-        pendingBalance = Number(wallet.pending_balance || 0);
-        totalEarned = Number(wallet.total_earned || wallet.balance || 0);
-      } else if (artist?.total_earnings !== undefined) {
-        balance = Number(artist.total_earnings || 0);
-        totalEarned = balance;
+      if (acct) {
+        balance = Number(acct.available_balance || 0);
+        pendingBalance = Number(acct.pending_balance || 0);
+        totalEarned = balance + pendingBalance + Number(acct.settled_total || 0);
       }
-    } catch (wErr) {
-      balance = Number(artist?.total_earnings || 0);
     }
+
+    const { count: followersCount } = await db
+      .from('artist_follows')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('artist_id', artist.id);
 
     return res.json({
       balance,
@@ -120,20 +93,16 @@ exports.getDashboard = async (req, res) => {
         total_earnings: totalEarned,
         current_balance: balance,
         pending_balance: pendingBalance,
-        total_followers: artist?.follower_count || 0,
+        total_followers: followersCount || 0,
         total_purchases: 0
       },
       artist: {
-        id: currentArtistId,
-        full_name: artist?.full_name || 'PAYTUNE Artist',
-        email: artist?.email || 'artist@paytune.com',
-        avatar_url: artist?.avatar_url || artist?.profile_image || '',
-        banner_url: artist?.banner_url || artist?.banner_image || '',
-        is_approved: !!(artist?.is_approved ?? true),
-        phone_verified: !!(artist?.phone_verified ?? true),
-        momo_code: artist?.momo_code || '',
-        momo_provider: artist?.momo_provider || 'MTN',
-        currency_code: artist?.currency_code || 'RWF'
+        id: artist.id,
+        full_name: artist.artist_name || '',
+        avatar_url: artist.avatar_path || '',
+        banner_url: artist.banner_path || '',
+        is_approved: artist.approval_status === 'approved',
+        country_code: artist.country_code || 'RW'
       }
     });
   } catch (err) {

@@ -1,56 +1,53 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
-import { processPurchase, calculateSplit } from '../services/paymentSplitter';
 import { processEscrowPurchase } from '../services/escrowService';
-import { processMobileMoney, disburseToArtist } from '../services/paymentProviders';
+import { markPaymentAsPaid, processWebhookIdempotently, verifyAmountMatches } from '../services/paymentService';
 
 /**
  * POST /api/purchase/initiate
- * Body: { videoId, paymentPhone, provider, gateway, countryCode, currency, amount? }
- * Initiates payment via country-routed gateway with Escrow settlement. Returns transaction reference.
+ * Initiates a real purchase via a configured gateway using PostgreSQL payment_intents.
  */
 export const initiatePurchase = async (req: Request, res: Response) => {
-  const { 
-    videoId, 
-    paymentPhone, 
+  const {
+    videoId,
+    paymentPhone,
     paymentAccount,
-    provider, 
-    gateway, 
-    countryCode = 'RW', 
-    currency, 
-    amount 
+    provider,
+    gateway,
+    countryCode = 'RW',
+    currency,
+    amount
   } = req.body;
   const user = (req as any).user;
 
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required to make a purchase." });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required to make a purchase.' });
   }
 
   if (!videoId) {
-    return res.status(400).json({ error: "videoId is required" });
+    return res.status(400).json({ error: 'videoId is required' });
   }
 
   try {
-    // 1. Fetch video details
     const { data: video, error: vErr } = await supabaseAdmin
       .from('videos')
-      .select('*, artists(*)')
+      .select('id, title, is_free, creator_channel_id, creator_channels(channel_name)')
       .eq('id', videoId)
       .maybeSingle();
 
     if (vErr || !video) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({ error: 'Video not found' });
     }
 
     if (video.is_free) {
-      return res.json({ 
-        success: true, 
-        message: "This video is free to watch.", 
-        userOwns: true 
+      return res.json({
+        success: true,
+        message: 'This video is free to watch.',
+        userOwns: true
       });
     }
 
-    // 2. Use the Global Escrow Engine (5% VAT deducted, 70% to Artist Wallet, 30% to PAYTUNE Wallet)
     const selectedGateway = gateway || provider || 'MTN MoMo';
     const result = await processEscrowPurchase({
       userId: user.id,
@@ -63,142 +60,152 @@ export const initiatePurchase = async (req: Request, res: Response) => {
       currency
     });
 
-    // 3. Return full transaction details and receipt
+    const ch = Array.isArray((video as any).creator_channels)
+      ? (video as any).creator_channels[0]
+      : (video as any).creator_channels;
+
     res.json({
       success: true,
       transactionId: result.transactionRef,
-      message: "Payment successfully secured in PAYTUNE Escrow! Lifetime access unlocked.",
+      paymentIntentId: result.paymentIntentId,
+      status: result.status,
+      provider_configured: result.provider_configured,
+      message: 'Payment intent initiated. Access unlocks once gateway confirmation is received.',
       purchase: {
-        ...result.purchase,
+        id: result.paymentIntentId,
+        video_id: video.id,
         video_title: video.title,
-        artist_name: video.artists?.full_name || video.artist_name || "PAYTUNE Artist"
+        artist_name: ch?.channel_name || ''
       },
-      escrow: result.escrow,
       quote: result.quote,
-      userOwns: true
+      userOwns: false
     });
   } catch (error: any) {
-    console.error("initiatePurchase error:", error);
-    res.status(500).json({ error: error.message || "Payment processing failed" });
+    const status = error.statusCode || 500;
+    console.error('initiatePurchase error:', error);
+    res.status(status).json({
+      error: error.message || 'Payment processing failed',
+      provider_configured: error.provider_configured
+    });
   }
 };
 
 /**
  * POST /api/purchase/webhook
- * Payment callback. Verifies transaction, calculates split (5% VAT -> 70/30),
- * records purchase in purchases table, grants user access.
+ * Reconciles confirmed provider webhook against an existing payment_intent.
  */
 export const handlePurchaseWebhook = async (req: Request, res: Response) => {
-  const { 
-    transactionId, 
-    status = "SUCCESS", 
-    videoId, 
-    userId, 
-    amount, 
-    phone = "0780000000", 
-    provider = "MTN" 
-  } = req.body;
+  const { transactionId, paymentIntentId, status, amount } = req.body || {};
 
   try {
-    if (status !== "SUCCESS" && status !== "completed") {
-      return res.status(400).json({ error: "Payment was not successful or was cancelled." });
+    const webhookSecret = process.env.PAYTUNE_WEBHOOK_SECRET || process.env.JWT_SECRET;
+    const providedToken = req.headers['x-webhook-secret'] as string;
+    if (!webhookSecret || providedToken !== webhookSecret) {
+      return res.status(401).json({ error: 'Unauthorized webhook request.' });
     }
 
-    if (!videoId || !userId) {
-      return res.status(400).json({ error: "videoId and userId are required" });
+    if (status !== 'SUCCESS' && status !== 'SUCCEEDED' && status !== 'completed') {
+      return res.status(400).json({ error: 'Payment was not successful or was cancelled.' });
     }
 
-    const { data: existing } = await supabaseAdmin
-      .from('purchases')
-      .select('id')
-      .eq('transaction_id', transactionId)
-      .maybeSingle();
-
-    if (existing) {
-      return res.json({ success: true, message: "Transaction already processed", purchaseId: existing.id });
+    const targetId = paymentIntentId || transactionId;
+    if (!targetId) {
+      return res.status(400).json({ error: 'paymentIntentId or transactionId is required' });
     }
 
-    const purchase = await processPurchase(
-      userId,
-      videoId,
-      phone,
-      Number(amount) || 1000,
-      transactionId || `PAYTUNE-HOOK-${Date.now()}`,
-      provider
-    );
+    const result = await processWebhookIdempotently(transactionId || targetId, async () => {
+      if (amount !== undefined) {
+        await verifyAmountMatches(targetId, Number(amount));
+      }
+      return await markPaymentAsPaid(targetId, transactionId || targetId);
+    });
 
     res.json({
       success: true,
-      message: "Purchase verified and recorded. Lifetime access granted.",
-      purchase
+      alreadyProcessed: Boolean(result?.alreadyProcessed),
+      message: 'Purchase verified and recorded. Access granted.',
+      payment: result
     });
   } catch (error: any) {
-    console.error("handlePurchaseWebhook error:", error);
-    res.status(500).json({ error: error.message || "Webhook processing failed" });
+    console.error('handlePurchaseWebhook error:', error);
+    res.status(500).json({ error: error.message || 'Webhook processing failed' });
   }
 };
 
 /**
  * POST /api/purchase/gift
- * Buy video for a friend
+ * Initiate a gift payment for a friend via a configured payment gateway.
  */
 export const giftPurchase = async (req: Request, res: Response) => {
-  const { videoId, recipientEmail, giftMessage, paymentPhone, provider = "MTN" } = req.body;
+  const { videoId, recipientEmail, giftMessage, paymentPhone, provider = 'MTN MoMo', countryCode = 'RW' } = req.body;
   const user = (req as any).user;
 
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   if (!videoId || !recipientEmail) {
-    return res.status(400).json({ error: "videoId and recipientEmail are required" });
+    return res.status(400).json({ error: 'videoId and recipientEmail are required' });
   }
 
   try {
     const { data: video } = await supabaseAdmin
       .from('videos')
-      .select('id, title, price_rwf')
+      .select('id, title, creator_channel_id, metadata')
       .eq('id', videoId)
       .maybeSingle();
 
     if (!video) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({ error: 'Video not found' });
     }
 
-    const price = Number(video.price_rwf) || 500;
-    const transactionId = `PAYTUNE-GIFT-${Date.now()}`;
+    const meta = (video.metadata && typeof video.metadata === 'object' ? video.metadata : {}) as Record<string, any>;
+    const price = Number(meta.price_rwf || 0);
+    if (price <= 0) {
+      return res.status(400).json({ error: 'This video does not have a purchasable price configured.' });
+    }
 
-    // Record gift purchase
-    const purchase = await processPurchase(
-      user.id,
+    const result = await processEscrowPurchase({
+      userId: user.id,
       videoId,
-      paymentPhone || "0780000000",
-      price,
-      transactionId,
-      provider
-    );
+      countryCode,
+      gateway: provider,
+      paymentPhone,
+      amount: price
+    });
 
-    // Record in gift registry
-    await supabaseAdmin
-      .from('video_gifts')
-      .insert({
-        sender_id: user.id,
+    const now = new Date().toISOString();
+    await supabaseAdmin.from('creator_gift_events').insert({
+      id: randomUUID(),
+      creator_channel_id: video.creator_channel_id,
+      sender_user_id: user.id,
+      gift_name: `Video Gift: ${video.title}`,
+      quantity: 1,
+      coin_value_per_gift: Math.round(price),
+      total_coin_value: Math.round(price),
+      event_status: 'pending',
+      related_content_type: 'video',
+      related_content_id: video.id,
+      created_at: now,
+      gift_metadata: {
         recipient_email: recipientEmail,
-        video_id: videoId,
-        gift_message: giftMessage || "",
-        transaction_id: transactionId,
-        redeemed: false,
-        created_at: new Date().toISOString()
-      });
+        gift_message: giftMessage || '',
+        transaction_reference: result.transactionRef,
+        payment_intent_id: result.paymentIntentId
+      }
+    });
 
     res.json({
       success: true,
-      message: `Gift successfully purchased and sent to ${recipientEmail}!`,
-      transactionId,
-      purchase
+      status: 'pending',
+      provider_configured: true,
+      message: `Gift payment initiated for ${recipientEmail}.`,
+      transactionId: result.transactionRef,
+      paymentIntentId: result.paymentIntentId
     });
   } catch (error: any) {
-    console.error("giftPurchase error:", error);
-    res.status(500).json({ error: error.message });
+    const status = error.statusCode || 500;
+    console.error('giftPurchase error:', error);
+    res.status(status).json({ error: error.message, provider_configured: error.provider_configured });
   }
 };

@@ -45,9 +45,9 @@ export default function ArtistDashboard() {
 
   const isApproved = artist.is_approved || data?.artist?.is_approved;
   const approvalStatus = data?.artist?.approval_status || artist.approval_status || 'pending';
-  const totalViews = data?.totalViews ?? data?.stats?.total_views ?? 0;
-  const totalVideos = data?.totalVideos ?? data?.stats?.total_videos ?? data?.videos?.length ?? 0;
-  const balance = data?.balance ?? data?.stats?.current_balance ?? 0;
+  const totalViews = data?.totalViews ?? data?.summary?.total_views ?? data?.stats?.total_views ?? 0;
+  const totalVideos = data?.totalVideos ?? data?.summary?.total_videos ?? data?.stats?.total_videos ?? data?.videos?.length ?? 0;
+  const balance = data?.balance ?? data?.summary?.current_balance ?? data?.stats?.current_balance ?? 0;
   const currency = artist.currency_code || data?.artist?.currency_code || 'RWF';
   const videos = data?.videos || [];
 
@@ -56,7 +56,7 @@ export default function ArtistDashboard() {
       {/* Artist Profile Banner Header */}
       <div className="bg-white dark:bg-[#161616] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-400 to-purple-700 flex items-center justify-center text-black font-black text-2xl shadow-md">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white font-black text-2xl shadow-md">
             {artist.full_name?.[0]?.toUpperCase() || 'A'}
           </div>
           <div>
@@ -84,7 +84,7 @@ export default function ArtistDashboard() {
         <div className="flex items-center gap-3">
           <Link
             to="/artist/dashboard/upload"
-            className="bg-purple-600 hover:bg-purple-400 text-black px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Upload Video
           </Link>
@@ -202,7 +202,7 @@ export default function ArtistDashboard() {
                 </p>
                 <Link
                   to="/artist/dashboard/upload"
-                  className="bg-purple-600 hover:bg-purple-400 text-black font-bold px-6 py-2.5 rounded-xl text-sm inline-block shadow-md transition-all"
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm inline-block shadow-sm transition-all"
                 >
                   Upload Your First Video
                 </Link>

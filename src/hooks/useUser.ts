@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { UserProfile } from '../types/dashboard';
 import { useAuth } from './useAuth';
 
@@ -19,7 +19,7 @@ export function useUser() {
     try {
       setLoading(true);
       setError(null);
-      const res = await axios.get('/api/user/me');
+      const res = await api.get('/api/user/me');
       setProfile(res.data);
     } catch (err: any) {
       console.error('Failed to fetch user profile:', err);
@@ -35,7 +35,7 @@ export function useUser() {
 
   const updateProfile = async (data: Partial<UserProfile>) => {
     try {
-      const res = await axios.put('/api/user/me', data);
+      const res = await api.put('/api/user/me', data);
       if (res.data?.user) {
         setProfile(res.data.user);
       } else {
@@ -50,7 +50,7 @@ export function useUser() {
 
   const changePassword = async (currentPassword?: string, newPassword?: string) => {
     try {
-      const res = await axios.post('/api/user/change-password', {
+      const res = await api.post('/api/user/change-password', {
         currentPassword,
         newPassword
       });
@@ -63,7 +63,7 @@ export function useUser() {
 
   const deleteAccount = async () => {
     try {
-      await axios.delete('/api/user/account');
+      await api.delete('/api/user/account');
       setProfile(null);
       return { success: true };
     } catch (err: any) {

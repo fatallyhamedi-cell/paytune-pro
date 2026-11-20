@@ -31,11 +31,7 @@ export function useRequireAuth() {
       const isAuthed = checkAuth();
 
       if (!isAuthed) {
-        console.warn('[useRequireAuth] Unauthenticated action blocked. Redirecting to /login');
-        if (alertMessage) {
-          alert(alertMessage);
-        }
-        navigate('/login');
+        navigate('/login', { state: alertMessage ? { message: alertMessage } : undefined });
         return false;
       }
 

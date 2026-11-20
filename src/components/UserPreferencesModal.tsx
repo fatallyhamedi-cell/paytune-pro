@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Sparkles, Check, Loader2, Compass } from "lucide-react";
-import axios from "axios";
+import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 
 const AVAILABLE_GENRES = [
@@ -61,7 +61,7 @@ export default function UserPreferencesModal({
     }
 
     setIsLoading(true);
-    axios
+    api
       .get("/api/user/preferences")
       .then((res) => {
         if (res.data?.preferences) {
@@ -93,7 +93,7 @@ export default function UserPreferencesModal({
     setIsSaving(true);
     try {
       if (user) {
-        await axios.put("/api/user/preferences", {
+        await api.put("/api/user/preferences", {
           interests: selectedInterests,
           preferred_languages: selectedLanguages
         });

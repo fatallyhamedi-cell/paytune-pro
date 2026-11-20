@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { WishlistItem } from '../types/dashboard';
 import { useAuth } from './useAuth';
 
@@ -19,7 +19,7 @@ export function useWishlist() {
     try {
       setLoading(true);
       setError(null);
-      const res = await axios.get('/api/user/wishlist');
+      const res = await api.get('/api/user/wishlist');
       setWishlist(res.data || []);
     } catch (err: any) {
       console.error('Failed to fetch wishlist:', err);
@@ -35,7 +35,7 @@ export function useWishlist() {
 
   const addToWishlist = async (videoId: string) => {
     try {
-      await axios.post(`/api/user/wishlist/${videoId}`);
+      await api.post(`/api/user/wishlist/${videoId}`);
       await fetchWishlist();
       return true;
     } catch (err: any) {
@@ -46,7 +46,7 @@ export function useWishlist() {
 
   const removeFromWishlist = async (videoId: string) => {
     try {
-      await axios.delete(`/api/user/wishlist/${videoId}`);
+      await api.delete(`/api/user/wishlist/${videoId}`);
       setWishlist(prev => prev.filter(item => item.video_id !== videoId && item.id !== videoId));
       return true;
     } catch (err: any) {

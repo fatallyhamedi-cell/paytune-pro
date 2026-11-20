@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { WatchHistoryItem } from '../types/dashboard';
 import { useAuth } from './useAuth';
 
@@ -23,7 +23,7 @@ export function useHistory() {
     try {
       setLoading(true);
       setError(null);
-      const res = await axios.get('/api/user/history', {
+      const res = await api.get('/api/user/history', {
         params: { limit: 50, offset: 0 }
       });
       setHistory(res.data.items || []);
@@ -43,7 +43,7 @@ export function useHistory() {
 
   const removeFromHistory = async (videoId: string) => {
     try {
-      await axios.delete(`/api/user/history/${videoId}`);
+      await api.delete(`/api/user/history/${videoId}`);
       setHistory(prev => prev.filter(item => item.video_id !== videoId && item.id !== videoId));
       setTotal(prev => Math.max(0, prev - 1));
       return true;
@@ -55,7 +55,7 @@ export function useHistory() {
 
   const clearAllHistory = async () => {
     try {
-      await axios.delete('/api/user/history/clear');
+      await api.delete('/api/user/history/clear');
       setHistory([]);
       setTotal(0);
       return true;
@@ -67,7 +67,7 @@ export function useHistory() {
 
   const togglePauseHistory = async () => {
     try {
-      const res = await axios.post('/api/user/history/pause', { paused: !isPaused });
+      const res = await api.post('/api/user/history/pause', { paused: !isPaused });
       setIsPaused(res.data.is_paused);
       return true;
     } catch (err: any) {

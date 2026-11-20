@@ -60,20 +60,16 @@ export default function ArtistUpload() {
       fd.append('price_usd', priceUsd);
     }
 
-    console.log('[Upload] Starting, file:', videoFile.name, videoFile.size);
-
     setLoading(true);
     setProgress(0);
 
     try {
       const res = await api.post('/artist/video/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (ev) => {
           if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100));
         },
       });
 
-      console.log('[Upload] ✅ Success:', res.data);
       setSuccess(res.data.message || 'Video uploaded successfully! It is now being reviewed by our team.');
 
       queryClient.invalidateQueries({ queryKey: ['artist-videos'] });
@@ -81,162 +77,212 @@ export default function ArtistUpload() {
 
       setTimeout(() => navigate('/artist/dashboard/videos'), 2000);
     } catch (err: any) {
-      console.error('[Upload] ❌ Error:', err.response?.data || err.message);
-      setError(err.response?.data?.error || 'Upload failed');
+      console.error('[Upload] Error:', err.response?.data || err.message);
+      setError(err.response?.data?.message || err.response?.data?.error || 'Upload failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl p-6">
-      <h1 className="text-2xl font-bold text-white mb-6">Upload Video</h1>
+    <div className="max-w-2xl mx-auto p-6 sm:p-8 bg-white dark:bg-[#141417] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Video</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Publish original music videos or 9:16 shorts directly to your PAYTUNE channel.
+        </p>
+      </div>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-sm">
+        <div className="bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500 text-red-700 dark:text-red-400 p-3 rounded-xl mb-4 text-sm font-medium">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="bg-green-500/20 border border-green-500 text-green-300 p-3 rounded mb-4 text-sm">
+        <div className="bg-emerald-50 dark:bg-green-500/20 border border-emerald-200 dark:border-green-500 text-emerald-700 dark:text-green-300 p-3 rounded-xl mb-4 text-sm font-medium">
           {success}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-gray-300 text-sm mb-2">Video file</label>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-[#1f1f24]">
+          <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+            Video file
+          </label>
           <input
             type="file"
             accept="video/*"
             onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-            className="w-full text-white"
+            className="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer"
             required
           />
           {videoFile && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 font-medium">
               {videoFile.name} — {(videoFile.size / 1024 / 1024).toFixed(2)} MB
             </p>
           )}
         </div>
 
-        <div>
-          <label className="block text-gray-300 text-sm mb-2">Thumbnail (optional)</label>
+        <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-[#1f1f24]">
+          <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+            Thumbnail (optional)
+          </label>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setThumbFile(e.target.files?.[0] || null)}
-            className="w-full text-white"
+            className="w-full text-sm text-gray-700 dark:text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer"
+          />
+          {thumbFile && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 font-medium">
+              {thumbFile.name}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            Title
+          </label>
+          <input
+            type="text"
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-[#1f1f24] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            required
           />
         </div>
 
-        <input
-          type="text"
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
-          required
-        />
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            Description
+          </label>
+          <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-[#1f1f24] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
 
-        <textarea
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
-        />
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            Category / Genre
+          </label>
+          <input
+            type="text"
+            placeholder="Category (e.g. Afrobeat, Gospel, R&B)"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-[#1f1f24] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
 
-        <input
-          type="text"
-          placeholder="Category (e.g. Afrobeat, Gospel, R&B)"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
-        />
-
-        <label className="flex items-center gap-2 text-white">
-          <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} />
-          Free
-        </label>
-
-        {!isFree && !isShort && (
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2.5 pt-1">
+          <label className="flex items-center gap-2.5 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
             <input
-              type="number"
-              placeholder="Price RWF (min 200)"
-              value={priceRwf}
-              onChange={(e) => setPriceRwf(e.target.value)}
-              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
+              type="checkbox"
+              checked={isFree}
+              onChange={(e) => setIsFree(e.target.checked)}
+              className="w-4 h-4 accent-purple-600 rounded"
             />
+            <span>Free</span>
+          </label>
+
+          {!isFree && !isShort && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <input
+                type="number"
+                placeholder="Price RWF (min 200)"
+                value={priceRwf}
+                onChange={(e) => setPriceRwf(e.target.value)}
+                className="p-3 rounded-xl bg-gray-50 dark:bg-[#1f1f24] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Price USD (min 1)"
+                value={priceUsd}
+                onChange={(e) => setPriceUsd(e.target.value)}
+                className="p-3 rounded-xl bg-gray-50 dark:bg-[#1f1f24] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          )}
+
+          <label className="flex items-center gap-2.5 text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer">
             <input
-              type="number"
-              step="0.01"
-              placeholder="Price USD (min 1)"
-              value={priceUsd}
-              onChange={(e) => setPriceUsd(e.target.value)}
-              className="p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
+              type="checkbox"
+              checked={isShort}
+              onChange={(e) => setIsShort(e.target.checked)}
+              className="w-4 h-4 accent-purple-600 rounded"
             />
-          </div>
-        )}
+            <span>Short (9:16, ≤50s, always free)</span>
+          </label>
+        </div>
 
-        <label className="flex items-center gap-2 text-white">
-          <input type="checkbox" checked={isShort} onChange={(e) => setIsShort(e.target.checked)} />
-          Short (9:16, ≤50s, always free)
-        </label>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            Visibility
+          </label>
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value)}
+            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-[#1f1f24] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="public">Public</option>
+            <option value="unlisted">Unlisted</option>
+            <option value="private">Private</option>
+          </select>
+        </div>
 
-        <select
-          value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
-          className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700"
-        >
-          <option value="public">Public</option>
-          <option value="unlisted">Unlisted</option>
-          <option value="private">Private</option>
-        </select>
-
-        <div className="bg-[#1A1A1A] p-4 rounded-lg space-y-3">
-          <p className="text-white font-semibold">Original Content Declaration</p>
-          <label className="flex items-start gap-2 text-gray-300 text-sm">
+        <div className="bg-gray-50 dark:bg-[#1a1a1f] border border-gray-200 dark:border-gray-800 p-4 rounded-xl space-y-3">
+          <p className="text-gray-900 dark:text-white font-semibold text-sm">
+            Original Content Declaration
+          </p>
+          <label className="flex items-start gap-2.5 text-gray-700 dark:text-gray-300 text-sm cursor-pointer">
             <input
               type="checkbox"
               checked={ownership}
               onChange={(e) => setOwnership(e.target.checked)}
-              className="mt-1"
+              className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
             />
             <span>I created this video and own all rights.</span>
           </label>
-          <label className="flex items-start gap-2 text-gray-300 text-sm">
+          <label className="flex items-start gap-2.5 text-gray-700 dark:text-gray-300 text-sm cursor-pointer">
             <input
               type="checkbox"
               checked={noCopyright}
               onChange={(e) => setNoCopyright(e.target.checked)}
-              className="mt-1"
+              className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
             />
             <span>No copyrighted content.</span>
           </label>
-          <label className="flex items-start gap-2 text-gray-300 text-sm">
+          <label className="flex items-start gap-2.5 text-gray-700 dark:text-gray-300 text-sm cursor-pointer">
             <input
               type="checkbox"
               checked={noAi}
               onChange={(e) => setNoAi(e.target.checked)}
-              className="mt-1"
+              className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
             />
             <span>Not AI-generated.</span>
           </label>
         </div>
 
         {loading && (
-          <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-            <div className="bg-purple-600 h-full transition-all" style={{ width: `${progress}%` }} />
-          </div>
+          <progress
+            value={progress}
+            max={100}
+            className="w-full h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-gray-200 dark:[&::-webkit-progress-bar]:bg-gray-700 [&::-webkit-progress-value]:bg-purple-600 [&::-moz-progress-bar]:bg-purple-600"
+          />
         )}
 
         <button
           type="submit"
           disabled={loading || !allDeclared}
-          className="w-full bg-purple-600 text-black font-semibold py-3 rounded-lg disabled:opacity-50 cursor-pointer"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
         >
           {loading ? `Uploading ${progress}%...` : 'Upload Video'}
         </button>

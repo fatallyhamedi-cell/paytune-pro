@@ -104,7 +104,6 @@ router.get(['/dashboard', '/'], async (req: ArtistRequest, res: Response) => {
         momo_code: artist.momo_code,
         momo_provider: artist.momo_provider,
         is_approved: !!artist.is_approved,
-        phone_verified: !!artist.phone_verified,
         approval_status: artist.approval_status || (artist.is_approved ? 'approved' : 'pending'),
         currency_code: artist.currency_code || 'RWF',
         country_code: artist.country_code || 'RW',

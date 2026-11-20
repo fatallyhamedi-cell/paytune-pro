@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { LibraryVideo } from '../types/dashboard';
 import { useAuth } from './useAuth';
 
@@ -31,14 +31,14 @@ export function useLibrary() {
       setError(null);
 
       if (searchQuery.trim()) {
-        const res = await axios.get('/api/user/library/search', {
+        const res = await api.get('/api/user/library/search', {
           params: { q: searchQuery }
         });
         setVideos(res.data.items || []);
         setTotal(res.data.total || 0);
       } else {
         const offset = (page - 1) * limit;
-        const res = await axios.get('/api/user/library', {
+        const res = await api.get('/api/user/library', {
           params: {
             limit,
             offset,

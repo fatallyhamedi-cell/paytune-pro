@@ -1,24 +1,14 @@
 import { Request } from 'express';
 
 export interface GeoLocationResult {
-  country_code: string;
-  currency_code: string;
-  country_name: string;
+  country_code: string | null;
+  currency_code: string | null;
+  country_name: string | null;
   city?: string;
   ip: string;
   is_detected: boolean;
 }
 
-// Default fallback (Rwanda / RWF)
-const DEFAULT_GEO: GeoLocationResult = {
-  country_code: 'RW',
-  currency_code: 'RWF',
-  country_name: 'Rwanda',
-  ip: '127.0.0.1',
-  is_detected: false
-};
-
-// Known ISO country to currency mapping
 const COUNTRY_TO_CURRENCY: Record<string, { currency: string; name: string }> = {
   RW: { currency: 'RWF', name: 'Rwanda' },
   KE: { currency: 'KES', name: 'Kenya' },
@@ -44,11 +34,27 @@ const COUNTRY_TO_CURRENCY: Record<string, { currency: string; name: string }> = 
   AU: { currency: 'AUD', name: 'Australia' }
 };
 
+function cleanIp(ip: string): string {
+  let cleaned = ip.trim();
+  if (cleaned.startsWith('::ffff:')) {
+    cleaned = cleaned.substring(7);
+  }
+  return cleaned;
+}
+
+function isPrivateOrLocalIp(ip: string): boolean {
+  if (!ip) return true;
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return true;
+  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return true;
+  if (ip.startsWith('fc00:') || ip.startsWith('fe80:')) return true;
+  return false;
+}
+
 /**
  * Extract public client IP from Express request
  */
 export function extractClientIp(req: Request): string {
-  // Check headers commonly provided by reverse proxies (Cloud Run, Nginx, Cloudflare)
   const forwardedFor = req.headers['x-forwarded-for'];
   if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
     const firstIp = forwardedFor.split(',')[0].trim();
@@ -81,29 +87,14 @@ export function extractClientIp(req: Request): string {
   return '127.0.0.1';
 }
 
-function cleanIp(ip: string): string {
-  let cleaned = ip.trim();
-  if (cleaned.startsWith('::ffff:')) {
-    cleaned = cleaned.substring(7);
-  }
-  return cleaned;
-}
-
-function isPrivateOrLocalIp(ip: string): boolean {
-  if (!ip) return true;
-  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return true;
-  if (ip.startsWith('10.') || ip.startsWith('192.168.')) return true;
-  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return true;
-  if (ip.startsWith('fc00:') || ip.startsWith('fe80:')) return true;
-  return false;
-}
-
 /**
- * Detect Country and Currency from Request IP
+ * Detect Country and Currency from Request IP or proxy headers without fabricating location on local/unknown IPs
  */
 export async function detectCountryFromRequest(req: Request): Promise<GeoLocationResult> {
-  // 1. Check if client explicitly sent custom country header
-  const customCountryHeader = req.headers['x-client-country'] as string;
+  const customCountryHeader =
+    (req.headers['x-client-country'] as string) ||
+    (req.headers['cf-ipcountry'] as string);
+
   if (customCountryHeader && typeof customCountryHeader === 'string') {
     const cleanCode = customCountryHeader.trim().toUpperCase();
     if (COUNTRY_TO_CURRENCY[cleanCode]) {
@@ -118,102 +109,31 @@ export async function detectCountryFromRequest(req: Request): Promise<GeoLocatio
   }
 
   const ip = extractClientIp(req);
-
-  // If local / private IP, return default Rwanda (RWF)
   if (isPrivateOrLocalIp(ip)) {
     return {
-      ...DEFAULT_GEO,
-      ip
+      country_code: null,
+      currency_code: null,
+      country_name: null,
+      ip,
+      is_detected: false
     };
   }
 
-  // 2. Query free IP Geolocation API (ip-api.com) with timeout
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,currency,city`, {
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.status === 'success' && data.countryCode) {
-        const countryCode = String(data.countryCode).toUpperCase();
-        const mapping = COUNTRY_TO_CURRENCY[countryCode];
-        const currencyCode = mapping?.currency || data.currency || (countryCode === 'RW' ? 'RWF' : 'USD');
-        const countryName = mapping?.name || data.country || countryCode;
-
-        console.log(`[GEO-IP] Successfully resolved ${ip} -> ${countryName} (${countryCode}, ${currencyCode})`);
-
-        return {
-          country_code: countryCode,
-          currency_code: currencyCode,
-          country_name: countryName,
-          city: data.city,
-          ip,
-          is_detected: true
-        };
-      }
-    }
-  } catch (err: any) {
-    console.warn(`[GEO-IP] Primary lookup for ${ip} failed:`, err?.message || err);
-  }
-
-  // 3. Fallback to ipapi.co
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-    const res = await fetch(`https://ipapi.co/${ip}/json/`, {
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.country_code) {
-        const countryCode = String(data.country_code).toUpperCase();
-        const mapping = COUNTRY_TO_CURRENCY[countryCode];
-        const currencyCode = mapping?.currency || data.currency || (countryCode === 'RW' ? 'RWF' : 'USD');
-        const countryName = mapping?.name || data.country_name || countryCode;
-
-        return {
-          country_code: countryCode,
-          currency_code: currencyCode,
-          country_name: countryName,
-          city: data.city,
-          ip,
-          is_detected: true
-        };
-      }
-    }
-  } catch (err: any) {
-    console.warn(`[GEO-IP] Secondary lookup for ${ip} failed:`, err?.message || err);
-  }
-
-  // Fallback to Rwanda (RWF)
-  return {
-    ...DEFAULT_GEO,
-    ip
-  };
+  return detectCountryFromIp(ip);
 }
 
-/**
- * Currency resolver for given country code
- */
-export function getCurrencyForCountryCode(countryCode?: string): string {
-  if (!countryCode) return 'RWF';
+export function getCurrencyForCountryCode(countryCode?: string): string | null {
+  if (!countryCode) return null;
   const clean = countryCode.trim().toUpperCase();
-  return COUNTRY_TO_CURRENCY[clean]?.currency || 'RWF';
+  return COUNTRY_TO_CURRENCY[clean]?.currency || null;
 }
 
-/**
- * Country name and currency resolver
- */
-export function getCountryDefaults(countryCode?: string): { country_code: string; currency_code: string; country_name: string } {
-  if (!countryCode) return { country_code: 'RW', currency_code: 'RWF', country_name: 'Rwanda' };
+export function getCountryDefaults(countryCode?: string): {
+  country_code: string;
+  currency_code: string;
+  country_name: string;
+} | null {
+  if (!countryCode) return null;
   const clean = countryCode.trim().toUpperCase();
   const found = COUNTRY_TO_CURRENCY[clean];
   if (found) {
@@ -223,20 +143,50 @@ export function getCountryDefaults(countryCode?: string): { country_code: string
 }
 
 /**
- * Direct IP resolution function
+ * Direct IP resolution function using live IP geolocation lookups
  */
 export async function detectCountryFromIp(ip: string): Promise<GeoLocationResult> {
   if (isPrivateOrLocalIp(ip)) {
     return {
-      ...DEFAULT_GEO,
-      ip
+      country_code: null,
+      currency_code: null,
+      country_name: null,
+      ip,
+      is_detected: false
     };
   }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,currency,city`, {
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.country_code && !data.error) {
+        const countryCode = String(data.country_code).toUpperCase();
+        const mapping = COUNTRY_TO_CURRENCY[countryCode];
+        return {
+          country_code: countryCode,
+          currency_code: mapping?.currency || data.currency || null,
+          country_name: mapping?.name || data.country_name || countryCode,
+          city: data.city,
+          ip,
+          is_detected: true
+        };
+      }
+    }
+  } catch {
+    // Fall through to secondary lookup
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,currency,city`, {
       signal: controller.signal
     });
     clearTimeout(timeoutId);
@@ -248,7 +198,7 @@ export async function detectCountryFromIp(ip: string): Promise<GeoLocationResult
         const mapping = COUNTRY_TO_CURRENCY[countryCode];
         return {
           country_code: countryCode,
-          currency_code: mapping?.currency || data.currency || (countryCode === 'RW' ? 'RWF' : 'USD'),
+          currency_code: mapping?.currency || data.currency || null,
           country_name: mapping?.name || data.country || countryCode,
           city: data.city,
           ip,
@@ -257,12 +207,14 @@ export async function detectCountryFromIp(ip: string): Promise<GeoLocationResult
       }
     }
   } catch {
-    // Ignore and fallback
+    // Unreachable
   }
 
   return {
-    ...DEFAULT_GEO,
-    ip
+    country_code: null,
+    currency_code: null,
+    country_name: null,
+    ip,
+    is_detected: false
   };
 }
-

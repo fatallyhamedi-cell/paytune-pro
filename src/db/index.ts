@@ -1,15 +1,7 @@
-import { drizzle } from 'drizzle-orm/mysql2';
-import mysql from 'mysql2/promise';
+import { supabase, supabaseAdmin, isSupabaseConfigured, supabaseProjectInfo } from '../config/supabase';
 import * as schema from './schema';
 
-const poolConnection = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'paytune',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+export { supabase, supabaseAdmin, isSupabaseConfigured, supabaseProjectInfo, schema };
 
-export const db = drizzle(poolConnection, { schema, mode: 'default' });
+export const db = supabaseAdmin;
+export default db;

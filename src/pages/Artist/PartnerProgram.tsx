@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 import {
   Sparkles,
   Users,
@@ -47,7 +47,7 @@ export default function PartnerProgram() {
   const fetchStatus = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/artist/partner-program/status', {
+      const res = await api.get('/api/artist/partner-program/status', {
         params: { artist_id: artist?.id }
       });
       if (res.data?.success) {
@@ -76,7 +76,7 @@ export default function PartnerProgram() {
     setApplyError(null);
     setApplySuccess(null);
     try {
-      const res = await axios.post('/api/artist/partner-program/apply', {
+      const res = await api.post('/api/artist/partner-program/apply', {
         artist_id: artist?.id
       });
       if (res.data?.success) {
@@ -97,7 +97,7 @@ export default function PartnerProgram() {
     setIdSubmitting(true);
     setApplyError(null);
     try {
-      const res = await axios.post('/api/artist/partner-program/verify-identity', {
+      const res = await api.post('/api/artist/partner-program/verify-identity', {
         artist_id: artist?.id,
         document_type: idType,
         document_number: idNumber,
@@ -120,7 +120,7 @@ export default function PartnerProgram() {
     setPayoutSubmitting(true);
     setApplyError(null);
     try {
-      const res = await axios.post('/api/artist/partner-program/verify-payout', {
+      const res = await api.post('/api/artist/partner-program/verify-payout', {
         artist_id: artist?.id,
         payout_method: payoutMethod,
         account_number: accountNumber,
@@ -430,14 +430,15 @@ export default function PartnerProgram() {
               </p>
             </div>
 
-            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  req.followers?.passed ? 'bg-emerald-500' : 'bg-purple-600'
-                }`}
-                style={{ width: `${req.followers?.percentage || 0}%` }}
-              />
-            </div>
+            <progress
+              value={req.followers?.percentage || 0}
+              max={100}
+              className={`w-full h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-gray-200 ${
+                req.followers?.passed
+                  ? '[&::-webkit-progress-value]:bg-emerald-500 [&::-moz-progress-bar]:bg-emerald-500'
+                  : '[&::-webkit-progress-value]:bg-purple-600 [&::-moz-progress-bar]:bg-purple-600'
+              }`}
+            />
           </div>
 
           {/* Free Views Card */}
@@ -465,14 +466,15 @@ export default function PartnerProgram() {
               </p>
             </div>
 
-            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  req.views?.passed ? 'bg-emerald-500' : 'bg-purple-600'
-                }`}
-                style={{ width: `${req.views?.percentage || 0}%` }}
-              />
-            </div>
+            <progress
+              value={req.views?.percentage || 0}
+              max={100}
+              className={`w-full h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-gray-200 ${
+                req.views?.passed
+                  ? '[&::-webkit-progress-value]:bg-emerald-500 [&::-moz-progress-bar]:bg-emerald-500'
+                  : '[&::-webkit-progress-value]:bg-purple-600 [&::-moz-progress-bar]:bg-purple-600'
+              }`}
+            />
           </div>
 
           {/* Watch Hours Card */}
@@ -500,14 +502,15 @@ export default function PartnerProgram() {
               </p>
             </div>
 
-            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  req.watchHours?.passed ? 'bg-emerald-500' : 'bg-purple-600'
-                }`}
-                style={{ width: `${req.watchHours?.percentage || 0}%` }}
-              />
-            </div>
+            <progress
+              value={req.watchHours?.percentage || 0}
+              max={100}
+              className={`w-full h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-gray-200 ${
+                req.watchHours?.passed
+                  ? '[&::-webkit-progress-value]:bg-emerald-500 [&::-moz-progress-bar]:bg-emerald-500'
+                  : '[&::-webkit-progress-value]:bg-purple-600 [&::-moz-progress-bar]:bg-purple-600'
+              }`}
+            />
           </div>
         </div>
 
@@ -520,7 +523,7 @@ export default function PartnerProgram() {
             <div>
               <p className="text-xs font-bold text-gray-900">Account & Policy Standing</p>
               <p className="text-[11px] text-gray-500">
-                Phone Verified: <span className="font-semibold text-purple-700">{req.verification?.phone_verified ? 'Yes' : 'Pending'}</span> • 
+                Channel Standing: <span className="font-semibold text-purple-700">{req.verification?.is_approved ? 'Approved' : 'Pending Review'}</span> • 
                 Active Strikes: <span className="font-semibold text-purple-700">{req.policy?.active_strikes || 0}</span> (Maximum allowed: 0)
               </p>
             </div>

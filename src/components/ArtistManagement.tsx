@@ -276,12 +276,18 @@ export const ArtistManagement: React.FC<ArtistManagementProps> = ({
                       </td>
                       <td className="p-3.5">
                         <div className="flex items-center space-x-3">
-                          <img
-                            src={artist.profile_image || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120"}
-                            alt={artist.name}
-                            className="w-9 h-9 rounded-full object-cover border border-neutral-700 shadow"
-                            referrerPolicy="no-referrer"
-                          />
+                          {artist.profile_image ? (
+                            <img
+                              src={artist.profile_image}
+                              alt={artist.name}
+                              className="w-9 h-9 rounded-full object-cover border border-neutral-700 shadow"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-purple-600/20 text-purple-300 border border-neutral-700 flex items-center justify-center font-bold text-xs">
+                              {(artist.name || "A").charAt(0).toUpperCase()}
+                            </div>
+                          )}
                           <div>
                             <div className="flex items-center space-x-1.5 font-bold text-white text-sm">
                               <span>{artist.name}</span>
@@ -414,12 +420,18 @@ export const ArtistManagement: React.FC<ArtistManagementProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-2xl bg-[#1A1A1A] border border-neutral-800 p-6 shadow-2xl text-xs space-y-4">
             <div className="flex items-center space-x-4 border-b border-neutral-800 pb-4">
-              <img
-                src={selectedArtistForDetails.profile_image || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120"}
-                alt={selectedArtistForDetails.name}
-                className="w-14 h-14 rounded-full object-cover border-2 border-purple-600"
-                referrerPolicy="no-referrer"
-              />
+              {selectedArtistForDetails.profile_image ? (
+                <img
+                  src={selectedArtistForDetails.profile_image}
+                  alt={selectedArtistForDetails.name}
+                  className="w-14 h-14 rounded-full object-cover border-2 border-purple-600"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-purple-600/20 text-purple-300 border-2 border-purple-600 flex items-center justify-center font-bold text-lg">
+                  {(selectedArtistForDetails.name || "A").charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-1.5">
                   <span>{selectedArtistForDetails.name}</span>

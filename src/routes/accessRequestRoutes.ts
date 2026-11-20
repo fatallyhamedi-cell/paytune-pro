@@ -15,8 +15,8 @@ router.post('/submit', optionalAuthenticate, submitAccessRequest);
 router.get('/status', checkAccessRequestStatus);
 
 // Admin review endpoints
-router.get('/list', listAccessRequests);
-router.post('/:id/approve', approveAccessRequest);
-router.post('/:id/reject', rejectAccessRequest);
+router.get('/list', authenticate, checkRole('master'), listAccessRequests);
+router.post('/:id/approve', authenticate, checkRole('master'), approveAccessRequest);
+router.post('/:id/reject', authenticate, checkRole('master'), rejectAccessRequest);
 
 export default router;

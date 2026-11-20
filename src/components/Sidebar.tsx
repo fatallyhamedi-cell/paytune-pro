@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Globe,
-  Compass,
   Flame,
-  PlaySquare,
   Music2,
   Radio,
-  Users,
   Star,
   BarChart3,
+  Sparkles,
   Settings,
-  UserCircle2,
   CheckCircle2,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useArtistAuth } from '../contexts/ArtistAuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
@@ -24,18 +22,26 @@ interface SidebarProps {
   collapsed?: boolean;
   onClose?: () => void;
   onToggleCollapse?: () => void;
+  user?: {
+    full_name?: string;
+    email?: string;
+    username?: string;
+  } | null;
 }
 
-export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
+export default function Sidebar({ mobile, collapsed = false, onClose, user: propUser }: SidebarProps) {
   const location = useLocation();
-  const { user, roleData } = useAuth();
+  const { user: authUser, roleData } = useAuth();
+  const { artist } = useArtistAuth();
 
-  // Fetch artists or fallback to default sample list
+  const user = propUser || authUser;
+  const isArtist = Boolean(artist || roleData?.role === 'artist' || roleData?.momo_code);
+
   const { data: artistsData } = useQuery({
     queryKey: ['artists', 'sidebar-follows'],
     queryFn: async () => {
       try {
-        const res = await api.get('/artists');
+        const res = await api.get('/api/artists');
         return res.data;
       } catch {
         return { artists: [] };
@@ -46,45 +52,36 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
     retry: 0,
   });
 
-  const [followedArtists, setFollowedArtists] = useState([
-    {
-      id: '1',
-      name: 'MyFrenchFilmFestival',
-      verified: true,
-      avatar: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100&auto=format&fit=crop&q=80',
-    },
-  ]);
-
-  useEffect(() => {
-    const rawList = Array.isArray(artistsData)
-      ? artistsData
-      : artistsData?.artists || [];
-    if (rawList.length > 0) {
-      setFollowedArtists(
-        rawList.slice(0, 3).map((a: any) => ({
-          id: String(a.id),
-          name: a.full_name || a.name || 'Artist',
-          verified: true,
-          avatar:
-            a.avatar_url ||
-            a.profile_image ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              a.full_name || a.name || 'A'
-            )}&background=111&color=fff&size=64`,
-        }))
-      );
-    }
-  }, [artistsData]);
+  const rawList = Array.isArray(artistsData) ? artistsData : artistsData?.artists || [];
+  const followedArtists = rawList.slice(0, 5).map((a: any) => {
+    const rawName = a.full_name || a.artist_name || a.stage_name || a.name || 'Artist';
+    return {
+      id: String(a.id),
+      name: rawName,
+      verified: Boolean(a.is_verified || a.verification_status === 'verified'),
+      avatar: a.avatar_url || a.profile_image || a.avatar_path || '',
+    };
+  });
 
   const isActive = (path: string) => {
     if (path === '/') {
       return (
         location.pathname === '/' &&
-        !location.search.includes('sort=') &&
         !location.pathname.startsWith('/trending') &&
         !location.pathname.startsWith('/shorts') &&
+        !location.pathname.startsWith('/music') &&
+        !location.pathname.startsWith('/live') &&
         !location.pathname.startsWith('/follows')
       );
+    }
+    if (path === '/shorts') {
+      return location.pathname.startsWith('/shorts');
+    }
+    if (path === '/music') {
+      return location.pathname.startsWith('/music');
+    }
+    if (path === '/live') {
+      return location.pathname.startsWith('/live');
     }
     if (path === '/follows') {
       return (
@@ -93,13 +90,13 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
         location.pathname.startsWith('/dashboard/following')
       );
     }
-    if (path === '/artist/dashboard') {
+    if (path === '/artist/dashboard' || path === '/artist/signup' || path === '/artist/login') {
       return location.pathname.startsWith('/artist');
     }
-    if (path === '/dashboard/settings') {
+    if (path === '/settings') {
       return (
-        location.pathname === '/dashboard/settings' ||
-        location.pathname === '/settings'
+        location.pathname === '/settings' ||
+        location.pathname === '/dashboard/settings'
       );
     }
     if (path === '/dashboard') {
@@ -112,43 +109,57 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
     return location.pathname === path || location.pathname.startsWith(path);
   };
 
-  const profileLabel =
-    (user as any)?.full_name ||
-    user?.user_metadata?.full_name ||
+  const userHandle =
+    (user as any)?.user_metadata?.username ||
+    (user as any)?.user_metadata?.full_name ||
     roleData?.full_name ||
-    (user?.email ? user.email.split('@')[0] : 'Profile');
+    (user?.email ? user.email.split('@')[0] : 'Account');
 
-  const navItems = [
+  const studioItem = isArtist
+    ? { label: 'Studio', path: '/artist/dashboard', icon: BarChart3 }
+    : user
+    ? { label: 'Become Artist', path: '/artist/signup', icon: Sparkles }
+    : { label: 'Studio', path: '/artist/login', icon: BarChart3 };
+
+  const navItems: Array<{
+    label: string;
+    path: string;
+    icon: React.ComponentType<any>;
+    hasFollowedList?: boolean;
+  }> = [
     { label: 'Explore', path: '/', icon: Globe },
-    { label: 'Trending', path: '/trending', icon: Flame },
-    { label: 'Shorts', path: '/shorts', icon: PlaySquare },
+    { label: 'Shorts', path: '/shorts', icon: Flame },
     { label: 'Music', path: '/music', icon: Music2 },
     { label: 'Live', path: '/live', icon: Radio },
-    { label: 'Community', path: '/community', icon: Users },
     { label: 'Following', path: '/follows', icon: Star, hasFollowedList: true },
-    { label: 'Studio', path: '/artist/dashboard', icon: BarChart3 },
+    studioItem,
     { label: 'Settings', path: '/settings', icon: Settings },
-    { label: profileLabel, path: '/dashboard', icon: UserCircle2, isProfile: true },
   ];
+
+  const profileTarget = user ? (isArtist ? '/artist/dashboard' : '/dashboard') : '/auth';
+  const profileActive = isArtist ? isActive('/artist/dashboard') : isActive('/dashboard');
 
   return (
     <aside
       id="paytune-sidebar"
+      aria-label="Primary navigation"
       className={`${
         mobile
           ? 'flex w-full h-full'
-          : `hidden md:flex ${collapsed ? 'w-20' : 'w-64'}`
-      } bg-white border-r border-gray-200 flex-col py-4 px-3 overflow-y-auto no-scrollbar transition-all duration-200 select-none flex-shrink-0 text-gray-900`}
+          : `hidden md:flex ${collapsed ? 'w-16' : 'w-52'}`
+      } bg-white dark:bg-[#121212] border-r border-gray-200 dark:border-gray-800 flex-col py-3 ${
+        collapsed && !mobile ? 'px-2' : 'px-2.5'
+      } overflow-y-auto no-scrollbar transition-all duration-200 select-none flex-shrink-0 text-gray-900 dark:text-gray-100`}
     >
-      {/* Mobile Drawer Close Header */}
       {mobile && (
-        <div className="flex items-center justify-between px-2 pb-4 mb-2 border-b border-gray-100">
-          <span className="font-bold text-sm tracking-tight text-gray-900 uppercase">
-            PayTune
+        <div className="flex items-center justify-between px-2 pb-3 mb-2 border-b border-gray-100 dark:border-gray-800">
+          <span className="font-black text-sm tracking-tight text-gray-900 dark:text-white uppercase">
+            PAYTUNE
           </span>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-900 transition-colors"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -156,11 +167,11 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
         </div>
       )}
 
-      {/* Main Navigation Stack */}
-      <nav className="space-y-1">
+      <nav className="space-y-1 flex-1">
         {navItems.map((item) => {
           const active = isActive(item.path);
           const Icon = item.icon;
+          const isIconOnly = collapsed && !mobile;
 
           return (
             <div key={item.label + item.path}>
@@ -168,50 +179,60 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
                 id={`sidebar-link-${item.label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
                 to={item.path}
                 onClick={onClose}
-                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl transition-all duration-150 ${
+                title={isIconOnly ? item.label : undefined}
+                aria-label={item.label}
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center ${
+                  isIconOnly ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2'
+                } rounded-xl transition-colors duration-150 ${
                   active
-                    ? 'bg-[#F3E8FF] text-[#8B5CF6] font-semibold'
-                    : 'text-gray-900 font-semibold hover:bg-gray-100'
+                    ? 'bg-[#F3E8FF] dark:bg-purple-600/20 text-[#7C3AED] dark:text-purple-400 font-bold'
+                    : 'text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
                 <Icon
-                  className={`w-5 h-5 flex-shrink-0 ${
-                    active ? 'text-[#8B5CF6]' : 'text-gray-900'
+                  className={`w-[18px] h-[18px] flex-shrink-0 ${
+                    active ? 'text-[#7C3AED] dark:text-purple-400' : 'text-gray-600 dark:text-gray-300'
                   }`}
+                  strokeWidth={2.1}
                 />
-                {!collapsed && (
-                  <span className="text-[14px] truncate">{item.label}</span>
+                {!isIconOnly && (
+                  <span className="text-[14px] leading-tight whitespace-nowrap truncate">
+                    {item.label}
+                  </span>
                 )}
               </Link>
 
-              {/* Sub-section for Follows (followed artists list) */}
-              {item.hasFollowedList && !collapsed && (
-                <div className="ml-6 pl-4 border-l border-gray-200 my-1.5 space-y-2">
-                  {followedArtists.map((artist) => (
+              {item.hasFollowedList && !isIconOnly && followedArtists.length > 0 && (
+                <div className="ml-4 pl-3 border-l border-gray-200 dark:border-gray-800 my-1.5 space-y-1">
+                  {followedArtists.map((a: any) => (
                     <Link
-                      key={artist.id}
-                      to={`/artist/${artist.id}`}
+                      key={a.id}
+                      to={`/artist/${a.id}`}
                       onClick={onClose}
-                      className="flex items-center gap-2 py-1 px-1 rounded-lg hover:bg-gray-50 transition-colors group"
+                      className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group"
+                      title={a.name}
                     >
                       <div className="relative flex-shrink-0">
-                        <img
-                          src={artist.avatar}
-                          alt={artist.name}
-                          className="w-6 h-6 rounded-full object-cover border border-gray-200"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              'https://ui-avatars.com/api/?name=FR&background=111&color=fff';
-                          }}
-                        />
-                        {artist.verified && (
-                          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-black text-white rounded-full flex items-center justify-center ring-1 ring-white">
-                            <CheckCircle2 className="w-2.5 h-2.5 fill-black text-white" />
+                        {a.avatar ? (
+                          <img
+                            src={a.avatar}
+                            alt={a.name}
+                            className="w-5 h-5 rounded-sm object-cover border border-gray-200 dark:border-gray-700"
+                          />
+                        ) : (
+                          <div className="w-5 h-5 rounded-sm bg-purple-100 dark:bg-purple-600/20 text-purple-700 dark:text-purple-300 font-bold text-[10px] flex items-center justify-center border border-purple-200 dark:border-purple-600/30">
+                            {a.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {a.verified && (
+                          <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center ring-1 ring-white dark:ring-[#121212]">
+                            <CheckCircle2 className="w-2 h-2" />
                           </span>
                         )}
                       </div>
-                      <span className="truncate text-xs font-medium text-gray-700 group-hover:text-[#8B5CF6]">
-                        {artist.name}
+                      <span className="whitespace-nowrap truncate text-[12px] font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 transition-colors">
+                        {a.name}
                       </span>
                     </Link>
                   ))}
@@ -220,76 +241,63 @@ export default function Sidebar({ mobile, collapsed, onClose }: SidebarProps) {
             </div>
           );
         })}
+
+        <div className="pt-1">
+          <Link
+            id="sidebar-link-profile"
+            to={profileTarget}
+            onClick={onClose}
+            title={collapsed && !mobile ? (user ? userHandle : 'Sign In') : undefined}
+            aria-label={user ? userHandle : 'Sign In'}
+            className={`flex items-center ${
+              collapsed && !mobile ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-3 py-2'
+            } rounded-xl transition-colors duration-150 ${
+              profileActive
+                ? 'bg-[#F3E8FF] dark:bg-purple-600/20 text-[#7C3AED] dark:text-purple-400 font-bold'
+                : 'text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <div className="w-6 h-6 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white flex-shrink-0 overflow-hidden text-[11px] font-bold">
+              {userHandle.charAt(0).toUpperCase()}
+            </div>
+            {!(collapsed && !mobile) && (
+              <span className="text-[14px] leading-tight whitespace-nowrap truncate">
+                {user ? userHandle : 'Sign In'}
+              </span>
+            )}
+          </Link>
+        </div>
       </nav>
 
-      {/* Footer Navigation Links */}
-      {!collapsed && (
-        <div className="mt-8 pt-4 border-t border-gray-100 space-y-3 px-3 text-[13px]">
-          <div className="space-y-2 font-bold text-gray-900">
-            <div>
-              <Link
-                to="/guides"
-                onClick={onClose}
-                className="hover:text-[#8B5CF6] transition-colors"
-              >
-                Company
-              </Link>
-            </div>
-            <div>
-              <Link
-                to="/guides"
-                onClick={onClose}
-                className="hover:text-[#8B5CF6] transition-colors"
-              >
-                Support
-              </Link>
-            </div>
-            <div>
-              <span className="text-gray-900">Legal</span>
-            </div>
+      {!(collapsed && !mobile) && (
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2.5 px-2 text-xs">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 font-semibold text-gray-700 dark:text-gray-300">
+            <Link to="/guides" onClick={onClose} className="hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors">
+              Guides
+            </Link>
+            <Link to="/legal" onClick={onClose} className="hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors">
+              Legal
+            </Link>
+            <Link to="/dmca" onClick={onClose} className="hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors">
+              DMCA
+            </Link>
           </div>
 
-          <div className="space-y-1.5 text-xs text-gray-500 font-normal">
+          <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
             <div>
-              <Link
-                to="/legal?tab=privacy"
-                onClick={onClose}
-                className="hover:text-[#8B5CF6] transition-colors"
-              >
-                Privacy and Cookie Policy
+              <Link to="/legal?tab=privacy" onClick={onClose} className="hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors">
+                Privacy &amp; Cookies
               </Link>
             </div>
             <div>
-              <Link
-                to="/legal?tab=notices"
-                onClick={onClose}
-                className="hover:text-[#8B5CF6] transition-colors"
-              >
-                Legal notices
-              </Link>
-            </div>
-            <div>
-              <Link
-                to="/legal?tab=terms"
-                onClick={onClose}
-                className="hover:text-[#8B5CF6] transition-colors"
-              >
-                Terms
-              </Link>
-            </div>
-            <div>
-              <Link
-                to="/"
-                onClick={onClose}
-                className="hover:text-[#8B5CF6] transition-colors"
-              >
-                All videos
+              <Link to="/legal?tab=terms" onClick={onClose} className="hover:text-[#7C3AED] dark:hover:text-purple-400 transition-colors">
+                Terms of Service
               </Link>
             </div>
           </div>
 
-          <p className="pt-4 text-xs text-gray-400 font-normal">
-            © 2026 PayTune
+          <p className="pt-1 text-[11px] text-gray-400 dark:text-gray-500">
+            © 2026 PAYTUNE
           </p>
         </div>
       )}

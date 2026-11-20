@@ -7,6 +7,8 @@ import { ArtistAuthProvider } from "./contexts/ArtistAuthContext";
 import { MasterAuthProvider } from "./contexts/MasterAuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CurrencyProvider } from "./contexts/CurrencyContext";
+import { AudioPlayerProvider } from "./contexts/AudioPlayerContext";
+import MusicPlayerBar from "./components/player/MusicPlayerBar";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Watch from "./pages/Watch";
@@ -19,9 +21,9 @@ import MasterProtectedRoute from "./components/MasterProtectedRoute";
 
 // Lazy-loaded routes for code splitting and instant initial page load
 const Auth = lazy(() => import("./pages/Auth"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const ArtistRegister = lazy(() => import("./pages/Artist/Register"));
 const ArtistLogin = lazy(() => import("./pages/Artist/Login"));
-const ArtistVerifyPhone = lazy(() => import("./pages/ArtistVerifyPhone"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ArtistDashboard = lazy(() => import("./pages/Artist/Dashboard"));
 const ArtistVideos = lazy(() => import("./pages/Artist/Videos"));
@@ -68,124 +70,129 @@ function App() {
           <ArtistAuthProvider>
             <MasterAuthProvider>
               <CurrencyProvider>
-                <BrowserRouter>
-                <ConfigBanner />
-                <Suspense fallback={<RouteLoader />}>
-                  <Routes>
-                  {/* Public Website */}
-                  <Route element={<Layout />}>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/shorts" element={<Shorts />} />
-                    <Route path="/shorts/:id" element={<Shorts />} />
-                    <Route path="/watch/:id" element={<Watch />} />
-                    <Route path="/search" element={<SearchPage />} />
-                    <Route path="/trending" element={<TrendingPage />} />
-                    <Route path="/feed" element={<FeedPage />} />
-                    <Route path="/follows" element={<Navigate to="/feed" replace />} />
-                    <Route path="/music" element={<MusicPage />} />
-                    <Route path="/community" element={<CommunityPage />} />
-                    <Route path="/live" element={<LiveStreams />} />
-                    <Route path="/live/:streamId" element={<LiveWatch />} />
-                    <Route path="/legal" element={<LegalPages />} />
-                    <Route path="/guides" element={<Guides />} />
-                    <Route path="/dmca" element={<DMCA />} />
-                    <Route path="/copyright-portal" element={<CopyrightHolderPortal />} />
-                    <Route path="/copyright/holder" element={<CopyrightHolderPortal />} />
-                    <Route path="/artist/:id" element={<ArtistChannel />} />
+                <AudioPlayerProvider>
+                  <BrowserRouter>
+                  <ConfigBanner />
+                  <Suspense fallback={<RouteLoader />}>
+                    <Routes>
+                    {/* Public Website */}
+                    <Route element={<Layout />}>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/shorts" element={<Shorts />} />
+                      <Route path="/shorts/:id" element={<Shorts />} />
+                      <Route path="/watch/:id" element={<Watch />} />
+                      <Route path="/search" element={<SearchPage />} />
+                      <Route path="/trending" element={<TrendingPage />} />
+                      <Route path="/feed" element={<FeedPage />} />
+                      <Route path="/follows" element={<Navigate to="/feed" replace />} />
+                      <Route path="/music" element={<MusicPage />} />
+                      <Route path="/community" element={<CommunityPage />} />
+                      <Route path="/live" element={<LiveStreams />} />
+                      <Route path="/live/:streamId" element={<LiveWatch />} />
+                      <Route path="/legal" element={<LegalPages />} />
+                      <Route path="/guides" element={<Guides />} />
+                      <Route path="/dmca" element={<DMCA />} />
+                      <Route path="/copyright-portal" element={<CopyrightHolderPortal />} />
+                      <Route path="/copyright/holder" element={<CopyrightHolderPortal />} />
+                      <Route path="/artist/:id" element={<ArtistChannel />} />
 
-                    
-                    {/* Settings Routes */}
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/dashboard/settings" element={<SettingsPage />} />
+                      
+                      {/* Settings Routes */}
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/dashboard/settings" element={<SettingsPage />} />
 
-                    {/* Protected User Routes */}
-                    <Route element={<ProtectedRoute />}>
-                       <Route path="/dashboard/*" element={<Dashboard />} />
+                      {/* Protected User Routes */}
+                      <Route element={<ProtectedRoute />}>
+                         <Route path="/dashboard/*" element={<Dashboard />} />
+                      </Route>
+
+                      {/* Protected Master Administrator Routes */}
+                      <Route 
+                        path="/master" 
+                        element={
+                          <MasterProtectedRoute>
+                            <MasterDashboard />
+                          </MasterProtectedRoute>
+                        } 
+                      />
+                      <Route 
+                        path="/master/dashboard" 
+                        element={
+                          <MasterProtectedRoute>
+                            <MasterDashboard />
+                          </MasterProtectedRoute>
+                        } 
+                      />
+                      <Route 
+                        path="/master/settings" 
+                        element={
+                          <MasterProtectedRoute>
+                            <MasterDashboard defaultTab="settings" />
+                          </MasterProtectedRoute>
+                        } 
+                      />
+                      <Route path="/master-admin/dashboard" element={<Navigate to="/master" replace />} />
                     </Route>
 
-                    {/* Protected Master Administrator Routes */}
-                    <Route 
-                      path="/master" 
+                    {/* Master Admin Login Terminal */}
+                    <Route path="/master/login" element={<MasterLogin />} />
+                    <Route path="/master-admin/login" element={<Navigate to="/master/login" replace />} />
+                    <Route path="/master-admin" element={<Navigate to="/master/login" replace />} />
+
+                    {/* Independent Auth Pages */}
+                    <Route path="/login" element={<Navigate to="/auth" replace />} />
+                    <Route path="/signup" element={<Navigate to="/auth?tab=signup" replace />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
+
+                    {/* Artist Authentication Routes */}
+                    <Route path="/auth/artist" element={<ArtistLogin />} />
+                    <Route path="/artist/login" element={<ArtistLogin />} />
+                    <Route path="/artist/signup" element={<ArtistRegister />} />
+                    <Route path="/artist/register" element={<ArtistRegister />} />
+                    <Route path="/signup/artist" element={<ArtistRegister />} />
+
+                    {/* Artist Studio System (Dedicated Layout & Custom Artist JWT Protection) */}
+                    <Route
+                      path="/artist/dashboard"
                       element={
-                        <MasterProtectedRoute>
-                          <MasterDashboard />
-                        </MasterProtectedRoute>
-                      } 
-                    />
-                    <Route 
-                      path="/master/dashboard" 
-                      element={
-                        <MasterProtectedRoute>
-                          <MasterDashboard />
-                        </MasterProtectedRoute>
-                      } 
-                    />
-                    <Route 
-                      path="/master/settings" 
-                      element={
-                        <MasterProtectedRoute>
-                          <MasterDashboard defaultTab="settings" />
-                        </MasterProtectedRoute>
-                      } 
-                    />
-                    <Route path="/master-admin/dashboard" element={<Navigate to="/master" replace />} />
-                  </Route>
+                        <ArtistProtectedRoute>
+                          <ArtistDashboardLayout />
+                        </ArtistProtectedRoute>
+                      }
+                    >
+                      <Route index element={<ArtistDashboard />} />
+                      <Route path="videos" element={<ArtistVideos />} />
+                      <Route path="upload" element={<ArtistUpload />} />
+                      <Route path="analytics" element={<ArtistAnalytics />} />
+                      <Route path="earnings" element={<ArtistEarnings />} />
+                      <Route path="followers" element={<ArtistFollowers />} />
+                      <Route path="profile" element={<ArtistProfile />} />
+                      <Route path="live" element={<LiveDashboard />} />
+                      <Route path="membership" element={<MembershipDashboard />} />
+                      <Route path="monetization" element={<PartnerProgram />} />
+                    </Route>
+                    <Route path="/artist/monetization" element={<Navigate to="/artist/dashboard/monetization" replace />} />
 
-                  {/* Master Admin Login Terminal */}
-                  <Route path="/master/login" element={<MasterLogin />} />
-                  <Route path="/master-admin/login" element={<Navigate to="/master/login" replace />} />
-                  <Route path="/master-admin" element={<Navigate to="/master/login" replace />} />
+                    {/* Direct Artist URLs for Quick Access */}
+                    <Route path="/artist/videos" element={<Navigate to="/artist/dashboard/videos" replace />} />
+                    <Route path="/artist/upload" element={<Navigate to="/artist/dashboard/upload" replace />} />
+                    <Route path="/artist/earnings" element={<Navigate to="/artist/dashboard/earnings" replace />} />
+                    <Route path="/artist/analytics" element={<Navigate to="/artist/dashboard/analytics" replace />} />
+                    <Route path="/artist/followers" element={<Navigate to="/artist/dashboard/followers" replace />} />
+                    <Route path="/artist/profile" element={<Navigate to="/artist/dashboard/profile" replace />} />
+                    <Route path="/artist/settings" element={<Navigate to="/artist/dashboard/profile" replace />} />
+                    <Route path="/artist/live" element={<Navigate to="/artist/dashboard/live" replace />} />
+                    <Route path="/artist" element={<Navigate to="/artist/dashboard" replace />} />
 
-                  {/* Independent Auth Pages */}
-                  <Route path="/login" element={<Navigate to="/auth" replace />} />
-                  <Route path="/signup" element={<Navigate to="/auth?tab=signup" replace />} />
-                  <Route path="/auth" element={<Auth />} />
-
-                  {/* Artist Authentication Routes */}
-                  <Route path="/auth/artist" element={<ArtistLogin />} />
-                  <Route path="/artist/login" element={<ArtistLogin />} />
-                  <Route path="/artist/signup" element={<ArtistRegister />} />
-                  <Route path="/artist/register" element={<ArtistRegister />} />
-                  <Route path="/artist/verify-phone" element={<ArtistVerifyPhone />} />
-                  <Route path="/signup/artist" element={<ArtistRegister />} />
-
-                  {/* Artist Studio System (Dedicated Layout & Custom Artist JWT Protection) */}
-                  <Route
-                    path="/artist/dashboard"
-                    element={
-                      <ArtistProtectedRoute>
-                        <ArtistDashboardLayout />
-                      </ArtistProtectedRoute>
-                    }
-                  >
-                    <Route index element={<ArtistDashboard />} />
-                    <Route path="videos" element={<ArtistVideos />} />
-                    <Route path="upload" element={<ArtistUpload />} />
-                    <Route path="analytics" element={<ArtistAnalytics />} />
-                    <Route path="earnings" element={<ArtistEarnings />} />
-                    <Route path="followers" element={<ArtistFollowers />} />
-                    <Route path="profile" element={<ArtistProfile />} />
-                    <Route path="live" element={<LiveDashboard />} />
-                    <Route path="membership" element={<MembershipDashboard />} />
-                    <Route path="monetization" element={<PartnerProgram />} />
-                  </Route>
-                  <Route path="/artist/monetization" element={<Navigate to="/artist/dashboard/monetization" replace />} />
-
-                  {/* Direct Artist URLs for Quick Access */}
-                  <Route path="/artist/videos" element={<Navigate to="/artist/dashboard/videos" replace />} />
-                  <Route path="/artist/upload" element={<Navigate to="/artist/dashboard/upload" replace />} />
-                  <Route path="/artist/earnings" element={<Navigate to="/artist/dashboard/earnings" replace />} />
-                  <Route path="/artist/analytics" element={<Navigate to="/artist/dashboard/analytics" replace />} />
-                  <Route path="/artist/followers" element={<Navigate to="/artist/dashboard/followers" replace />} />
-                  <Route path="/artist/profile" element={<Navigate to="/artist/dashboard/profile" replace />} />
-                  <Route path="/artist/settings" element={<Navigate to="/artist/dashboard/profile" replace />} />
-                  <Route path="/artist" element={<Navigate to="/artist/dashboard" replace />} />
-
-                  {/* Fallback */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+                {/* Global Persistent Audio Player Bar */}
+                <MusicPlayerBar />
+              </BrowserRouter>
+            </AudioPlayerProvider>
           </CurrencyProvider>
         </MasterAuthProvider>
       </ArtistAuthProvider>

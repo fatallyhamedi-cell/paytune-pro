@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 import {
   Play,
   Pause,
@@ -50,7 +50,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
   // Record impression on ad start
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
-    axios
+    api
       .post("/api/ads/impression", {
         ad_id: ad.id,
         video_id: videoId,
@@ -101,7 +101,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
     // Report watch progress periodically (every 3 seconds)
     if (impressionId && Math.floor(cur) > lastReportedTime.current + 2) {
       lastReportedTime.current = Math.floor(cur);
-      axios
+      api
         .post("/api/ads/progress", {
           impression_id: impressionId,
           watched_seconds: Math.floor(cur)
@@ -112,7 +112,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
 
   const handleEnded = () => {
     if (impressionId) {
-      axios
+      api
         .post("/api/ads/progress", {
           impression_id: impressionId,
           watched_seconds: Math.floor(currentTime)
@@ -127,7 +127,7 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
     if (!canSkip) return;
 
     if (impressionId) {
-      axios
+      api
         .post("/api/ads/progress", {
           impression_id: impressionId,
           watched_seconds: Math.floor(currentTime)
@@ -137,16 +137,14 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
     onAdSkipped();
   };
 
-  const handleClickAd = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClickAd = () => {
     if (ad.click_url) {
-      axios
+      api
         .post("/api/ads/click", {
           impression_id: impressionId,
           ad_id: ad.id
         })
         .catch(() => {});
-      window.open(ad.click_url, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -206,12 +204,11 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
       {/* Bottom Controls Bar */}
       <div className="absolute bottom-0 inset-x-0 z-40 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 flex flex-col gap-3">
         {/* Progress bar */}
-        <div className="w-full bg-neutral-800/80 h-1.5 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-purple-600 transition-all duration-200"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+        <progress
+          value={progressPercent}
+          max={100}
+          className="w-full h-1.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800/80 [&::-webkit-progress-value]:bg-purple-600 [&::-moz-progress-bar]:bg-purple-600"
+        />
 
         <div className="flex items-center justify-between">
           {/* Left: Play/Pause, Mute & Advertiser Link */}
@@ -235,14 +232,20 @@ export const PreRollAd: React.FC<PreRollAdProps> = ({
             </button>
 
             {ad.click_url && (
-              <button
+              <a
                 id="btn-ad-visit-advertiser"
-                onClick={handleClickAd}
+                href={ad.click_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClickAd();
+                }}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md border border-white/10 transition-all cursor-pointer"
               >
                 <span>Visit Advertiser</span>
                 <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
-              </button>
+              </a>
             )}
           </div>
 

@@ -1,4 +1,5 @@
 import { supabase, supabaseAdmin } from '../config/supabase';
+import { supabaseProjectInfo } from '../../../src/config/supabase';
 import { randomUUID } from 'crypto';
 import path from 'path';
 
@@ -49,10 +50,9 @@ export async function uploadBuffer(
   const { data } = client.storage.from(bucket).getPublicUrl(filename);
   let publicUrl = data?.publicUrl;
 
-  // If publicUrl is empty, synthesize standard public url for the bucket
   if (!publicUrl) {
-    const base = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://reuekwbqdjtwqzpyqtuc.supabase.co';
-    publicUrl = `${base.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${filename}`;
+    const base = supabaseProjectInfo.url || process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    publicUrl = `${base.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${filename}`;
   }
 
   console.log(`[STORAGE] ✅ Uploaded: ${publicUrl}`);

@@ -40,9 +40,7 @@ export default function AvatarUpload({
 
     setLoading(true);
     try {
-      const res = await api.post('/artist/upload/avatar', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/artist/upload/avatar', fd);
       if (res.data?.url) {
         onUploaded(res.data.url);
       }

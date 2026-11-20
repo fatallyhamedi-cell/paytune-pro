@@ -45,8 +45,8 @@ async function uploadBuffer(bufferOrOpts, maybeOpts) {
   let publicUrl = urlData?.publicUrl;
 
   if (!publicUrl) {
-    const baseUrl = process.env.SUPABASE_URL || 'https://reuekwbqdjtwqzpyqtuc.supabase.co';
-    publicUrl = `${baseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${filePath}`;
+    const baseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    publicUrl = `${baseUrl.replace(/\/rest\/v1\/?$/i, '').replace(/\/+$/, '')}/storage/v1/object/public/${bucket}/${filePath}`;
   }
 
   console.log(`[STORAGE] ✅ Uploaded: ${publicUrl}`);

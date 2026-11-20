@@ -150,13 +150,7 @@ export default function Logo({
           navigate("/");
         }
       }}
-      className={`relative inline-flex items-center gap-2.5 sm:gap-3 group select-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 rounded-2xl px-1 py-0.5 transition-transform active:scale-[0.98] ${className}`}
-      style={{
-        WebkitTouchCallout: "none",
-        WebkitUserSelect: "none",
-        userSelect: "none",
-        touchAction: "none"
-      }}
+      className={`relative inline-flex items-center gap-2.5 sm:gap-3 group select-none touch-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500 rounded-2xl px-1 py-0.5 transition-transform active:scale-[0.98] ${className}`}
     >
       {/* Emblem Icon */}
       <div className={`relative flex items-center justify-center shrink-0 ${iconSizes[size]}`}>
@@ -269,39 +263,27 @@ export default function Logo({
           <div className="flex items-baseline leading-none">
             {variant === "gradient" ? (
               <span
-                className={`${wordmarkSizes[size]} font-black tracking-[-0.01em] uppercase leading-none bg-gradient-to-b from-[#FF1493] via-[#D946EF] to-[#00F2FE] bg-clip-text text-transparent filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-all`}
-                style={{
-                  fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                }}
+                className={`${wordmarkSizes[size]} font-sans font-black tracking-[-0.01em] uppercase leading-none bg-gradient-to-b from-[#FF1493] via-[#D946EF] to-[#00F2FE] bg-clip-text text-transparent filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-all`}
               >
                 PAYTUNE
               </span>
             ) : variant === "dual" ? (
               <>
                 <span
-                  className={`${wordmarkSizes[size]} font-black tracking-[-0.02em] text-black dark:text-white leading-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-colors`}
-                  style={{
-                    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                  }}
+                  className={`${wordmarkSizes[size]} font-sans font-black tracking-[-0.02em] text-black dark:text-white leading-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-colors`}
                 >
                   Pay
                 </span>
                 <span
-                  className={`${wordmarkSizes[size]} font-black tracking-[-0.02em] bg-gradient-to-r from-cyan-600 via-cyan-500 to-sky-500 dark:from-cyan-300 dark:via-cyan-400 dark:to-sky-400 bg-clip-text text-transparent leading-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-all`}
-                  style={{
-                    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                  }}
+                  className={`${wordmarkSizes[size]} font-sans font-black tracking-[-0.02em] bg-gradient-to-r from-cyan-600 via-cyan-500 to-sky-500 dark:from-cyan-300 dark:via-cyan-400 dark:to-sky-400 bg-clip-text text-transparent leading-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-all`}
                 >
                   Tune
                 </span>
               </>
             ) : (
-              /* Default Exact Match to image_9ac251db.jpg: Black in Light Mode, White in Dark Mode */
+              /* Default Exact Match: Black in Light Mode, White in Dark Mode */
               <span
-                className={`${wordmarkSizes[size]} font-black tracking-[-0.02em] text-black dark:text-white leading-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-colors`}
-                style={{
-                  fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-                }}
+                className={`${wordmarkSizes[size]} font-sans font-black tracking-[-0.02em] text-black dark:text-white leading-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] transition-colors`}
               >
                 PayTune
               </span>

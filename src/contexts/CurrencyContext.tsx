@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Country, ExchangeRate } from '../types/payment';
 import { COUNTRIES, EXCHANGE_RATES, convertRwfToCurrency, findCountry } from '../services/currencyService';
 
@@ -47,11 +47,11 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const fetchMetadata = async () => {
       try {
         const [cRes, rRes] = await Promise.all([
-          axios.get('/api/countries').catch((err) => {
+          api.get('/api/countries').catch((err) => {
             if (err.response?.status === 429) return { data: COUNTRIES };
             return { data: COUNTRIES };
           }),
-          axios.get('/api/exchange-rates').catch((err) => {
+          api.get('/api/exchange-rates').catch((err) => {
             if (err.response?.status === 429) return { data: { rates: EXCHANGE_RATES } };
             return { data: { rates: EXCHANGE_RATES } };
           })

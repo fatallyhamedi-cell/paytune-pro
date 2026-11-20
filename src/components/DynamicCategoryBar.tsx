@@ -1,8 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Sparkles, Plus, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
-import { useAuth } from "../hooks/useAuth";
+import { api } from "../lib/api";
 
 export interface CategoryItem {
   id: string;
@@ -25,7 +24,6 @@ export default function DynamicCategoryBar({
   onSelectCategory,
   onOpenPreferences
 }: DynamicCategoryBarProps) {
-  const { user } = useAuth();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -33,44 +31,20 @@ export default function DynamicCategoryBar({
   const [startX, setStartX] = useState(0);
   const [scrollLeftState, setScrollLeftState] = useState(0);
 
-  // Fetch categories from backend API
-  const { data: categories = [], isLoading } = useQuery<CategoryItem[]>({
+  const { data: categories = [], isError, refetch } = useQuery<CategoryItem[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      try {
-        const res = await axios.get("/api/categories");
-        const list = Array.isArray(res.data) ? res.data : (res.data?.categories || []);
-        return list;
-      } catch (err) {
-        console.warn("Failed to fetch dynamic categories, falling back:", err);
-        return [
-          { id: "all", name: "All", slug: "all" },
-          { id: "rwandan", name: "Rwandan Hits", slug: "rwandan-hits" },
-          { id: "afrobeat", name: "Afrobeat", slug: "afrobeat" },
-          { id: "gospel", name: "Gospel", slug: "gospel" },
-          { id: "hiphop", name: "Hip Hop", slug: "hip-hop" },
-          { id: "rnb", name: "R&B", slug: "rnb" },
-          { id: "traditional", name: "Traditional", slug: "traditional" },
-          { id: "live", name: "Live", slug: "live" },
-          { id: "podcasts", name: "Podcasts", slug: "podcasts" },
-          { id: "comedy", name: "Comedy", slug: "comedy" },
-          { id: "sports", name: "Sports", slug: "sports" },
-          { id: "gaming", name: "Gaming", slug: "gaming" },
-          { id: "tech", name: "Technology", slug: "technology" }
-        ];
-      }
+      const res = await api.get("/api/categories");
+      return Array.isArray(res.data) ? res.data : (res.data?.categories || []);
     },
     staleTime: 60 * 1000
   });
 
-  // Check scroll boundary visibility
   const checkScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const hasLeft = el.scrollLeft > 4;
-    const hasRight = el.scrollLeft < el.scrollWidth - el.clientWidth - 4;
-    setCanScrollLeft(hasLeft);
-    setCanScrollRight(hasRight);
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
   };
 
   useEffect(() => {
@@ -82,14 +56,12 @@ export default function DynamicCategoryBar({
   const scroll = (direction: "left" | "right") => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    const scrollAmount = 300;
     el.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
+      left: direction === "left" ? -300 : 300,
       behavior: "smooth"
     });
   };
 
-  // Mouse drag-to-scroll support
   const handleMouseDown = (e: React.MouseEvent) => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -104,8 +76,7 @@ export default function DynamicCategoryBar({
     const el = scrollContainerRef.current;
     if (!el) return;
     const x = e.pageX - el.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    el.scrollLeft = scrollLeftState - walk;
+    el.scrollLeft = scrollLeftState - (x - startX) * 1.5;
     checkScroll();
   };
 
@@ -119,7 +90,6 @@ export default function DynamicCategoryBar({
       className="bg-white border-b border-gray-100 transition-colors"
     >
       <div className="relative max-w-[1920px] mx-auto px-2 sm:px-4 py-2.5 flex items-center">
-        {/* Left Arrow Button */}
         {canScrollLeft && (
           <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pl-2 pr-4 bg-gradient-to-r from-white via-white/80 to-transparent">
             <button
@@ -134,7 +104,6 @@ export default function DynamicCategoryBar({
           </div>
         )}
 
-        {/* Categories Chips Container */}
         <div
           ref={scrollContainerRef}
           onScroll={checkScroll}
@@ -142,10 +111,10 @@ export default function DynamicCategoryBar({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className="flex items-center gap-3 overflow-x-auto scrollbar-hide scroll-smooth w-full select-none py-0.5 px-2"
-          style={{ cursor: isDragging ? "grabbing" : "default" }}
+          className={`flex items-center gap-3 overflow-x-auto scrollbar-hide scroll-smooth w-full select-none py-0.5 px-2 ${
+            isDragging ? "cursor-grabbing" : "cursor-default"
+          }`}
         >
-          {/* Always have 'All' category first */}
           <button
             id="category-chip-all"
             type="button"
@@ -159,7 +128,6 @@ export default function DynamicCategoryBar({
             All
           </button>
 
-          {/* Dynamically Loaded Categories */}
           {categories
             .filter((cat) => cat.name !== "All")
             .map((cat) => {
@@ -182,7 +150,16 @@ export default function DynamicCategoryBar({
               );
             })}
 
-          {/* User Customize Interests Trigger */}
+          {isError && (
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-200 cursor-pointer flex-shrink-0"
+            >
+              Retry categories
+            </button>
+          )}
+
           {onOpenPreferences && (
             <button
               id="category-customize-interests-btn"
@@ -197,7 +174,6 @@ export default function DynamicCategoryBar({
           )}
         </div>
 
-        {/* Right Arrow Button & Gradient */}
         {canScrollRight && (
           <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pr-2 pl-4 bg-gradient-to-l from-white via-white/80 to-transparent">
             <button
@@ -212,7 +188,6 @@ export default function DynamicCategoryBar({
           </div>
         )}
 
-        {/* Right Fade Gradient */}
         <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none" />
       </div>
     </div>

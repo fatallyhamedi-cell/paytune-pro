@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 import { Smartphone, Plus, Trash2, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import { PaymentPhone } from '../../types/dashboard';
 
@@ -13,11 +13,12 @@ export const PaymentPhones: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [confirmDeletePhoneId, setConfirmDeletePhoneId] = useState<string | null>(null);
 
   const fetchPhones = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/user/payment-phones');
+      const res = await api.get('/api/user/payment-phones');
       setPhones(res.data || []);
     } catch (err: any) {
       console.error('Failed to fetch payment phones:', err);
@@ -47,7 +48,7 @@ export const PaymentPhones: React.FC = () => {
     setSubmitting(true);
 
     try {
-      await axios.post('/api/user/payment-phones', {
+      await api.post('/api/user/payment-phones', {
         phone: phoneInput,
         provider: providerInput,
         is_default: isDefaultInput
@@ -68,7 +69,7 @@ export const PaymentPhones: React.FC = () => {
 
   const handleSetDefault = async (phone: PaymentPhone) => {
     try {
-      await axios.post('/api/user/payment-phones', {
+      await api.post('/api/user/payment-phones', {
         phone: phone.phone,
         provider: phone.provider,
         is_default: true
@@ -81,10 +82,16 @@ export const PaymentPhones: React.FC = () => {
     }
   };
 
-  const handleDeletePhone = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this payment phone?')) return;
+  const handleDeletePhone = (id: string) => {
+    setConfirmDeletePhoneId(id);
+  };
+
+  const executeDeletePhone = async () => {
+    if (!confirmDeletePhoneId) return;
+    const id = confirmDeletePhoneId;
+    setConfirmDeletePhoneId(null);
     try {
-      await axios.delete(`/api/user/payment-phones/${id}`);
+      await api.delete(`/api/user/payment-phones/${id}`);
       setPhones(prev => prev.filter(p => p.id !== id));
       setFeedback('Payment phone removed.');
       setTimeout(() => setFeedback(null), 3000);
@@ -315,6 +322,33 @@ export const PaymentPhones: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {confirmDeletePhoneId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-[#181818] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white">Remove Payment Number?</h3>
+            <p className="text-xs text-gray-400">
+              Are you sure you want to remove this mobile money number from your saved payment methods?
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeletePhoneId(null)}
+                className="px-4 py-2 text-xs text-gray-400 hover:text-white rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeDeletePhone}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold text-xs rounded-xl"
+              >
+                Remove
+              </button>
+            </div>
           </div>
         </div>
       )}

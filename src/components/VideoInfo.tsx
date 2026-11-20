@@ -40,11 +40,14 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
     }
   };
 
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+
   const handleFollow = async () => {
     if (!user) {
-      alert("Please sign in to follow this artist.");
+      setAuthNotice("Please sign in to follow this artist.");
       return;
     }
+    setAuthNotice(null);
     setFollowing(true);
     try {
       await onToggleSubscribe();
@@ -140,6 +143,11 @@ export const VideoInfo: React.FC<VideoInfoProps> = ({ video, onToggleSubscribe }
             </div>
           )}
         </div>
+        {authNotice && (
+          <p className="w-full text-xs font-medium text-amber-500 dark:text-amber-400 mt-1">
+            {authNotice}
+          </p>
+        )}
       </div>
 
       {/* Description Card (Expandable) */}

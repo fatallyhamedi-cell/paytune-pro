@@ -53,7 +53,7 @@ export const EarningsTab: React.FC<EarningsTabProps> = ({
 
   // Total withdrawn calculation
   const totalWithdrawn = (withdrawals || [])
-    .filter((w) => w.status === 'completed' || w.status === 'processed')
+    .filter((w) => ['completed', 'processed', 'paid'].includes(String(w.status || '').toLowerCase()))
     .reduce((sum, w) => sum + Number(w.amount || 0), 0);
 
   return (
@@ -238,10 +238,10 @@ export const EarningsTab: React.FC<EarningsTabProps> = ({
                 </tr>
               ) : (
                 (videos || []).map((v) => {
-                  const buyers = v.buyers_count || Math.floor((v.views || 0) * 0.08);
-                  const gross = buyers * (v.price_rwf || 0);
-                  const artistCut = v.total_earned || Math.round(gross * 0.95 * 0.70);
-                  const platformCut = Math.round(gross * 0.95 * 0.30);
+                  const buyers = Number(v.buyers_count || 0);
+                  const gross = buyers * Number(v.price_rwf || 0);
+                  const artistCut = Number(v.total_earned || Math.round(gross * 0.95 * 0.70));
+                  const platformCut = Math.max(0, Math.round(gross * 0.95) - artistCut);
 
                   return (
                     <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
@@ -321,7 +321,7 @@ export const EarningsTab: React.FC<EarningsTabProps> = ({
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                        w.status === 'completed' || w.status === 'processed'
+                        ['completed', 'processed', 'paid'].includes(String(w.status || '').toLowerCase())
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           : w.status === 'rejected'
                           ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'

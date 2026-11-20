@@ -15,9 +15,10 @@ import {
   CreditCard, 
   Sparkles,
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  Music2
 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { useArtist } from '../hooks/useArtist';
 import { useChannelTabs, ChannelTabType } from '../hooks/useChannelTabs';
@@ -27,6 +28,7 @@ import ChannelVideoGrid from '../components/ChannelVideoGrid';
 import ChannelVideoCard from '../components/ChannelVideoCard';
 import MembershipTiers from '../components/MembershipTiers';
 import AboutSection from '../components/AboutSection';
+import MusicTrackCard from '../components/music/MusicTrackCard';
 
 export default function ArtistChannel() {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +73,8 @@ export default function ArtistChannel() {
   const [momoPhone, setMomoPhone] = useState("");
   const [joiningTier, setJoiningTier] = useState(false);
   const [joinSuccess, setJoinSuccess] = useState(false);
+  const [joinPending, setJoinPending] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -87,9 +91,14 @@ export default function ArtistChannel() {
     async function checkUserMembership() {
       if (user && artist?.id) {
         try {
-          const res = await axios.get('/api/user/membership/active');
+          const res = await api.get('/api/user/membership/active');
           const activeSubs = Array.isArray(res.data) ? res.data : [];
-          const match = activeSubs.find((s: any) => s.artist_id === artist.id);
+          const match = activeSubs.find(
+            (s: any) =>
+              s.artist_id === artist.id ||
+              s.creator_channel_id === artist.id ||
+              s.artist_profile_id === artist.id
+          );
           if (match) {
             setActiveTierId(match.membership_tier_id);
           }
@@ -173,24 +182,42 @@ export default function ArtistChannel() {
       navigate('/auth?redirect=' + encodeURIComponent(window.location.pathname));
       return;
     }
-    if (paymentMethod === 'momo' && !momoPhone) {
-      showToast("Please enter your Mobile Money phone number.");
+    if (paymentMethod === 'momo' && !momoPhone.trim()) {
+      setJoinError("Please enter your Mobile Money phone number.");
       return;
     }
 
     setJoiningTier(true);
+    setJoinError(null);
+    setJoinPending(false);
     try {
-      // Simulate/call tier subscription
-      await new Promise(r => setTimeout(r, 1200));
-      setActiveTierId(selectedMembershipTier.id);
-      setJoinSuccess(true);
-      setTimeout(() => {
-        setJoinSuccess(false);
-        setSelectedMembershipTier(null);
-        showToast(`Welcome! You are now a ${selectedMembershipTier.name} member.`);
-      }, 1500);
-    } catch (err) {
-      showToast("Payment processing error. Please try again.");
+      const res = await api.post('/api/user/membership/subscribe', {
+        artistId: artist.id,
+        tierId: selectedMembershipTier.id,
+        paymentMethod,
+        provider: momoProvider,
+        phoneNumber: momoPhone.trim()
+      });
+
+      const subStatus = res.data?.status || res.data?.subscription?.status;
+      if (subStatus === 'active') {
+        setActiveTierId(selectedMembershipTier.id);
+        setJoinSuccess(true);
+        setTimeout(() => {
+          setJoinSuccess(false);
+          setSelectedMembershipTier(null);
+          showToast(`Welcome! You are now a ${selectedMembershipTier.name || selectedMembershipTier.tier_name} member.`);
+        }, 1500);
+      } else {
+        setJoinPending(true);
+      }
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Payment gateway unavailable. Membership was not activated.";
+      setJoinError(msg);
     } finally {
       setJoiningTier(false);
     }
@@ -261,6 +288,7 @@ export default function ArtistChannel() {
         activeTab={activeTab}
         onTabChange={(tab) => setActiveTab(tab)}
         videoCount={artist.video_count}
+        tracksCount={tabData.tracks?.length}
         shortsCount={tabData.shorts.length}
         playlistCount={tabData.playlists.length}
         tierCount={artist.membership_tiers?.length}
@@ -338,7 +366,7 @@ export default function ArtistChannel() {
                       </Link>
 
                       <span className="text-xs text-neutral-400">
-                        {featuredVideo.is_free ? "Included Free" : `${featuredVideo.price_rwf?.toLocaleString() || 1500} RWF`}
+                        {featuredVideo.is_free ? "Included Free" : `${featuredVideo.price_rwf?.toLocaleString() ?? 0} RWF`}
                       </span>
                     </div>
                   </div>
@@ -355,6 +383,53 @@ export default function ArtistChannel() {
               title="All Music Videos & Uploads"
               emptyMessage={`No videos published yet by ${artist.full_name}.`}
             />
+          </div>
+        )}
+
+        {/* AUDIO TRACKS TAB (PRD Section 3 & 6.3) */}
+        {activeTab === 'tracks' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Music2 className="w-5 h-5 text-purple-400" />
+                  <span>Audio Discography & Releases</span>
+                  <span className="text-xs font-normal text-neutral-400">
+                    ({tabData.tracks?.length || 0})
+                  </span>
+                </h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Stream high-fidelity studio recordings and audio singles.
+                </p>
+              </div>
+            </div>
+
+            {tabData.tracks && tabData.tracks.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {tabData.tracks.map((track: any) => (
+                  <MusicTrackCard
+                    key={track.id}
+                    track={{
+                      ...track,
+                      artist_name: artist.full_name || track.artist_name,
+                      artist_avatar: artist.profile_image || track.artist_avatar,
+                      artist_followers: subscriberCount,
+                    }}
+                    allTracks={tabData.tracks}
+                  />
+                ))}
+              </div>
+            ) : (
+              !tabLoading && (
+                <div className="py-16 text-center text-neutral-400 bg-neutral-900/40 rounded-2xl border border-neutral-800/80">
+                  <Music2 className="w-10 h-10 text-neutral-600 mx-auto mb-2" />
+                  <p className="text-sm font-semibold">No audio tracks uploaded yet.</p>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Check back soon for upcoming singles and album drops.
+                  </p>
+                </div>
+              )
+            )}
           </div>
         )}
 
@@ -431,12 +506,18 @@ export default function ArtistChannel() {
                   className="group bg-[#161616] rounded-xl overflow-hidden border border-neutral-800 hover:border-neutral-700 transition-all hover:shadow-xl"
                 >
                   <div className="relative aspect-video bg-neutral-900">
-                    <img
-                      src={pl.thumbnail_url || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600"}
-                      alt={pl.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    {pl.thumbnail_url ? (
+                      <img
+                        src={pl.thumbnail_url}
+                        alt={pl.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-600">
+                        <ListMusic className="w-10 h-10" />
+                      </div>
+                    )}
                     {/* Overlay with playlist count */}
                     <div className="absolute inset-y-0 right-0 w-1/3 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-1">
                       <ListMusic className="w-5 h-5 text-[#FFB300]" />
@@ -476,12 +557,18 @@ export default function ArtistChannel() {
                   className="group bg-[#161616] rounded-xl overflow-hidden border border-neutral-800 hover:border-neutral-700 transition-all"
                 >
                   <div className="relative aspect-video bg-neutral-900">
-                    <img
-                      src={stream.thumbnail_url || "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=600"}
-                      alt={stream.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    {stream.thumbnail_url ? (
+                      <img
+                        src={stream.thumbnail_url}
+                        alt={stream.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-600">
+                        <Radio className="w-10 h-10" />
+                      </div>
+                    )}
                     <div className="absolute top-3 left-3 bg-red-600 text-white font-black text-[10px] px-2 py-0.5 rounded tracking-wider uppercase">
                       STREAM REPLAY
                     </div>
@@ -513,7 +600,12 @@ export default function ArtistChannel() {
             tiers={artist.membership_tiers || []}
             artistName={artist.full_name}
             activeTierId={activeTierId}
-            onSelectTier={(tier) => setSelectedMembershipTier(tier)}
+            onSelectTier={(tier) => {
+              setJoinError(null);
+              setJoinPending(false);
+              setJoinSuccess(false);
+              setSelectedMembershipTier(tier);
+            }}
           />
         )}
 
@@ -612,7 +704,12 @@ export default function ArtistChannel() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xs">
           <div className="bg-[#181818] border border-neutral-800 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
             <button
-              onClick={() => setSelectedMembershipTier(null)}
+              onClick={() => {
+                setSelectedMembershipTier(null);
+                setJoinError(null);
+                setJoinPending(false);
+                setJoinSuccess(false);
+              }}
               className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1"
             >
               <X className="w-5 h-5" />
@@ -622,7 +719,7 @@ export default function ArtistChannel() {
               <Crown className="w-6 h-6 text-[#FFB300]" />
               <div>
                 <h3 className="text-lg font-bold text-white">
-                  Join {selectedMembershipTier.name}
+                  Join {selectedMembershipTier.name || selectedMembershipTier.tier_name}
                 </h3>
                 <p className="text-xs text-neutral-400">
                   Channel Membership for {artist.full_name}
@@ -640,6 +737,16 @@ export default function ArtistChannel() {
                   Your VIP badge is now active across all videos, live chats, and community releases.
                 </p>
               </div>
+            ) : joinPending ? (
+              <div className="py-8 text-center space-y-3">
+                <div className="w-14 h-14 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <h4 className="text-base font-bold text-white">Membership Payment Pending</h4>
+                <p className="text-xs text-neutral-400 max-w-xs mx-auto">
+                  Complete the payment confirmation on your device. Your membership will activate once payment is verified.
+                </p>
+              </div>
             ) : (
               <form onSubmit={handleConfirmJoinMembership} className="space-y-4">
                 {/* Tier Price & Perks summary */}
@@ -647,7 +754,7 @@ export default function ArtistChannel() {
                   <div>
                     <p className="text-xs text-neutral-400">Monthly Membership</p>
                     <p className="text-lg font-black text-white">
-                      {selectedMembershipTier.price_rwf.toLocaleString()} RWF
+                      {Number(selectedMembershipTier.price_rwf ?? selectedMembershipTier.monthly_price ?? 0).toLocaleString()} RWF
                     </p>
                   </div>
                   <span className="text-xs font-bold px-2.5 py-1 rounded bg-[#FFB300]/10 text-[#FFB300] border border-[#FFB300]/30">
@@ -735,14 +842,23 @@ export default function ArtistChannel() {
                   </div>
                 )}
 
+                {joinError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{joinError}</span>
+                  </div>
+                )}
+
                 {/* Submit button */}
                 <div className="pt-3">
                   <button
                     type="submit"
                     disabled={joiningTier}
-                    className="w-full py-3 rounded-xl bg-[#FFB300] hover:bg-[#FFA000] text-black font-extrabold text-sm tracking-wide transition-all shadow-lg shadow-[#FFB300]/20 active:scale-98"
+                    className="w-full py-3 rounded-xl bg-[#FFB300] hover:bg-[#FFA000] text-black font-extrabold text-sm tracking-wide transition-all shadow-lg shadow-[#FFB300]/20 active:scale-98 disabled:opacity-50"
                   >
-                    {joiningTier ? "Processing Activation..." : `Authorize ${selectedMembershipTier.price_rwf.toLocaleString()} RWF / Month`}
+                    {joiningTier
+                      ? "Processing Activation..."
+                      : `Authorize ${Number(selectedMembershipTier.price_rwf ?? selectedMembershipTier.monthly_price ?? 0).toLocaleString()} RWF / Month`}
                   </button>
                   <p className="text-[11px] text-center text-neutral-500 pt-2">
                     Cancel anytime from your Account Settings. Auto-renews monthly.

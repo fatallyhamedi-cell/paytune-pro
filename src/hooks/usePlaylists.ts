@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Playlist } from '../types/dashboard';
 import { useAuth } from './useAuth';
 
@@ -19,7 +19,7 @@ export function usePlaylists() {
     try {
       setLoading(true);
       setError(null);
-      const res = await axios.get('/api/user/playlists');
+      const res = await api.get('/api/user/playlists');
       setPlaylists(res.data || []);
     } catch (err: any) {
       console.error('Failed to fetch playlists:', err);
@@ -35,7 +35,7 @@ export function usePlaylists() {
 
   const createPlaylist = async (name: string, description?: string, is_public = true) => {
     try {
-      const res = await axios.post('/api/user/playlists', {
+      const res = await api.post('/api/user/playlists', {
         name,
         title: name,
         description,
@@ -52,7 +52,7 @@ export function usePlaylists() {
 
   const updatePlaylist = async (id: string, data: { name?: string; title?: string; description?: string; is_public?: boolean }) => {
     try {
-      const res = await axios.put(`/api/user/playlists/${id}`, data);
+      const res = await api.put(`/api/user/playlists/${id}`, data);
       const updated = res.data.playlist;
       setPlaylists(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
       return true;
@@ -64,7 +64,7 @@ export function usePlaylists() {
 
   const deletePlaylist = async (id: string) => {
     try {
-      await axios.delete(`/api/user/playlists/${id}`);
+      await api.delete(`/api/user/playlists/${id}`);
       setPlaylists(prev => prev.filter(p => p.id !== id));
       return true;
     } catch (err: any) {
@@ -75,7 +75,7 @@ export function usePlaylists() {
 
   const addVideoToPlaylist = async (playlistId: string, videoId: string) => {
     try {
-      const res = await axios.post(`/api/user/playlists/${playlistId}/videos`, { videoId });
+      const res = await api.post(`/api/user/playlists/${playlistId}/videos`, { videoId });
       await fetchPlaylists();
       return { success: true, alreadyIn: !!res.data.alreadyIn };
     } catch (err: any) {
@@ -86,7 +86,7 @@ export function usePlaylists() {
 
   const removeVideoFromPlaylist = async (playlistId: string, videoId: string) => {
     try {
-      await axios.delete(`/api/user/playlists/${playlistId}/videos/${videoId}`);
+      await api.delete(`/api/user/playlists/${playlistId}/videos/${videoId}`);
       setPlaylists(prev => prev.map(p => {
         if (p.id === playlistId) {
           const filtered = (p.videos || []).filter(v => v.id !== videoId);
@@ -103,7 +103,7 @@ export function usePlaylists() {
 
   const reorderVideos = async (playlistId: string, videoIds: string[]) => {
     try {
-      await axios.put(`/api/user/playlists/${playlistId}/reorder`, { videoIds });
+      await api.put(`/api/user/playlists/${playlistId}/reorder`, { videoIds });
       await fetchPlaylists();
       return true;
     } catch (err: any) {
@@ -114,7 +114,7 @@ export function usePlaylists() {
 
   const getShareLink = async (playlistId: string) => {
     try {
-      const res = await axios.get(`/api/user/playlists/${playlistId}/share`);
+      const res = await api.get(`/api/user/playlists/${playlistId}/share`);
       return res.data.shareUrl;
     } catch (err: any) {
       return `${window.location.origin}/playlist/${playlistId}`;

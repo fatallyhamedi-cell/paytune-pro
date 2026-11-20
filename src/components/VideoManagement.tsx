@@ -61,6 +61,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
     is_featured: false,
     category: "Music"
   });
+  const [confirmDeleteVideo, setConfirmDeleteVideo] = useState<MasterVideo | null>(null);
 
   const handleOpenEdit = (v: MasterVideo) => {
     setEditingVideo(v);
@@ -202,12 +203,18 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                   <tr key={video.id} className="hover:bg-neutral-800/40 transition-colors">
                     <td className="p-3.5">
                       <div className="flex items-center space-x-3">
-                        <img
-                          src={video.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"}
-                          alt={video.title}
-                          className="w-14 h-9 object-cover rounded-lg border border-neutral-700 shadow"
-                          referrerPolicy="no-referrer"
-                        />
+                        {video.thumbnail_url ? (
+                          <img
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            className="w-14 h-9 object-cover rounded-lg border border-neutral-700 shadow"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-14 h-9 rounded-lg border border-neutral-700 bg-neutral-800 flex items-center justify-center text-neutral-500 text-[10px] font-bold">
+                            NO IMG
+                          </div>
+                        )}
                         <div className="max-w-[200px]">
                           <div className="font-bold text-white text-xs truncate flex items-center gap-1">
                             <span>{video.title}</span>
@@ -234,7 +241,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                     </td>
                     <td className="p-3.5">
                       <span className="font-bold text-purple-400">
-                        {Number(video.earnings || video.views * 300).toLocaleString()} RWF
+                        {Number(video.earnings || 0).toLocaleString()} RWF
                       </span>
                     </td>
                     <td className="p-3.5">
@@ -271,11 +278,7 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
 
                         <button
                           id={`btn-delete-video-${video.id}`}
-                          onClick={() => {
-                            if (window.confirm(`Delete video "${video.title}"?`)) {
-                              onDeleteVideo(video.id);
-                            }
-                          }}
+                          onClick={() => setConfirmDeleteVideo(video)}
                           className="p-1.5 rounded-lg bg-neutral-800 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition-colors cursor-pointer"
                           title="Delete Video"
                         >
@@ -367,6 +370,36 @@ export const VideoManagement: React.FC<VideoManagementProps> = ({
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold cursor-pointer"
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-2xl bg-[#1A1A1A] border border-neutral-800 p-6 shadow-2xl text-xs space-y-4 text-center">
+            <h3 className="text-sm font-bold text-white">Delete Video</h3>
+            <p className="text-neutral-400">
+              Delete video &quot;{confirmDeleteVideo.title}&quot;? This cannot be undone.
+            </p>
+            <div className="flex justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteVideo(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDeleteVideo(confirmDeleteVideo.id);
+                  setConfirmDeleteVideo(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
+              >
+                Delete
               </button>
             </div>
           </div>

@@ -3,11 +3,8 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./drizzle",
-  dialect: "mysql",
+  dialect: "postgresql",
   dbCredentials: {
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "paytune",
+    url: process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || "",
   },
 });

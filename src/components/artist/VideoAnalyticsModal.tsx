@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, BarChart2, Eye, DollarSign, Clock, Users, Globe, Smartphone, RefreshCw, Copy, Check, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import axios from 'axios';
+import { api } from '../../lib/api';
 
 interface VideoAnalyticsModalProps {
   video: any;
@@ -15,6 +15,7 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
   const [copiedLink, setCopiedLink] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenerateSuccess, setRegenerateSuccess] = useState<string | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !video) return;
@@ -22,7 +23,7 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        const res = await axios.get(`/api/artist/video/${video.id}/analytics`);
+        const res = await api.get(`/api/artist/video/${video.id}/analytics`);
         setData(res.data);
       } catch (err) {
         console.error('Failed to load video analytics:', err);
@@ -46,11 +47,13 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
   const handleRegenerateLink = async () => {
     setRegenerating(true);
     setRegenerateSuccess(null);
+    setRegenerateError(null);
     try {
-      const res = await axios.post(`/api/artist/video/${video.id}/regenerate-link`);
+      const res = await api.post(`/api/artist/video/${video.id}/regenerate-link`);
       setRegenerateSuccess(res.data.shareable_url || 'Playback security link refreshed successfully.');
     } catch (err: any) {
       console.error(err);
+      setRegenerateError(err.response?.data?.error || err.response?.data?.message || 'Failed to regenerate link.');
     } finally {
       setRegenerating(false);
     }
@@ -109,7 +112,7 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
                   <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Watch Time</span>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xl font-black text-white">{data?.watch_time_minutes || 420} mins</span>
+                    <span className="text-xl font-black text-white">{data?.watch_time_minutes ?? 0} mins</span>
                   </div>
                 </div>
 
@@ -117,7 +120,7 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
                   <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Avg Completion</span>
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-blue-400" />
-                    <span className="text-xl font-black text-white">{data?.avg_percentage_watched || 74.2}%</span>
+                    <span className="text-xl font-black text-white">{data?.avg_percentage_watched ?? 0}%</span>
                   </div>
                 </div>
               </div>
@@ -158,9 +161,11 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
                       <div key={d.country} className="flex items-center justify-between">
                         <span className="text-gray-400">{d.country}</span>
                         <div className="flex items-center gap-2">
-                          <div className="w-20 bg-white/5 h-2 rounded-full overflow-hidden">
-                            <div className="bg-[#FFB300] h-full rounded-full" style={{ width: `${d.percentage}%` }} />
-                          </div>
+                          <progress
+                            value={d.percentage}
+                            max={100}
+                            className="w-20 h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-white/5 [&::-webkit-progress-value]:bg-[#FFB300] [&::-moz-progress-bar]:bg-[#FFB300]"
+                          />
                           <span className="font-bold text-white w-8 text-right">{d.percentage}%</span>
                         </div>
                       </div>
@@ -178,9 +183,11 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
                       <div key={s.source} className="flex items-center justify-between">
                         <span className="text-gray-400">{s.source}</span>
                         <div className="flex items-center gap-2">
-                          <div className="w-20 bg-white/5 h-2 rounded-full overflow-hidden">
-                            <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${s.percentage}%` }} />
-                          </div>
+                          <progress
+                            value={s.percentage}
+                            max={100}
+                            className="w-20 h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-white/5 [&::-webkit-progress-value]:bg-emerald-400 [&::-moz-progress-bar]:bg-emerald-400"
+                          />
                           <span className="font-bold text-white w-8 text-right">{s.percentage}%</span>
                         </div>
                       </div>
@@ -214,6 +221,12 @@ export const VideoAnalyticsModal: React.FC<VideoAnalyticsModalProps> = ({ video,
                 {regenerateSuccess && (
                   <p className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl">
                     Stream playback token regenerated! Old links invalidated for security.
+                  </p>
+                )}
+
+                {regenerateError && (
+                  <p className="text-[11px] text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">
+                    {regenerateError}
                   </p>
                 )}
               </div>

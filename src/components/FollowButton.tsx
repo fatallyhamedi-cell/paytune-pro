@@ -30,7 +30,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
     e.stopPropagation();
     e.preventDefault();
     if (!user) {
-      window.location.href = '/login';
+      window.location.href = `/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       return;
     }
 

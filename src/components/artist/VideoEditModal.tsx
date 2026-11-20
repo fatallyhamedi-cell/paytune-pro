@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Save, AlertCircle, Eye, DollarSign, Tag, Film, Clock } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 
 interface VideoEditModalProps {
   isOpen: boolean;
@@ -20,7 +20,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
   const [description, setDescription] = useState(video?.description || '');
   const [category, setCategory] = useState(video?.category || 'Afrobeat');
   const [isFree, setIsFree] = useState(!!video?.is_free);
-  const [priceRwf, setPriceRwf] = useState<number>(video?.price_rwf || 1000);
+  const [priceRwf, setPriceRwf] = useState<number>(video?.price_rwf ?? 0);
   const [visibility, setVisibility] = useState(video?.visibility || 'public');
   const [previewDuration, setPreviewDuration] = useState<number>(video?.preview_duration || 30);
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
     setError(null);
 
     try {
-      await axios.put(`/api/artist/video/${video.id}`, {
+      await api.put(`/api/artist/video/${video.id}`, {
         title,
         description,
         category,

@@ -2,16 +2,14 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Globe,
-  Compass,
-  Flame,
-  PlaySquare,
+  Music2,
   Star,
   BarChart3,
   Settings,
-  UserCircle2,
   CheckCircle2,
-  X
+  X,
 } from 'lucide-react';
+
 interface SidebarProps {
   mobile?: boolean;
   collapsed?: boolean;
@@ -19,6 +17,7 @@ interface SidebarProps {
   user?: {
     full_name?: string;
     email?: string;
+    username?: string;
   } | null;
 }
 
@@ -34,34 +33,59 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
     }
   })();
 
-  // Followed artists under Follows navigation item
-  const [followedArtists] = useState([
+  const followedArtists = [
     {
       id: '1',
       name: 'MyFrenchFilmFestival',
+      display_name: 'MyFrenchFilmFesti...',
       verified: true,
-      avatar: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=100&auto=format&fit=crop&q=80',
+      avatar: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=120&auto=format&fit=crop&q=80',
     },
-  ]);
+  ];
 
   const isActive = (path: string) => {
     if (path === '/') {
-      return location.pathname === '/' && !location.search.includes('sort=');
+      return (
+        location.pathname === '/' &&
+        !location.pathname.startsWith('/music') &&
+        !location.pathname.startsWith('/trending') &&
+        !location.pathname.startsWith('/shorts') &&
+        !location.pathname.startsWith('/follows')
+      );
+    }
+    if (path === '/music') {
+      return location.pathname.startsWith('/music');
+    }
+    if (path === '/follows') {
+      return (
+        location.pathname === '/follows' ||
+        location.pathname === '/feed' ||
+        location.pathname.startsWith('/dashboard/following')
+      );
+    }
+    if (path === '/artist/dashboard') {
+      return location.pathname.startsWith('/artist');
+    }
+    if (path === '/settings') {
+      return location.pathname === '/settings' || location.pathname.startsWith('/dashboard/settings');
+    }
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
     }
     return location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
   };
 
-  const profileLabel = user?.full_name || 'Profile';
+  const userHandle = user?.username || user?.full_name || (user?.email ? user.email.split('@')[0] : 'fatal_mbz67');
 
   const navItems = [
     { label: 'Explore', path: '/', icon: Globe },
-    { label: 'Trending', path: '/trending', icon: Flame },
-    { label: 'Shorts', path: '/shorts', icon: PlaySquare },
+    { label: 'Music', path: '/music', icon: Music2 },
     { label: 'Following', path: '/follows', icon: Star, hasFollowedList: true },
     { label: 'Studio', path: '/artist/dashboard', icon: BarChart3 },
     { label: 'Settings', path: '/settings', icon: Settings },
-    { label: profileLabel, path: '/dashboard', icon: UserCircle2, isProfile: true },
   ];
+
+  const profileActive = isActive('/dashboard');
 
   return (
     <aside
@@ -84,8 +108,8 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
         </div>
       )}
 
-      {/* Main Navigation */}
-      <nav className="space-y-1">
+      {/* Main Navigation Stack */}
+      <nav className="space-y-1.5">
         {navItems.map((item) => {
           const active = isActive(item.path);
           const Icon = item.icon;
@@ -97,21 +121,22 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
                 onClick={onClose}
                 className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl transition-all duration-150 ${
                   active
-                    ? 'bg-[#F3E8FF] text-[#8B5CF6] font-semibold'
-                    : 'text-gray-900 font-semibold hover:bg-gray-100'
+                    ? 'bg-[#F3E8FF] text-[#8B5CF6] font-bold'
+                    : 'text-gray-900 font-bold hover:bg-gray-100'
                 }`}
               >
                 <Icon
                   className={`w-5 h-5 flex-shrink-0 ${
                     active ? 'text-[#8B5CF6]' : 'text-gray-900'
                   }`}
+                  strokeWidth={2.2}
                 />
                 {!collapsed && (
-                  <span className="text-[14px] truncate">{item.label}</span>
+                  <span className="text-[15px] tracking-tight truncate">{item.label}</span>
                 )}
               </Link>
 
-              {/* Sub-section for Follows (followed artists list) */}
+              {/* Sub-section for Followed Artists List */}
               {item.hasFollowedList && !collapsed && (
                 <div className="ml-6 pl-4 border-l border-gray-200 my-1.5 space-y-2">
                   {followedArtists.map((artist) => (
@@ -119,20 +144,23 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
                       key={artist.id}
                       to={`/artist/${artist.id}`}
                       onClick={onClose}
-                      className="flex items-center gap-2 py-1 cursor-pointer group"
+                      className="flex items-center gap-2.5 py-1.5 px-1 rounded-lg hover:bg-gray-50 transition-colors group cursor-pointer"
+                      title={artist.name}
                     >
                       <div className="relative flex-shrink-0">
                         <img
                           src={artist.avatar}
                           alt={artist.name}
-                          className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                          className="w-6 h-6 rounded-sm object-cover border border-gray-200"
                         />
                         {artist.verified && (
-                          <CheckCircle2 className="w-3 h-3 absolute -bottom-1 -right-1 text-black fill-white" />
+                          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-black text-white rounded-full flex items-center justify-center ring-1 ring-white">
+                            <CheckCircle2 className="w-2.5 h-2.5 fill-black text-white" />
+                          </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-700 truncate group-hover:text-[#8B5CF6] font-medium">
-                        {artist.name}
+                      <span className="text-[13px] text-gray-800 truncate group-hover:text-[#8B5CF6] font-semibold transition-colors">
+                        {artist.display_name}
                       </span>
                     </Link>
                   ))}
@@ -141,12 +169,44 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
             </div>
           );
         })}
+
+        {/* User Profile Navigation Row */}
+        <div>
+          <Link
+            to="/dashboard"
+            onClick={onClose}
+            className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all duration-150 ${
+              profileActive
+                ? 'bg-[#F3E8FF] text-[#8B5CF6] font-bold'
+                : 'text-gray-900 font-bold hover:bg-gray-100'
+            }`}
+          >
+            <div className="w-7 h-7 rounded-full bg-[#8B5CF6] flex items-center justify-center text-white flex-shrink-0 overflow-hidden shadow-xs">
+              <svg
+                viewBox="0 0 24 24"
+                className="w-5 h-5 fill-current"
+                fill="none"
+              >
+                <circle cx="12" cy="8" r="4" fill="currentColor" />
+                <path
+                  d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+            {!collapsed && (
+              <span className="text-[15px] tracking-tight truncate">
+                {userHandle}
+              </span>
+            )}
+          </Link>
+        </div>
       </nav>
 
-      {/* Footer Links */}
+      {/* Footer Navigation Links matching Dailymotion screenshot layout */}
       {!collapsed && (
-        <div className="mt-8 pt-4 border-t border-gray-100 space-y-3 px-3 text-[13px]">
-          <div className="space-y-2 font-bold text-gray-900">
+        <div className="mt-6 pt-5 border-t border-gray-100 space-y-3 px-2 text-[13px]">
+          <div className="space-y-1.5 font-bold text-gray-900">
             <div>
               <Link to="/about" className="hover:text-[#8B5CF6] transition-colors">
                 Company
@@ -158,11 +218,13 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
               </Link>
             </div>
             <div>
-              <span className="text-gray-900">Legal</span>
+              <Link to="/legal" className="hover:text-[#8B5CF6] transition-colors">
+                Legal
+              </Link>
             </div>
           </div>
 
-          <div className="space-y-1.5 text-xs text-gray-500 font-normal">
+          <div className="space-y-1 text-xs text-gray-500 font-normal">
             <div>
               <Link to="/privacy" className="hover:text-[#8B5CF6] transition-colors">
                 Privacy and Cookie Policy
@@ -179,13 +241,13 @@ export default function Sidebar({ mobile, collapsed, onClose, user: propUser }: 
               </Link>
             </div>
             <div>
-              <Link to="/videos" className="hover:text-[#8B5CF6] transition-colors">
+              <Link to="/" className="hover:text-[#8B5CF6] transition-colors">
                 All videos
               </Link>
             </div>
           </div>
 
-          <p className="pt-4 text-xs text-gray-400">© 2026 PayTune</p>
+          <p className="pt-3 text-xs text-gray-400 font-normal">© 2026 Dailymotion</p>
         </div>
       )}
     </aside>

@@ -1,46 +1,25 @@
 import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
-import { getDbStore, notifyMutation } from '../config/supabase_mock';
-import { 
-  COUNTRIES, 
-  EXCHANGE_RATES, 
-  calculateGlobalQuote, 
-  findCountry, 
-  getGatewaysForCountry, 
+import {
+  COUNTRIES,
+  EXCHANGE_RATES,
+  calculateGlobalQuote,
+  findCountry,
+  getGatewaysForCountry,
   convertRwfToCurrency,
   convertCurrencyToRwf
 } from '../services/currencyService';
 import { processEscrowPurchase, getArtistWalletOverview, getPlatformEscrowOverview } from '../services/escrowService';
 
-/**
- * GET /api/countries
- * Returns supported countries with gateways and currencies
- */
-export const getCountries = async (req: Request, res: Response) => {
+export const getCountries = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const dbCountries = store.countries || [];
-    
-    // Merge database countries with rich metadata from COUNTRIES
-    const merged = COUNTRIES.map(c => {
-      const dbMatch = dbCountries.find((dc: any) => dc.iso2 === c.iso2);
-      return {
-        ...c,
-        is_active: dbMatch ? dbMatch.is_active : c.is_active
-      };
-    });
-
-    res.json(merged);
+    res.json(COUNTRIES);
   } catch (err: any) {
-    console.error("getCountries error:", err);
-    res.status(500).json({ error: "Failed to load countries" });
+    res.status(500).json({ error: 'Failed to load countries' });
   }
 };
 
-/**
- * GET /api/countries/:code
- * Get country by ISO2, ISO3, or code
- */
 export const getCountryByCode = async (req: Request, res: Response) => {
   try {
     const { code } = req.params;
@@ -58,11 +37,7 @@ export const getCountryByCode = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/exchange-rates
- * Returns all current exchange rates relative to RWF base
- */
-export const getExchangeRates = async (req: Request, res: Response) => {
+export const getExchangeRates = async (_req: Request, res: Response) => {
   try {
     res.json({
       base_currency: 'RWF',
@@ -74,10 +49,6 @@ export const getExchangeRates = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/currency/convert
- * Query: ?amount=1000&from=RWF&to=USD
- */
 export const convertCurrency = async (req: Request, res: Response) => {
   try {
     const amount = Number(req.query.amount) || 1000;
@@ -104,10 +75,6 @@ export const convertCurrency = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /api/payment/gateways
- * Query: ?country=KE
- */
 export const getGateways = async (req: Request, res: Response) => {
   try {
     const countryCode = String(req.query.country || 'RW').toUpperCase();
@@ -124,10 +91,6 @@ export const getGateways = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * POST /api/payment/quote
- * Body: { basePriceRwf, countryCode }
- */
 export const getPaymentQuote = async (req: Request, res: Response) => {
   try {
     const { basePriceRwf = 1000, countryCode = 'RW' } = req.body;
@@ -138,10 +101,6 @@ export const getPaymentQuote = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * POST /api/payment/initiate
- * Global checkout with Escrow routing
- */
 export const initiateGlobalPayment = async (req: Request, res: Response) => {
   const {
     videoId,
@@ -154,12 +113,12 @@ export const initiateGlobalPayment = async (req: Request, res: Response) => {
   } = req.body;
 
   const user = (req as any).user;
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required to make a purchase." });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required to make a purchase.' });
   }
 
   if (!videoId) {
-    return res.status(400).json({ error: "videoId is required" });
+    return res.status(400).json({ error: 'videoId is required' });
   }
 
   try {
@@ -174,52 +133,60 @@ export const initiateGlobalPayment = async (req: Request, res: Response) => {
       currency
     });
 
-    res.json({
-      success: true,
-      message: "Payment successfully secured in PAYTUNE Escrow. Lifetime access granted.",
-      ...result
-    });
+    res.json(result);
   } catch (err: any) {
-    console.error("initiateGlobalPayment error:", err);
-    res.status(500).json({ error: err.message || "Payment initiation failed." });
+    const status = err.statusCode || 500;
+    console.error('initiateGlobalPayment error:', err);
+    res.status(status).json({
+      error: err.message || 'Payment initiation failed.',
+      provider_configured: err.provider_configured
+    });
   }
 };
 
-/**
- * GET /api/escrow/artist/wallet
- * Returns current artist's escrow wallet status
- */
 export const getArtistEscrow = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: "Authentication required" });
+    if (!user?.id) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // Resolve artist ID
-    const store = getDbStore();
-    let artistId = req.query.artistId as string;
-    if (!artistId) {
-      const found = (store.artists || []).find((a: any) => a.user_id === user.id || a.id === user.id || a.email === user.email);
-      artistId = found ? found.id : 'artist-1';
+    let channelId = (req.query.artistId as string) || '';
+    if (!channelId) {
+      const { data: channel } = await supabaseAdmin
+        .from('creator_channels')
+        .select('id')
+        .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+        .maybeSingle();
+
+      if (channel?.id) {
+        channelId = channel.id;
+      } else {
+        const { data: artist } = await supabaseAdmin
+          .from('artist_profiles')
+          .select('id')
+          .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+          .maybeSingle();
+        if (artist?.id) channelId = artist.id;
+      }
     }
 
-    const overview = await getArtistWalletOverview(artistId);
+    if (!channelId) {
+      return res.status(404).json({ error: 'Creator channel or artist profile not found.' });
+    }
+
+    const overview = await getArtistWalletOverview(channelId);
     res.json(overview);
   } catch (err: any) {
-    console.error("getArtistEscrow error:", err);
+    console.error('getArtistEscrow error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/escrow/artist/withdraw
- * Request payout from artist wallet
- */
 export const requestArtistWithdrawal = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   const {
@@ -229,179 +196,299 @@ export const requestArtistWithdrawal = async (req: Request, res: Response) => {
     account_number,
     account_name,
     payout_currency = 'RWF',
-    artistId: customArtistId
+    country_code = 'RW'
   } = req.body;
 
   try {
-    const store = getDbStore();
-    let artist = (store.artists || []).find((a: any) => 
-      a.id === customArtistId || a.user_id === user.id || a.id === user.id || a.email === user.email
-    );
-    if (!artist && store.artists?.length > 0) {
-      artist = store.artists[0];
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id, channel_name')
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (!channel) {
+      return res.status(404).json({ error: 'Creator channel not found.' });
     }
 
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
+    const { data: account } = await supabaseAdmin
+      .from('creator_earning_accounts')
+      .select('*')
+      .eq('creator_channel_id', channel.id)
+      .maybeSingle();
+
+    if (!account) {
+      return res.status(400).json({ error: 'Creator earning account not initialized.' });
     }
 
-    const withdrawAmountRwf = Number(amount);
-    if (!withdrawAmountRwf || isNaN(withdrawAmountRwf) || withdrawAmountRwf <= 0) {
-      return res.status(400).json({ error: "Please enter a valid withdrawal amount." });
+    const withdrawAmount = Number(amount);
+    if (!withdrawAmount || Number.isNaN(withdrawAmount) || withdrawAmount <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid withdrawal amount.' });
     }
 
-    const minThreshold = 5000;
-    if (withdrawAmountRwf < minThreshold) {
-      return res.status(400).json({ error: `Minimum withdrawal is ${minThreshold.toLocaleString()} RWF.` });
+    const minThreshold = Number(process.env.MIN_WITHDRAWAL_RWF || 5000);
+    if (withdrawAmount < minThreshold) {
+      return res.status(400).json({ error: `Minimum withdrawal is ${minThreshold.toLocaleString()} ${payout_currency}.` });
     }
 
-    const currentBalance = Number(artist.pending_balance ?? 0);
-    if (currentBalance < withdrawAmountRwf) {
-      return res.status(400).json({ 
-        error: `Insufficient balance. Available: ${currentBalance.toLocaleString()} RWF, requested: ${withdrawAmountRwf.toLocaleString()} RWF.` 
+    const currentBalance = Number(account.available_balance || 0);
+    if (currentBalance < withdrawAmount) {
+      return res.status(400).json({
+        error: `Insufficient balance. Available: ${currentBalance.toLocaleString()} ${account.currency_code}, requested: ${withdrawAmount.toLocaleString()} ${payout_currency}.`
       });
     }
 
-    const destination = phone || account_number || artist.phone || '0788112233';
-    const refCode = `PAYTUNE-WD-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const withdrawalRecord = {
-      id: `w-${Date.now()}`,
-      artist_id: artist.id,
-      artist_name: artist.full_name,
-      amount: withdrawAmountRwf,
-      phone: destination,
-      payment_method: payout_method,
-      account_name: account_name || artist.full_name,
-      payout_currency,
-      status: 'pending',
-      reference_code: refCode,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    if (!store.withdrawals) {
-      store.withdrawals = [];
+    const destination = String(phone || account_number || '').trim();
+    if (!destination) {
+      return res.status(400).json({ error: 'Payout destination phone or account number is required.' });
     }
-    store.withdrawals.unshift(withdrawalRecord);
 
-    // Deduct from artist available balance
-    const newBalance = currentBalance - withdrawAmountRwf;
-    artist.pending_balance = newBalance;
+    const now = new Date().toISOString();
 
+    // Ensure payout method exists
+    let { data: payoutMethod } = await supabaseAdmin
+      .from('creator_payout_methods')
+      .select('id')
+      .eq('creator_channel_id', channel.id)
+      .eq('masked_account_reference', destination)
+      .maybeSingle();
+
+    if (!payoutMethod) {
+      const { data: createdPm, error: pmErr } = await supabaseAdmin
+        .from('creator_payout_methods')
+        .insert({
+          id: randomUUID(),
+          creator_channel_id: channel.id,
+          owner_user_id: user.id,
+          method_type: String(payout_method).toLowerCase().includes('bank') ? 'bank_transfer' : 'mobile_money',
+          provider_name: payout_method,
+          provider_account_reference: destination,
+          provider_method_reference: `pm_${randomUUID().slice(0, 12)}`,
+          country_code,
+          currency_code: payout_currency,
+          account_holder_name: account_name || channel.channel_name,
+          masked_account_reference: destination,
+          method_status: 'active',
+          verification_status: 'pending',
+          is_default: true,
+          metadata: { destination },
+          created_at: now,
+          updated_at: now
+        })
+        .select('id')
+        .single();
+      if (pmErr) throw pmErr;
+      payoutMethod = createdPm;
+    }
+
+    const refCode = `PT-WD-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const withdrawalId = randomUUID();
+
+    const { data: withdrawalRecord, error: wErr } = await supabaseAdmin
+      .from('creator_withdrawal_requests')
+      .insert({
+        id: withdrawalId,
+        withdrawal_reference: refCode,
+        creator_channel_id: channel.id,
+        earning_account_id: account.id,
+        payout_method_id: payoutMethod.id,
+        requested_by: user.id,
+        country_code,
+        currency_code: payout_currency,
+        requested_amount: withdrawAmount,
+        withdrawal_fee: 0,
+        net_payout_amount: withdrawAmount,
+        withdrawal_status: 'requested',
+        idempotency_key: `wd:${withdrawalId}`,
+        metadata: {
+          payout_method,
+          destination,
+          account_name: account_name || channel.channel_name
+        },
+        created_at: now,
+        updated_at: now
+      })
+      .select()
+      .single();
+
+    if (wErr) throw wErr;
+
+    const newBalance = Number((currentBalance - withdrawAmount).toFixed(2));
     await supabaseAdmin
-      .from('artists')
-      .update({ pending_balance: newBalance, updated_at: new Date().toISOString() })
-      .eq('id', artist.id);
-
-    notifyMutation(store);
+      .from('creator_earning_accounts')
+      .update({
+        available_balance: newBalance,
+        pending_balance: Number((Number(account.pending_balance || 0) + withdrawAmount).toFixed(2)),
+        updated_at: now
+      })
+      .eq('id', account.id);
 
     res.json({
       success: true,
-      message: `Withdrawal request for ${withdrawAmountRwf.toLocaleString()} RWF submitted successfully. Funds will be sent via ${payout_method} to ${destination} upon Master approval.`,
+      message: `Withdrawal request for ${withdrawAmount.toLocaleString()} ${payout_currency} submitted for review.`,
       withdrawal: withdrawalRecord,
       new_balance: newBalance
     });
   } catch (err: any) {
-    console.error("requestArtistWithdrawal error:", err);
+    console.error('requestArtistWithdrawal error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/admin/escrow/overview
- * Master Admin Global Escrow & Settlement Metrics
- */
-export const getMasterEscrowOverview = async (req: Request, res: Response) => {
+export const getMasterEscrowOverview = async (_req: Request, res: Response) => {
   try {
     const overview = await getPlatformEscrowOverview();
     res.json(overview);
   } catch (err: any) {
-    console.error("getMasterEscrowOverview error:", err);
+    console.error('getMasterEscrowOverview error:', err);
     res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/admin/escrow/transactions
- * Master Admin Escrow Transactions Ledger
- */
-export const getMasterEscrowTransactions = async (req: Request, res: Response) => {
+export const getMasterEscrowTransactions = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const transactions = store.escrow_transactions || [];
-    res.json(transactions);
+    const { data, error } = await supabaseAdmin
+      .from('financial_transactions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+    res.json(data || []);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/admin/escrow/withdrawals/:id/approve
- * Master Admin approves and settles an artist withdrawal
- */
 export const approveEscrowWithdrawal = async (req: Request, res: Response) => {
   const { id } = req.params;
+  const user = (req as any).user;
   try {
-    const store = getDbStore();
-    const item = (store.withdrawals || []).find((w: any) => w.id === id);
-    if (!item) {
-      return res.status(404).json({ error: "Withdrawal not found" });
+    const { data: item, error: fetchErr } = await supabaseAdmin
+      .from('creator_withdrawal_requests')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr || !item) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
     }
 
-    item.status = 'completed';
-    item.completed_at = new Date().toISOString();
-    item.processed_by = (req as any).user?.email || 'master@paytune.com';
-    item.transaction_ref = `PT-SETTLED-${Date.now()}`;
+    if (item.withdrawal_status === 'paid') {
+      return res.json({ success: true, withdrawal: item });
+    }
 
-    notifyMutation(store);
+    const now = new Date().toISOString();
+    const settledRef = `PT-SETTLED-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from('creator_withdrawal_requests')
+      .update({
+        withdrawal_status: 'paid',
+        reviewed_by: user?.id || null,
+        reviewed_at: now,
+        approved_at: now,
+        paid_at: now,
+        metadata: {
+          ...(item.metadata || {}),
+          transaction_ref: settledRef,
+          processed_by: user?.email || null
+        },
+        updated_at: now
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updErr) throw updErr;
+
+    const { data: acct } = await supabaseAdmin
+      .from('creator_earning_accounts')
+      .select('id, pending_balance, settled_total')
+      .eq('id', item.earning_account_id)
+      .maybeSingle();
+
+    if (acct) {
+      await supabaseAdmin
+        .from('creator_earning_accounts')
+        .update({
+          pending_balance: Math.max(0, Number(acct.pending_balance || 0) - Number(item.requested_amount || 0)),
+          settled_total: Number(acct.settled_total || 0) + Number(item.requested_amount || 0),
+          updated_at: now
+        })
+        .eq('id', acct.id);
+    }
 
     res.json({
       success: true,
-      message: `Withdrawal ${id} successfully approved and disbursed. Reference: ${item.transaction_ref}`,
-      withdrawal: item
+      message: `Withdrawal ${id} marked as paid (${settledRef}).`,
+      withdrawal: updated
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/admin/escrow/withdrawals/:id/reject
- * Master Admin rejects withdrawal and refunds balance to artist
- */
 export const rejectEscrowWithdrawal = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { reason = 'Information mismatch' } = req.body;
+  const { reason = 'Verification mismatch' } = req.body;
+  const user = (req as any).user;
 
   try {
-    const store = getDbStore();
-    const item = (store.withdrawals || []).find((w: any) => w.id === id);
-    if (!item) {
-      return res.status(404).json({ error: "Withdrawal not found" });
+    const { data: item, error: fetchErr } = await supabaseAdmin
+      .from('creator_withdrawal_requests')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr || !item) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
     }
 
-    item.status = 'rejected';
-    item.rejection_reason = reason;
-    item.rejected_at = new Date().toISOString();
-    item.processed_by = (req as any).user?.email || 'master@paytune.com';
+    if (item.withdrawal_status === 'rejected') {
+      return res.json({ success: true, withdrawal: item });
+    }
+    if (item.withdrawal_status === 'paid') {
+      return res.status(409).json({ error: 'Cannot reject a withdrawal that has already been paid.' });
+    }
 
-    // Refund artist balance
-    const artist = (store.artists || []).find((a: any) => a.id === item.artist_id);
-    if (artist) {
-      artist.pending_balance = Number(artist.pending_balance || 0) + Number(item.amount || 0);
+    const now = new Date().toISOString();
+    const { data: updated, error: updErr } = await supabaseAdmin
+      .from('creator_withdrawal_requests')
+      .update({
+        withdrawal_status: 'rejected',
+        rejection_reason: reason,
+        reviewed_by: user?.id || null,
+        reviewed_at: now,
+        rejected_at: now,
+        updated_at: now
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updErr) throw updErr;
+
+    const { data: acct } = await supabaseAdmin
+      .from('creator_earning_accounts')
+      .select('id, available_balance, pending_balance')
+      .eq('id', item.earning_account_id)
+      .maybeSingle();
+
+    if (acct) {
       await supabaseAdmin
-        .from('artists')
-        .update({ pending_balance: artist.pending_balance })
-        .eq('id', artist.id);
+        .from('creator_earning_accounts')
+        .update({
+          available_balance: Number(acct.available_balance || 0) + Number(item.requested_amount || 0),
+          pending_balance: Math.max(0, Number(acct.pending_balance || 0) - Number(item.requested_amount || 0)),
+          updated_at: now
+        })
+        .eq('id', acct.id);
     }
-
-    notifyMutation(store);
 
     res.json({
       success: true,
-      message: `Withdrawal ${id} rejected. Funds returned to artist wallet.`,
-      withdrawal: item
+      message: `Withdrawal ${id} rejected. Funds returned to creator wallet.`,
+      withdrawal: updated
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

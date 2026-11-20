@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterUser {
   id: string;
@@ -23,18 +23,11 @@ export const useMasterUsers = () => {
   const [sortBy, setSortBy] = useState<string>("joined");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/users", {
-        headers,
+      const res = await api.get("/api/master/users", {
         params: {
           status: statusFilter,
           search: searchQuery,
@@ -47,33 +40,30 @@ export const useMasterUsers = () => {
       }
     } catch (err: any) {
       console.error("useMasterUsers error:", err);
-      setError(err.message || "Failed to load users");
+      setError(err.response?.data?.error || err.message || "Failed to load users");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, statusFilter, searchQuery, sortBy]);
+  }, [statusFilter, searchQuery, sortBy]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
   const blockUser = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.put(`/api/master/users/${id}/block`, {}, { headers });
+    const res = await api.put(`/api/master/users/${id}/block`, {});
     fetchUsers();
     return res.data;
   };
 
   const unblockUser = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.put(`/api/master/users/${id}/unblock`, {}, { headers });
+    const res = await api.put(`/api/master/users/${id}/unblock`, {});
     fetchUsers();
     return res.data;
   };
 
   const deleteUser = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.delete(`/api/master/users/${id}`, { headers });
+    const res = await api.delete(`/api/master/users/${id}`);
     fetchUsers();
     return res.data;
   };

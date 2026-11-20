@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ThumbsUp, 
   Share2, 
@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { VideoData } from '../hooks/useVideo';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../lib/api';
 
 interface ActionButtonsProps {
   video: VideoData;
@@ -62,38 +63,71 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   const [giftMessage, setGiftMessage] = useState('');
   const [giftLoading, setGiftLoading] = useState(false);
   const [giftSuccess, setGiftSuccess] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [embedCopied, setEmbedCopied] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const [thanksError, setThanksError] = useState<string | null>(null);
+  const [giftError, setGiftError] = useState<string | null>(null);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   const canInteract = video.is_free || video.userOwns;
 
+  useEffect(() => {
+    let active = true;
+    if (!user || !video?.id) {
+      setSavedToWatchLater(false);
+      return;
+    }
+    api
+      .get(`/api/videos/${video.id}/wishlist-status`)
+      .then((res) => {
+        if (active && typeof res.data?.inWishlist === 'boolean') {
+          setSavedToWatchLater(res.data.inWishlist);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user, video?.id]);
+
+  const handleToggleWatchLater = async () => {
+    if (!user) {
+      setActionNotice('Please sign in to save videos to Watch Later.');
+      return;
+    }
+    if (wishlistLoading) return;
+    setWishlistLoading(true);
+    setActionNotice(null);
+    try {
+      const res = await api.post(`/api/videos/${video.id}/wishlist`);
+      const next = typeof res.data?.inWishlist === 'boolean' ? res.data.inWishlist : !savedToWatchLater;
+      setSavedToWatchLater(next);
+    } catch (err: any) {
+      setActionNotice(err?.response?.data?.error || 'Could not update Watch Later list.');
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
   const handleRatingSubmit = async (ratingValue: number) => {
     if (!user) {
-      alert("Please sign in to rate this video.");
+      setRatingError("Please sign in to rate this video.");
       return;
     }
     setRatingLoading(true);
+    setRatingError(null);
     try {
       setUserRating(ratingValue);
-      const token = localStorage.getItem("paytune_auth_token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      await fetch(`/api/videos/${video.id}/rate`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ rating: ratingValue })
-      });
+      await api.post(`/api/videos/${video.id}/rate`, { rating: ratingValue });
       setRatingSuccess(true);
       setTimeout(() => {
         setShowRatingModal(false);
         setRatingSuccess(false);
       }, 1200);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setRatingSuccess(true);
-      setTimeout(() => {
-        setShowRatingModal(false);
-        setRatingSuccess(false);
-      }, 1000);
+      setRatingError(err?.response?.data?.error || err?.message || "Could not submit rating.");
     } finally {
       setRatingLoading(false);
     }
@@ -102,29 +136,22 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   const handleSuperThanksSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert("Please sign in to send Super Thanks.");
+      setThanksError("Please sign in to send Super Thanks.");
       return;
     }
     setThanksLoading(true);
+    setThanksError(null);
     try {
-      const token = localStorage.getItem("paytune_auth_token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      await fetch(`/api/videos/${video.id}/super-thanks`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          amount: thanksAmount,
-          message: thanksMessage,
-          payment_phone: thanksPhone || "0788000000",
-          provider: thanksProvider
-        })
+      await api.post(`/api/videos/${video.id}/super-thanks`, {
+        amount: thanksAmount,
+        message: thanksMessage,
+        payment_phone: thanksPhone || undefined,
+        provider: thanksProvider
       });
       setThanksSuccess(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setThanksSuccess(true);
+      setThanksError(err?.response?.data?.error || err?.message || "Unable to send Super Thanks right now.");
     } finally {
       setThanksLoading(false);
     }
@@ -132,16 +159,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
   const handleLike = async () => {
     if (!user) {
-      alert("Please sign in to like this video.");
+      setActionNotice("Please sign in to like this video.");
       return;
     }
     if (!canInteract) {
-      if (confirm(`You must purchase this video (${video.price_rwf} RWF) to like and interact. Unlock now?`)) {
-        onBuyNow();
-      }
+      onBuyNow();
       return;
     }
-
+    setActionNotice(null);
     setLikeLoading(true);
     try {
       await onToggleLike();
@@ -163,13 +188,10 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
   const handleDownload = () => {
     if (!canInteract) {
-      if (confirm(`Direct video download is available after purchasing for ${video.price_rwf} RWF. Unlock now?`)) {
-        onBuyNow();
-      }
+      onBuyNow();
       return;
     }
 
-    // Trigger download
     const link = document.createElement('a');
     link.href = video.video_url;
     link.download = `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`;
@@ -182,17 +204,21 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   const handleGiftSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login first to send a gift.");
+      setGiftError("Please sign in first to send a gift.");
       return;
     }
     setGiftLoading(true);
+    setGiftError(null);
     try {
-      // Simulate gift purchase API call
-      setTimeout(() => {
-        setGiftSuccess(true);
-        setGiftLoading(false);
-      }, 1200);
-    } catch (err) {
+      await api.post('/api/purchase/gift', {
+        video_id: video.id,
+        recipient_email: giftRecipient.trim(),
+        message: giftMessage.trim(),
+      });
+      setGiftSuccess(true);
+    } catch (err: any) {
+      setGiftError(err?.response?.data?.error || err?.message || 'Unable to process gift purchase.');
+    } finally {
       setGiftLoading(false);
     }
   };
@@ -287,17 +313,24 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
       {/* Watch Later / Save Button */}
       <Button
         id="video-save-btn"
-        onClick={() => setSavedToWatchLater(prev => !prev)}
+        onClick={handleToggleWatchLater}
+        disabled={wishlistLoading}
         variant="outline"
         className="h-9 px-3.5 rounded-full text-xs font-semibold flex items-center gap-1 bg-gray-100 dark:bg-[#202020] border-gray-300 dark:border-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#2c2c2c] transition-all cursor-pointer"
         title="Save to Watch Later"
       >
-        {savedToWatchLater ? (
+        {wishlistLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : savedToWatchLater ? (
           <BookmarkCheck className="w-4 h-4 text-purple-600" />
         ) : (
           <Bookmark className="w-4 h-4" />
         )}
       </Button>
+
+      {actionNotice && (
+        <span className="text-xs font-medium text-amber-500 px-2">{actionNotice}</span>
+      )}
 
       {/* Share Modal */}
       {showShareModal && (
@@ -354,12 +387,13 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(`<iframe width="560" height="315" src="${shareUrl}" title="${video.title}" frameborder="0" allowfullscreen></iframe>`);
-                  alert("Embed code copied to clipboard!");
+                  setEmbedCopied(true);
+                  setTimeout(() => setEmbedCopied(false), 2000);
                 }}
                 className="p-3 rounded-xl bg-[#282828] hover:bg-purple-600/20 hover:text-purple-400 transition-colors flex flex-col items-center gap-1 cursor-pointer"
               >
                 <Code className="w-5 h-5 text-purple-400" />
-                <span>Embed</span>
+                <span>{embedCopied ? "Copied" : "Embed"}</span>
               </button>
             </div>
 
@@ -451,6 +485,10 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                   />
                 </div>
 
+                {giftError && (
+                  <p className="text-xs text-red-400 font-medium">{giftError}</p>
+                )}
+
                 <Button
                   type="submit"
                   disabled={giftLoading}
@@ -514,13 +552,15 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
               })}
             </div>
 
-            {ratingSuccess ? (
+            {ratingError ? (
+              <p className="text-xs text-red-400 font-medium">{ratingError}</p>
+            ) : ratingSuccess ? (
               <p className="text-xs text-emerald-400 font-bold flex items-center justify-center gap-1">
                 <Check className="w-4 h-4" /> Rating saved! Thank you!
               </p>
             ) : (
               <p className="text-[11px] text-gray-400">
-                Current Average: <span className="text-purple-400 font-bold">{video.rating_avg ? video.rating_avg.toFixed(1) : "5.0"}★</span> ({video.rating_count || 12} ratings)
+                Current Average: <span className="text-purple-400 font-bold">{video.rating_avg ? video.rating_avg.toFixed(1) : "0.0"}★</span> ({video.rating_count || 0} ratings)
               </p>
             )}
           </div>
@@ -649,6 +689,10 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
                     <span className="text-gray-400 font-mono">{(thanksAmount * 0.95 * 0.30).toLocaleString()} RWF</span>
                   </div>
                 </div>
+
+                {thanksError && (
+                  <p className="text-xs text-red-400 font-medium">{thanksError}</p>
+                )}
 
                 <Button
                   type="submit"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 import { User, Lock, Bell, Trash2, CheckCircle2, AlertTriangle, ShieldCheck, DollarSign, Calendar, Camera, Upload, Loader2 } from 'lucide-react';
 import { useUser } from '../../hooks/useUser';
 import { useAuth } from '../../hooks/useAuth';
@@ -78,7 +78,7 @@ export const Settings: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await axios.post('/api/upload/avatar', formData, {
+      const res = await api.post('/api/upload/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 

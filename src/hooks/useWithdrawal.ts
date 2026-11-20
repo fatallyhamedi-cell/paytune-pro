@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 
 export interface WithdrawalRequestParams {
   amount: number;
@@ -26,10 +26,10 @@ export function useWithdrawal() {
       }
 
       if (!params.phone || params.phone.replace(/[^0-9]/g, '').length < 9) {
-        throw new Error('Please provide a valid Rwandan phone number (e.g. 0788112233).');
+        throw new Error('Please provide a valid Rwandan phone number (e.g. 078XXXXXXX).');
       }
 
-      const res = await axios.post('/api/artist/withdraw/request', {
+      const res = await api.post('/api/artist/withdraw/request', {
         amount: params.amount,
         payment_method: params.payment_method || 'MTN Mobile Money',
         phone: params.phone,
@@ -50,7 +50,7 @@ export function useWithdrawal() {
 
   const getWithdrawals = async () => {
     try {
-      const res = await axios.get('/api/artist/withdrawals');
+      const res = await api.get('/api/artist/withdrawals');
       return res.data;
     } catch (err: any) {
       throw new Error(err.response?.data?.error || 'Failed to fetch withdrawals history.');

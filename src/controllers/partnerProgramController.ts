@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
-import { getDbStore, notifyMutation } from '../config/supabase_mock';
+import crypto from 'crypto';
+import { supabaseAdmin, rawSupabaseAdmin, isSupabaseConfigured } from '../config/supabase';
+
+const db = () => rawSupabaseAdmin || supabaseAdmin;
 
 export interface PartnerProgramRules {
   min_followers: number;
@@ -10,7 +13,77 @@ export interface PartnerProgramRules {
   auto_ad_distribution: boolean;
 }
 
-const DEFAULT_RULES: PartnerProgramRules = {
+export function calculateArtistQualification(
+  artistId: string,
+  store: {
+    artists?: any[];
+    videos?: any[];
+    subscriptions?: any[];
+    watch_progress?: any[];
+    watch_history?: any[];
+    infringement_strikes?: any[];
+  },
+  rules: PartnerProgramRules
+) {
+  const artist = (store.artists || []).find((a: any) => a.id === artistId) || {};
+  const followers = Number(
+    artist.subscribers_count ??
+      (store.subscriptions || []).filter((s: any) => s.artist_id === artistId).length ??
+      0
+  );
+  const freeVideos = (store.videos || []).filter(
+    (v: any) => v.artist_id === artistId && v.is_paid === false
+  );
+  const freeVideoIds = new Set(freeVideos.map((v: any) => v.id));
+  const totalFreeViews = freeVideos.reduce((sum: number, v: any) => sum + Number(v.views || 0), 0);
+  const totalWatchedSeconds = (store.watch_progress || [])
+    .filter((wp: any) => freeVideoIds.has(wp.video_id))
+    .reduce((sum: number, wp: any) => sum + Number(wp.watched_seconds || 0), 0);
+  const watchHours = totalWatchedSeconds / 3600;
+  const activeStrikes = (store.infringement_strikes || []).filter(
+    (s: any) => s.artist_id === artistId && s.status === 'active'
+  ).length;
+
+  const followersPassed = followers >= rules.min_followers;
+  const viewsPassed = totalFreeViews >= rules.min_free_views;
+  const watchHoursPassed = watchHours >= rules.min_watch_hours;
+  const verificationPassed = Boolean(artist.is_approved);
+  const policyPassed = activeStrikes === 0;
+  const isAllEligible =
+    followersPassed && viewsPassed && watchHoursPassed && verificationPassed && policyPassed;
+
+  const monetizationLifetime = Boolean(
+    artist.monetization_lifetime || artist.monetization_status === 'approved_monetized'
+  );
+  const status = monetizationLifetime
+    ? 'approved_monetized'
+    : artist.monetization_status || (isAllEligible ? 'eligible' : 'in_progress');
+  const level = monetizationLifetime ? 3 : isAllEligible ? 2 : 1;
+
+  return {
+    followers,
+    totalFreeViews,
+    watchHours: Number(watchHours.toFixed(1)),
+    isAllEligible,
+    status,
+    level,
+    monetizationLifetime,
+    identityVerified: Boolean(artist.identity_verified),
+    payoutVerified: Boolean(artist.payout_verified),
+    adEarningsRwf: Number(artist.ad_earnings_rwf || 0),
+    adImpressionsCount: Number(artist.ad_impressions_count || 0),
+    artistAdSharePct: rules.artist_ad_share_pct,
+    requirements: {
+      followers: { passed: followersPassed, current: followers, target: rules.min_followers },
+      views: { passed: viewsPassed, current: totalFreeViews, target: rules.min_free_views },
+      watchHours: { passed: watchHoursPassed, current: watchHours, target: rules.min_watch_hours },
+      verification: { passed: verificationPassed },
+      policy: { passed: policyPassed, active_strikes: activeStrikes },
+    },
+  };
+}
+
+const BASE_RULES: PartnerProgramRules = {
   min_followers: 1000,
   min_free_views: 10000,
   min_watch_hours: 1000,
@@ -19,107 +92,191 @@ const DEFAULT_RULES: PartnerProgramRules = {
   auto_ad_distribution: true,
 };
 
-/**
- * Helper to compute an artist's qualification stats from real platform data
- */
-export function calculateArtistQualification(artistId: string, store: any, rules: PartnerProgramRules) {
-  const artist = (store.artists || []).find(
-    (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-  );
+async function loadPartnerRules(): Promise<PartnerProgramRules> {
+  const client = db();
+  const { data } = await client
+    .from('platform_settings')
+    .select('setting_value')
+    .eq('setting_key', 'partner_program_rules')
+    .maybeSingle();
 
-  // 1. Genuine Followers
-  const subscriptions = store.subscriptions || [];
-  const realFollowersCount = subscriptions.filter(
-    (s: any) => String(s.artist_id) === String(artistId)
-  ).length;
-  const followers = Math.max(realFollowersCount, Number(artist?.subscribers_count || 0));
+  const val = (data?.setting_value && typeof data.setting_value === 'object' ? data.setting_value : {}) as Partial<PartnerProgramRules>;
+  return {
+    min_followers: Number(val.min_followers ?? BASE_RULES.min_followers),
+    min_free_views: Number(val.min_free_views ?? BASE_RULES.min_free_views),
+    min_watch_hours: Number(val.min_watch_hours ?? BASE_RULES.min_watch_hours),
+    artist_ad_share_pct: Number(val.artist_ad_share_pct ?? BASE_RULES.artist_ad_share_pct),
+    measurement_period_days: Number(val.measurement_period_days ?? BASE_RULES.measurement_period_days),
+    auto_ad_distribution: val.auto_ad_distribution !== undefined ? Boolean(val.auto_ad_distribution) : BASE_RULES.auto_ad_distribution,
+  };
+}
 
-  // 2. Free Public Video Views
-  const videos = store.videos || [];
-  const artistFreeVideos = videos.filter(
-    (v: any) =>
-      (String(v.artist_id) === String(artistId) || String(v.user_id) === String(artistId)) &&
-      (v.is_paid === false || v.price_rwf === 0 || !v.is_paid)
-  );
-  const totalFreeViews = artistFreeVideos.reduce(
-    (sum: number, v: any) => sum + Number(v.views || 0),
-    0
-  );
+async function resolveChannelAndArtist(identifier: string) {
+  const client = db();
+  const { data: channelById } = await client
+    .from('creator_channels')
+    .select('*')
+    .or(`id.eq.${identifier},owner_user_id.eq.${identifier},created_by_user_id.eq.${identifier}`)
+    .maybeSingle();
 
-  // 3. Accumulated Watch Hours
-  const watchProgress = store.watch_progress || [];
-  const watchHistory = store.watch_history || [];
+  const { data: artistById } = await client
+    .from('artist_profiles')
+    .select('*')
+    .or(`id.eq.${identifier},created_by_user_id.eq.${identifier},primary_contact_user_id.eq.${identifier}`)
+    .maybeSingle();
+
+  let channel = channelById;
+  if (!channel && artistById?.created_by_user_id) {
+    const { data: ch } = await client
+      .from('creator_channels')
+      .select('*')
+      .eq('owner_user_id', artistById.created_by_user_id)
+      .maybeSingle();
+    channel = ch;
+  }
+
+  return { channel, artist: artistById };
+}
+
+async function computeChannelQualification(identifier: string, rules: PartnerProgramRules) {
+  const client = db();
+  const { channel, artist } = await resolveChannelAndArtist(identifier);
+  const channelId = channel?.id;
+  const ownerUserId = channel?.owner_user_id || artist?.created_by_user_id;
+
+  if (!channel && !artist) {
+    return null;
+  }
+
+  // 1. Followers from artist_follows
+  let followers = 0;
+  if (artist?.id) {
+    const { count } = await client
+      .from('artist_follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('artist_id', artist.id);
+    followers = count || 0;
+  }
+
+  // 2. Free public videos & views & watch hours
+  const videoFilters: string[] = [];
+  if (channelId) videoFilters.push(`creator_channel_id.eq.${channelId}`);
+  if (artist?.id) videoFilters.push(`artist_profile_id.eq.${artist.id}`);
+
+  const { data: freeVideos } = await client
+    .from('videos')
+    .select('id')
+    .or(videoFilters.join(','))
+    .eq('is_free', true)
+    .eq('publication_status', 'published');
+
+  const freeVideoIds = (freeVideos || []).map((v: any) => v.id);
+  let totalFreeViews = 0;
   let totalWatchedSeconds = 0;
 
-  const freeVideoIds = new Set(artistFreeVideos.map((v: any) => String(v.id)));
-  watchProgress.forEach((wp: any) => {
-    if (freeVideoIds.has(String(wp.video_id))) {
-      totalWatchedSeconds += Number(wp.watched_seconds || wp.progress_seconds || 0);
-    }
-  });
+  if (freeVideoIds.length > 0) {
+    const cutoffDate = new Date(Date.now() - rules.measurement_period_days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
 
-  // Supplement from watch history if available
-  watchHistory.forEach((wh: any) => {
-    if (freeVideoIds.has(String(wh.video_id))) {
-      totalWatchedSeconds += Number(wh.watched_seconds || 60);
-    }
-  });
+    const { data: dailyRows } = await client
+      .from('video_daily_analytics')
+      .select('valid_views, total_view_events, total_watch_seconds')
+      .in('video_id', freeVideoIds)
+      .gte('analytics_date', cutoffDate);
 
-  // Baseline estimation if direct tracking rows haven't accumulated yet
-  if (totalWatchedSeconds === 0 && totalFreeViews > 0) {
-    totalWatchedSeconds = totalFreeViews * 120; // 2 mins average watch per free view
+    for (const r of dailyRows || []) {
+      totalFreeViews += Number(r.valid_views || r.total_view_events || 0);
+      totalWatchedSeconds += Number(r.total_watch_seconds || 0);
+    }
+
+    if (totalWatchedSeconds === 0) {
+      const { data: historyRows } = await client
+        .from('video_watch_history')
+        .select('total_watch_seconds, last_position_seconds')
+        .in('video_id', freeVideoIds);
+      for (const h of historyRows || []) {
+        totalWatchedSeconds += Number(h.total_watch_seconds || h.last_position_seconds || 0);
+      }
+    }
   }
 
   const watchHours = Math.round((totalWatchedSeconds / 3600) * 10) / 10;
 
-  // 4. Phone & Identity Verification
-  const phoneVerified = Boolean(artist?.phone_verified);
-  const isApproved = Boolean(artist?.is_approved);
+  // 3. Approval verification
+  const isApproved = (channel?.approval_status || artist?.approval_status) === 'approved';
 
-  // 5. Copyright & Policy Standing
-  const strikes = store.infringement_strikes || [];
-  const activeStrikes = strikes.filter(
-    (st: any) => String(st.artist_id) === String(artistId) && st.status === 'active'
-  ).length;
+  // 4. Policy / active copyright claims
+  let activeStrikes = 0;
+  if (freeVideoIds.length > 0) {
+    const { count } = await client
+      .from('copyright_claims')
+      .select('id', { count: 'exact', head: true })
+      .in('content_id', freeVideoIds)
+      .in('claim_status', ['accepted', 'disputed']);
+    activeStrikes = count || 0;
+  }
+
+  // 5. Monetization account, application, KYC, payout verification, and ad revenue
+  const { data: monoAcct } = channelId
+    ? await client.from('creator_monetization_accounts').select('*').eq('creator_channel_id', channelId).maybeSingle()
+    : { data: null };
+
+  const [{ data: latestApp }, { data: kycProfile }, { data: payoutMethod }, { data: adAttributions }] =
+    channelId
+      ? await Promise.all([
+          monoAcct?.id
+            ? client
+                .from('creator_monetization_applications')
+                .select('*')
+                .eq('creator_monetization_account_id', monoAcct.id)
+                .order('submitted_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+          client
+            .from('creator_payout_verification_profiles')
+            .select('*')
+            .eq('creator_channel_id', channelId)
+            .maybeSingle(),
+          client
+            .from('creator_payout_methods')
+            .select('*')
+            .eq('creator_channel_id', channelId)
+            .eq('is_default', true)
+            .maybeSingle(),
+          client
+            .from('advertising_creator_revenue_attributions')
+            .select('creator_share_amount')
+            .eq('creator_channel_id', channelId),
+        ])
+      : [{ data: null }, { data: null }, { data: null }, { data: [] }];
 
   const followersEligible = followers >= rules.min_followers;
   const viewsEligible = totalFreeViews >= rules.min_free_views;
   const watchHoursEligible = watchHours >= rules.min_watch_hours;
-  const verificationEligible = phoneVerified && isApproved;
+  const verificationEligible = isApproved;
   const policyEligible = activeStrikes === 0;
+  const isAllEligible = followersEligible && viewsEligible && watchHoursEligible && verificationEligible && policyEligible;
 
-  const isAllEligible =
-    followersEligible &&
-    viewsEligible &&
-    watchHoursEligible &&
-    verificationEligible &&
-    policyEligible;
+  let status = 'in_progress';
+  if (monoAcct?.account_status === 'approved') status = 'approved_monetized';
+  else if (monoAcct?.account_status === 'suspended') status = 'suspended';
+  else if (monoAcct?.account_status === 'rejected') status = 'rejected';
+  else if (latestApp?.application_status === 'submitted' || latestApp?.application_status === 'under_review') status = 'applied';
+  else if (isAllEligible) status = 'eligible';
 
-  // Existing stored status or computed status
-  let status = artist?.monetization_status;
-  if (!status) {
-    status = isAllEligible ? 'eligible' : 'in_progress';
-  }
-
-  // Determine Monetization Tier Level (Level 1: Standard, Level 2: Eligible/Verification, Level 3: Lifetime Partner)
-  let level = 1;
-  const isLifetimeApproved = Boolean(artist?.monetization_lifetime || status === 'approved_monetized');
-  if (isLifetimeApproved) {
-    level = 3;
-  } else if (
-    isAllEligible || 
-    ['applied', 'pending_review', 'identity_verification_required', 'payout_verification_required'].includes(status)
-  ) {
-    level = 2;
-  }
+  const isLifetimeApproved = status === 'approved_monetized';
+  const level = isLifetimeApproved ? 3 : isAllEligible || status === 'applied' ? 2 : 1;
+  const adEarningsRwf = (adAttributions || []).reduce((sum: number, row: any) => sum + Number(row.creator_share_amount || 0), 0);
 
   return {
+    channel,
     artist,
     followers,
     totalFreeViews,
-    freeVideosCount: artistFreeVideos.length,
+    freeVideosCount: freeVideoIds.length,
     watchHours,
-    phoneVerified,
     isApproved,
     activeStrikes,
     requirements: {
@@ -127,23 +284,22 @@ export function calculateArtistQualification(artistId: string, store: any, rules
         current: followers,
         target: rules.min_followers,
         passed: followersEligible,
-        percentage: Math.min(100, Math.round((followers / rules.min_followers) * 100)),
+        percentage: Math.min(100, Math.round((followers / Math.max(1, rules.min_followers)) * 100)),
       },
       views: {
         current: totalFreeViews,
         target: rules.min_free_views,
         passed: viewsEligible,
-        percentage: Math.min(100, Math.round((totalFreeViews / rules.min_free_views) * 100)),
+        percentage: Math.min(100, Math.round((totalFreeViews / Math.max(1, rules.min_free_views)) * 100)),
       },
       watchHours: {
         current: watchHours,
         target: rules.min_watch_hours,
         passed: watchHoursEligible,
-        percentage: Math.min(100, Math.round((watchHours / rules.min_watch_hours) * 100)),
+        percentage: Math.min(100, Math.round((watchHours / Math.max(1, rules.min_watch_hours)) * 100)),
       },
       verification: {
         passed: verificationEligible,
-        phone_verified: phoneVerified,
         is_approved: isApproved,
       },
       policy: {
@@ -155,40 +311,58 @@ export function calculateArtistQualification(artistId: string, store: any, rules
     status,
     level,
     monetizationLifetime: isLifetimeApproved,
-    identityVerified: Boolean(artist?.identity_verified),
-    payoutVerified: Boolean(artist?.payout_verified),
-    identityDetails: artist?.identity_details || null,
-    payoutDetails: artist?.payout_details || null,
-    appliedAt: artist?.monetization_applied_at || null,
-    approvedAt: artist?.monetization_approved_at || null,
-    adEarningsRwf: Number(artist?.ad_earnings_rwf || 0),
-    adImpressionsCount: Number(artist?.ad_impressions_count || 0),
+    identityVerified: kycProfile?.identity_verification_status === 'verified',
+    payoutVerified: payoutMethod?.verification_status === 'verified',
+    identityDetails: kycProfile || null,
+    payoutDetails: payoutMethod || null,
+    appliedAt: latestApp?.submitted_at || null,
+    approvedAt: monoAcct?.approved_at || null,
+    adEarningsRwf,
+    adImpressionsCount: (adAttributions || []).length,
     artistAdSharePct: rules.artist_ad_share_pct,
   };
+}
+
+function isPrivilegedUser(user: any): boolean {
+  return ['master', 'MASTER_ADMIN', 'admin'].includes(String(user?.role || ''));
+}
+
+function userOwnsChannelOrArtist(user: any, channel: any, artist: any): boolean {
+  if (!user?.id) return false;
+  if (isPrivilegedUser(user)) return true;
+  if (channel && (channel.owner_user_id === user.id || channel.created_by_user_id === user.id)) return true;
+  if (artist && (artist.created_by_user_id === user.id || artist.primary_contact_user_id === user.id)) return true;
+  return false;
 }
 
 /**
  * ARTIST: GET /api/artist/partner-program/status
  */
 export const getArtistPartnerStatus = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.status(503).json({ success: false, message: 'Database unavailable' });
+  }
   try {
     const user = (req as any).user;
-    const store = getDbStore();
-    const rules: PartnerProgramRules = store.partner_program_rules || DEFAULT_RULES;
-
-    // Identify target artist ID
-    const artistId = req.query.artist_id || user?.id;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const requestedId = req.query.artist_id ? String(req.query.artist_id) : '';
+    const artistId = requestedId || String(user.artistId || user.id || '');
     if (!artistId) {
       return res.status(400).json({ success: false, message: 'Artist identifier required' });
     }
 
-    const data = calculateArtistQualification(String(artistId), store, rules);
+    const rules = await loadPartnerRules();
+    const qualification = await computeChannelQualification(artistId, rules);
+    if (!qualification) {
+      return res.status(404).json({ success: false, message: 'Creator channel or artist profile not found' });
+    }
+    if (!userOwnsChannelOrArtist(user, qualification.channel, qualification.artist)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to view this creator partner status' });
+    }
 
-    return res.json({
-      success: true,
-      rules,
-      qualification: data,
-    });
+    return res.json({ success: true, rules, qualification });
   } catch (err: any) {
     console.error('Error in getArtistPartnerStatus:', err);
     return res.status(500).json({ success: false, error: err.message });
@@ -199,19 +373,26 @@ export const getArtistPartnerStatus = async (req: Request, res: Response) => {
  * ARTIST: POST /api/artist/partner-program/apply
  */
 export const applyForPartnerProgram = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.status(503).json({ success: false, message: 'Database unavailable' });
+  }
   try {
     const user = (req as any).user;
-    const store = getDbStore();
-    const rules: PartnerProgramRules = store.partner_program_rules || DEFAULT_RULES;
-
-    const artistId = req.body.artist_id || user?.id;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const artistId = String(req.body.artist_id || user.artistId || user.id || '');
     if (!artistId) {
       return res.status(400).json({ success: false, message: 'Artist ID required to apply' });
     }
 
-    const data = calculateArtistQualification(String(artistId), store, rules);
-    if (!data.artist) {
-      return res.status(404).json({ success: false, message: 'Artist profile not found' });
+    const rules = await loadPartnerRules();
+    const data = await computeChannelQualification(artistId, rules);
+    if (!data || !data.channel) {
+      return res.status(404).json({ success: false, message: 'Creator channel not found' });
+    }
+    if (!userOwnsChannelOrArtist(user, data.channel, data.artist)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to apply for this creator channel' });
     }
 
     if (!data.isAllEligible) {
@@ -222,22 +403,123 @@ export const applyForPartnerProgram = async (req: Request, res: Response) => {
       });
     }
 
-    data.artist.monetization_status = 'applied';
-    data.artist.monetization_applied_at = new Date().toISOString();
+    const client = db();
+    const nowIso = new Date().toISOString();
+    const applicantUserId = user?.id || data.channel.owner_user_id;
 
-    // Create notification for Master Admin
-    if (!store.notifications) store.notifications = [];
-    store.notifications.push({
-      id: `notif-app-${Date.now()}`,
-      user_id: 'master-admin-uuid-001',
-      title: 'New Monetization Partner Application',
-      message: `${data.artist.full_name} (${data.artist.username}) applied for the PayTune Partner Program.`,
-      type: 'monetization_application',
-      created_at: new Date().toISOString(),
-      read: false,
-    });
+    let { data: program } = await client
+      .from('creator_monetization_programs')
+      .select('id')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
-    notifyMutation();
+    if (!program) {
+      const progId = crypto.randomUUID();
+      await client.from('creator_monetization_programs').insert({
+        id: progId,
+        program_code: 'paytune_partner_default',
+        program_name: 'PAYTUNE Partner Program',
+        country_code: data.channel.country_code || 'RW',
+        minimum_age: 18,
+        minimum_followers: rules.min_followers,
+        minimum_valid_free_video_views: rules.min_free_views,
+        eligibility_period_days: rules.measurement_period_days,
+        watch_hours_under_6_minutes: rules.min_watch_hours,
+        watch_hours_6_to_29_minutes: 0,
+        watch_hours_30_minutes_or_more: 0,
+        requires_identity_verification: true,
+        requires_policy_compliance: true,
+        requires_manual_approval: true,
+        is_active: true,
+        program_metadata: rules,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+      program = { id: progId };
+    }
+
+    // Ensure creator_monetization_accounts exists
+    const { data: monoAcct } = await client
+      .from('creator_monetization_accounts')
+      .upsert(
+        {
+          creator_channel_id: data.channel.id,
+          program_id: program.id,
+          account_status: 'under_review',
+          updated_at: nowIso,
+        },
+        { onConflict: 'creator_channel_id' }
+      )
+      .select('id')
+      .single();
+
+    if (monoAcct?.id) {
+      const periodStart = new Date(Date.now() - rules.measurement_period_days * 24 * 60 * 60 * 1000).toISOString();
+      const { data: checkRow } = await client
+        .from('creator_monetization_eligibility_checks')
+        .insert({
+          id: crypto.randomUUID(),
+          creator_monetization_account_id: monoAcct.id,
+          program_id: program.id,
+          checked_at: nowIso,
+          period_start: periodStart,
+          period_end: nowIso,
+          follower_count: data.followers,
+          valid_free_video_views: data.totalFreeViews,
+          watch_hours_under_6_minutes: data.watchHours,
+          watch_hours_6_to_29_minutes: 0,
+          watch_hours_30_minutes_or_more: 0,
+          creator_age_verified: true,
+          identity_verified: data.identityVerified,
+          policy_compliant: data.activeStrikes === 0,
+          meets_follower_requirement: data.requirements.followers.passed,
+          meets_view_requirement: data.requirements.views.passed,
+          meets_watch_hour_requirement: data.requirements.watchHours.passed,
+          meets_age_requirement: true,
+          meets_verification_requirement: data.requirements.verification.passed,
+          meets_policy_requirement: data.requirements.policy.passed,
+          is_eligible: true,
+          failed_requirements: [],
+          assessment_metadata: { active_strikes: data.activeStrikes },
+        })
+        .select('id')
+        .maybeSingle();
+
+      // Insert application
+      await client.from('creator_monetization_applications').insert({
+        id: crypto.randomUUID(),
+        creator_monetization_account_id: monoAcct.id,
+        eligibility_check_id: checkRow?.id || null,
+        applicant_user_id: applicantUserId,
+        application_status: 'submitted',
+        submitted_at: nowIso,
+        verification_evidence: {},
+        review_metadata: { creator_channel_id: data.channel.id },
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+    }
+
+    // Notify admins in user_role_assignments
+    const { data: admins } = await client
+      .from('user_role_assignments')
+      .select('user_id')
+      .in('role', ['admin', 'master_admin'])
+      .eq('is_active', true);
+
+    for (const adm of admins || []) {
+      await client.from('notifications').insert({
+        recipient_user_id: adm.user_id,
+        actor_user_id: user?.id || data.channel.owner_user_id,
+        notification_type: 'monetization_update',
+        title: 'New Monetization Partner Application',
+        message: `${data.channel.channel_name} (@${data.channel.channel_handle}) applied for the PayTune Partner Program.`,
+        action_url: '/master/partner-program',
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+    }
 
     return res.json({
       success: true,
@@ -255,8 +537,7 @@ export const applyForPartnerProgram = async (req: Request, res: Response) => {
  */
 export const getMasterPartnerRules = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const rules: PartnerProgramRules = store.partner_program_rules || DEFAULT_RULES;
+    const rules = await loadPartnerRules();
     return res.json({ success: true, rules });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
@@ -268,8 +549,8 @@ export const getMasterPartnerRules = async (_req: Request, res: Response) => {
  */
 export const updateMasterPartnerRules = async (req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const currentRules = store.partner_program_rules || DEFAULT_RULES;
+    const user = (req as any).user;
+    const currentRules = await loadPartnerRules();
 
     const updatedRules: PartnerProgramRules = {
       min_followers: Number(req.body.min_followers ?? currentRules.min_followers),
@@ -277,11 +558,25 @@ export const updateMasterPartnerRules = async (req: Request, res: Response) => {
       min_watch_hours: Number(req.body.min_watch_hours ?? currentRules.min_watch_hours),
       artist_ad_share_pct: Number(req.body.artist_ad_share_pct ?? currentRules.artist_ad_share_pct),
       measurement_period_days: Number(req.body.measurement_period_days ?? currentRules.measurement_period_days),
-      auto_ad_distribution: Boolean(req.body.auto_ad_distribution ?? currentRules.auto_ad_distribution),
+      auto_ad_distribution:
+        req.body.auto_ad_distribution !== undefined
+          ? Boolean(req.body.auto_ad_distribution)
+          : currentRules.auto_ad_distribution,
     };
 
-    store.partner_program_rules = updatedRules;
-    notifyMutation();
+    const client = db();
+    await client.from('platform_settings').upsert(
+      {
+        setting_key: 'partner_program_rules',
+        setting_group: 'monetization',
+        setting_value: updatedRules,
+        value_type: 'json',
+        description: 'PAYTUNE Partner Program qualification thresholds and revenue share.',
+        updated_by: user?.id || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'setting_key' }
+    );
 
     return res.json({
       success: true,
@@ -298,44 +593,45 @@ export const updateMasterPartnerRules = async (req: Request, res: Response) => {
  */
 export const getMasterPartnerApplications = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const rules: PartnerProgramRules = store.partner_program_rules || DEFAULT_RULES;
-    const artists = store.artists || [];
+    const client = db();
+    const rules = await loadPartnerRules();
 
-    const enriched = artists.map((a: any) => {
-      const q = calculateArtistQualification(String(a.id), store, rules);
-      return {
-        id: a.id,
-        user_id: a.user_id,
-        full_name: a.full_name,
-        username: a.username,
-        email: a.email,
-        profile_image: a.profile_image || a.avatar_url,
-        country_code: a.country_code || 'RW',
-        monetization_status: a.monetization_status || q.status,
-        applied_at: a.monetization_applied_at,
-        approved_at: a.monetization_approved_at,
-        decision_notes: a.monetization_decision_notes,
-        ad_earnings_rwf: Number(a.ad_earnings_rwf || 0),
-        ad_impressions_count: Number(a.ad_impressions_count || 0),
-        metrics: {
-          followers: q.followers,
-          free_views: q.totalFreeViews,
-          free_videos_count: q.freeVideosCount,
-          watch_hours: q.watchHours,
-          phone_verified: q.phoneVerified,
-          is_approved: q.isApproved,
-          active_strikes: q.activeStrikes,
-          is_all_eligible: q.isAllEligible,
-        },
-      };
-    });
+    const { data: channels, error } = await client
+      .from('creator_channels')
+      .select('id, channel_name, channel_handle, avatar_path, country_code, owner_user_id, created_at')
+      .order('created_at', { ascending: false });
 
-    return res.json({
-      success: true,
-      rules,
-      applications: enriched,
-    });
+    if (error) throw error;
+
+    const enriched = await Promise.all(
+      (channels || []).map(async (ch: any) => {
+        const q = await computeChannelQualification(ch.id, rules);
+        return {
+          id: ch.id,
+          user_id: ch.owner_user_id,
+          full_name: ch.channel_name,
+          username: ch.channel_handle,
+          profile_image: ch.avatar_path,
+          country_code: ch.country_code || 'RW',
+          monetization_status: q?.status || 'in_progress',
+          applied_at: q?.appliedAt || null,
+          approved_at: q?.approvedAt || null,
+          ad_earnings_rwf: q?.adEarningsRwf || 0,
+          ad_impressions_count: q?.adImpressionsCount || 0,
+          metrics: {
+            followers: q?.followers || 0,
+            free_views: q?.totalFreeViews || 0,
+            free_videos_count: q?.freeVideosCount || 0,
+            watch_hours: q?.watchHours || 0,
+            is_approved: q?.isApproved || false,
+            active_strikes: q?.activeStrikes || 0,
+            is_all_eligible: q?.isAllEligible || false,
+          },
+        };
+      })
+    );
+
+    return res.json({ success: true, rules, applications: enriched });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -347,86 +643,140 @@ export const getMasterPartnerApplications = async (_req: Request, res: Response)
 export const decidePartnerApplication = async (req: Request, res: Response) => {
   try {
     const { artistId } = req.params;
-    const { action, notes } = req.body; // action: 'approve' | 'reject' | 'suspend'
+    const { action, notes } = req.body;
+    const user = (req as any).user;
 
     const validActions = ['approve', 'reject', 'suspend', 'request_identity', 'request_payout'];
     if (!validActions.includes(action)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid action. Must be approve, reject, suspend, request_identity, or request_payout' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid action. Must be approve, reject, suspend, request_identity, or request_payout',
       });
     }
 
-    const store = getDbStore();
-    const artist = (store.artists || []).find(
-      (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-    );
-
-    if (!artist) {
-      return res.status(404).json({ success: false, message: 'Artist not found' });
+    const { channel } = await resolveChannelAndArtist(artistId);
+    if (!channel) {
+      return res.status(404).json({ success: false, message: 'Creator channel not found' });
     }
 
-    if (action === 'approve') {
-      artist.monetization_status = 'approved_monetized';
-      artist.monetization_lifetime = true; // Permanent lifetime monetization policy
-      artist.monetization_level = 3;
-      artist.monetization_approved_at = new Date().toISOString();
-      artist.identity_verified = true;
-      artist.payout_verified = true;
-    } else if (action === 'reject') {
-      artist.monetization_status = 'rejected';
-      artist.monetization_lifetime = false;
-      artist.monetization_level = 1;
-    } else if (action === 'suspend') {
-      artist.monetization_status = 'suspended';
-      artist.monetization_lifetime = false;
-    } else if (action === 'request_identity') {
-      artist.monetization_status = 'identity_verification_required';
-      artist.identity_verified = false;
-    } else if (action === 'request_payout') {
-      artist.monetization_status = 'payout_verification_required';
-      artist.payout_verified = false;
+    const client = db();
+    const nowIso = new Date().toISOString();
+
+    const statusMap: Record<string, { account: string; app: string; notifTitle: string; notifBody: string }> = {
+      approve: {
+        account: 'approved',
+        app: 'approved',
+        notifTitle: 'Lifetime Monetization Approved — Welcome to PayTune Partner Program',
+        notifBody: 'Your channel has been granted monetization approval.',
+      },
+      reject: {
+        account: 'rejected',
+        app: 'rejected',
+        notifTitle: 'Monetization Application Update',
+        notifBody: notes || 'Your monetization application was not approved at this time.',
+      },
+      suspend: {
+        account: 'suspended',
+        app: 'rejected',
+        notifTitle: 'Monetization Suspended',
+        notifBody: notes || 'Your channel monetization has been suspended pending policy review.',
+      },
+      request_identity: {
+        account: 'under_review',
+        app: 'under_review',
+        notifTitle: 'Identity Verification Required for PayTune Partner Program',
+        notifBody: notes || 'Please upload your government-issued ID to complete Partner Program onboarding.',
+      },
+      request_payout: {
+        account: 'under_review',
+        app: 'under_review',
+        notifTitle: 'Payout Method Verification Required',
+        notifBody: notes || 'Please confirm your mobile money or banking payout destination.',
+      },
+    };
+
+    const target = statusMap[action];
+    const { data: monoAcct } = await client
+      .from('creator_monetization_accounts')
+      .upsert(
+        {
+          creator_channel_id: channel.id,
+          account_status: target.account,
+          approved_by_user_id: action === 'approve' ? user?.id || null : null,
+          approved_at: action === 'approve' ? nowIso : null,
+          suspended_at: action === 'suspend' ? nowIso : null,
+          suspension_reason: action === 'suspend' ? notes || null : null,
+          updated_at: nowIso,
+        },
+        { onConflict: 'creator_channel_id' }
+      )
+      .select()
+      .single();
+
+    if (action === 'approve' && monoAcct?.id) {
+      const { data: existingEarningAcct } = await client
+        .from('creator_earning_accounts')
+        .select('id')
+        .eq('creator_channel_id', channel.id)
+        .maybeSingle();
+
+      if (!existingEarningAcct) {
+        await client.from('creator_earning_accounts').insert({
+          id: crypto.randomUUID(),
+          creator_channel_id: channel.id,
+          monetization_account_id: monoAcct.id,
+          currency_code: 'RWF',
+          pending_balance: 0,
+          available_balance: 0,
+          settled_total: 0,
+          reversed_total: 0,
+          account_status: 'active',
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+      }
     }
 
-    artist.monetization_decision_at = new Date().toISOString();
-    artist.monetization_decision_notes = notes || '';
+    if (monoAcct?.id) {
+      await client
+        .from('creator_monetization_applications')
+        .update({
+          application_status: target.app,
+          reviewed_by_user_id: user?.id || null,
+          reviewed_at: nowIso,
+          decision_reason: notes || null,
+          updated_at: nowIso,
+        })
+        .eq('creator_monetization_account_id', monoAcct.id)
+        .in('application_status', ['submitted', 'under_review']);
+    }
 
-    // Create notification for artist
-    if (!store.notifications) store.notifications = [];
-    store.notifications.push({
-      id: `notif-dec-${Date.now()}`,
-      user_id: artist.user_id || artist.id,
-      title:
-        action === 'approve'
-          ? '🎉 Lifetime Monetization Approved — Welcome to PayTune Partner Program!'
-          : action === 'suspend'
-          ? '⚠️ Monetization Suspended'
-          : action === 'request_identity'
-          ? '📋 Identity Verification Required for PayTune Partner Program'
-          : action === 'request_payout'
-          ? '💳 Payout Method Verification Required'
-          : 'Monetization Application Update',
-      message:
-        action === 'approve'
-          ? 'Your channel has been granted permanent lifetime monetization. You earn 40% ad revenue share on all eligible free videos with no annual re-application needed.'
-          : action === 'request_identity'
-          ? notes || 'Please upload your government-issued ID to complete Partner Program onboarding.'
-          : action === 'request_payout'
-          ? notes || 'Please confirm your mobile money or banking payout destination.'
-          : notes || 'Your application has been reviewed by the Master Admin.',
-      type: 'monetization_decision',
-      created_at: new Date().toISOString(),
-      read: false,
+    await client.from('creator_monetization_events').insert({
+      id: crypto.randomUUID(),
+      creator_channel_id: channel.id,
+      revenue_source: 'other',
+      event_status: action === 'approve' ? 'confirmed' : action === 'reject' || action === 'suspend' ? 'voided' : 'pending',
+      event_metadata: { action, actor_user_id: user?.id || null, notes: notes || null },
+      occurred_at: nowIso,
+      created_at: nowIso,
     });
 
-    notifyMutation();
+    await client.from('notifications').insert({
+      recipient_user_id: channel.owner_user_id,
+      actor_user_id: user?.id || null,
+      notification_type: 'monetization_update',
+      title: target.notifTitle,
+      message: target.notifBody,
+      action_url: '/artist/dashboard?tab=monetization',
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
 
     return res.json({
       success: true,
       message: `Partner application updated to ${action} successfully.`,
-      status: artist.monetization_status,
-      level: artist.monetization_level,
-      monetization_lifetime: artist.monetization_lifetime,
+      status: target.account === 'approved' ? 'approved_monetized' : target.account,
+      monetization_lifetime: action === 'approve',
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
@@ -435,47 +785,51 @@ export const decidePartnerApplication = async (req: Request, res: Response) => {
 
 /**
  * ARTIST: POST /api/artist/partner-program/verify-identity
- * Submits government ID / KYC information
  */
 export const submitIdentityVerification = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const store = getDbStore();
-    const artistId = req.body.artist_id || user?.id;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const artistId = String(req.body.artist_id || user.artistId || user.id || '');
     const { document_type, document_number, document_url, full_legal_name } = req.body;
 
     if (!artistId) {
       return res.status(400).json({ success: false, message: 'Artist identifier is required' });
     }
 
-    const artist = (store.artists || []).find(
-      (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-    );
-
-    if (!artist) {
-      return res.status(404).json({ success: false, message: 'Artist not found' });
+    const { channel, artist } = await resolveChannelAndArtist(artistId);
+    if (!channel) {
+      return res.status(404).json({ success: false, message: 'Creator channel not found' });
+    }
+    if (!userOwnsChannelOrArtist(user, channel, artist)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized for this creator channel' });
     }
 
-    artist.identity_details = {
-      document_type: document_type || 'National ID',
-      document_number: document_number || 'N/A',
-      document_url: document_url || null,
-      full_legal_name: full_legal_name || artist.full_name,
-      submitted_at: new Date().toISOString(),
-    };
-    artist.identity_verified = true;
+    const client = db();
+    const nowIso = new Date().toISOString();
 
-    if (artist.monetization_status === 'identity_verification_required') {
-      artist.monetization_status = 'pending_review';
-    }
-
-    notifyMutation();
+    await client.from('creator_payout_verification_profiles').insert({
+      creator_channel_id: channel.id,
+      user_id: user.id,
+      country_code: channel.country_code || 'RW',
+      verification_status: 'under_review',
+      identity_verification_status: 'pending',
+      legal_full_name: full_legal_name || channel.channel_name,
+      identity_document_type: document_type || 'National ID',
+      identity_document_reference: document_number || null,
+      proof_of_address_reference: document_url || null,
+      submitted_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
 
     return res.json({
       success: true,
       message: 'Identity verification submitted successfully. Status updated to pending review.',
-      identity_verified: true,
-      status: artist.monetization_status,
+      identity_verified: false,
+      status: 'under_review',
     });
   } catch (err: any) {
     console.error('Error submitting identity verification:', err);
@@ -485,50 +839,62 @@ export const submitIdentityVerification = async (req: Request, res: Response) =>
 
 /**
  * ARTIST: POST /api/artist/partner-program/verify-payout
- * Submits payout method verification (MTN MoMo, Airtel, Bank)
  */
 export const submitPayoutVerification = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const store = getDbStore();
-    const artistId = req.body.artist_id || user?.id;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+    const artistId = String(req.body.artist_id || user.artistId || user.id || '');
     const { payout_method, account_number, account_name } = req.body;
 
-    if (!artistId) {
-      return res.status(400).json({ success: false, message: 'Artist identifier is required' });
+    if (!artistId || !account_number) {
+      return res.status(400).json({ success: false, message: 'Artist identifier and account number are required' });
     }
 
-    const artist = (store.artists || []).find(
-      (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-    );
-
-    if (!artist) {
-      return res.status(404).json({ success: false, message: 'Artist not found' });
+    const { channel, artist } = await resolveChannelAndArtist(artistId);
+    if (!channel) {
+      return res.status(404).json({ success: false, message: 'Creator channel not found' });
+    }
+    if (!userOwnsChannelOrArtist(user, channel, artist)) {
+      return res.status(403).json({ success: false, message: 'Unauthorized for this creator channel' });
     }
 
-    artist.payout_details = {
-      payout_method: payout_method || 'MTN MoMo',
-      account_number: account_number || artist.momo_code || artist.phone,
-      account_name: account_name || artist.full_name,
-      submitted_at: new Date().toISOString(),
-    };
-    artist.payout_verified = true;
+    const client = db();
+    const nowIso = new Date().toISOString();
 
-    if (artist.monetization_status === 'payout_verification_required') {
-      artist.monetization_status = 'pending_review';
+    const cleanAccount = String(account_number).trim();
+    const { error: pmErr } = await client.from('creator_payout_methods').insert({
+      creator_channel_id: channel.id,
+      owner_user_id: user?.id || channel.owner_user_id,
+      method_type: String(payout_method || '').toLowerCase().includes('bank') ? 'bank_transfer' : 'mobile_money',
+      provider_name: payout_method || 'MTN MoMo',
+      provider_account_reference: cleanAccount,
+      provider_method_reference: `pm_${Date.now().toString(36)}`,
+      country_code: channel.country_code || 'RW',
+      currency_code: 'RWF',
+      account_holder_name: account_name || channel.channel_name,
+      masked_account_reference: cleanAccount,
+      method_status: 'active',
+      verification_status: 'pending',
+      is_default: true,
+      metadata: { account_number: cleanAccount },
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+    if (pmErr) {
+      return res.status(400).json({ success: false, message: pmErr.message || 'Failed to save payout verification details' });
     }
-
-    notifyMutation();
 
     return res.json({
       success: true,
-      message: 'Payout destination verified successfully.',
-      payout_verified: true,
-      status: artist.monetization_status,
+      message: 'Payout destination submitted for verification.',
+      payout_verified: false,
+      status: 'under_review',
     });
   } catch (err: any) {
     console.error('Error submitting payout verification:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
-

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { 
   User, 
@@ -88,9 +88,9 @@ export default function SettingsPage() {
 
   // Master profile state (Master has only profile picture and full name, no bio or phone)
   const [masterProfile, setMasterProfile] = useState({
-    full_name: "PAYTUNE Master Administrator",
+    full_name: user?.user_metadata?.full_name || "Master Administrator",
     avatar_url: "",
-    email: "master@paytune.com"
+    email: user?.email || ""
   });
 
   // Master form states
@@ -99,7 +99,7 @@ export default function SettingsPage() {
     vat_percentage: 5,
     commission_percentage: 30,
     min_withdrawal: 5000,
-    momo_number: "1922331",
+    momo_number: "",
     maintenance_mode: false,
     welcome_template: "",
     receipt_template: ""
@@ -117,7 +117,7 @@ export default function SettingsPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
 
-  const isArtist = roleData?.momo_code !== undefined;
+  const isArtist = roleData?.role === 'artist' || Boolean(roleData?.momo_code);
   const isMaster = roleData?.is_master === true || roleData?.role === 'master';
 
   useEffect(() => {
@@ -137,7 +137,7 @@ export default function SettingsPage() {
     setFetching(true);
     try {
       // Load User Profiles
-      const userRes = await axios.get("/api/user/settings");
+      const userRes = await api.get("/api/user/settings");
       if (userRes.data) {
         setUserProfile({
           full_name: userRes.data.full_name || "",
@@ -156,7 +156,7 @@ export default function SettingsPage() {
       // Load Artist Profiles if applicable
       if (isArtist || isMaster) {
         try {
-          const artistRes = await axios.get("/api/artist/settings");
+          const artistRes = await api.get("/api/artist/settings");
           if (artistRes.data) {
             const d = artistRes.data;
             const socials = d.social_links || d.profile?.social_links || {};
@@ -190,8 +190,8 @@ export default function SettingsPage() {
       if (isMaster) {
         try {
           const [masterRes, masterProfRes] = await Promise.allSettled([
-            axios.get("/api/master/settings"),
-            axios.get("/api/master/profile")
+            api.get("/api/master/settings"),
+            api.get("/api/master/profile")
           ]);
           if (masterRes.status === "fulfilled" && masterRes.value?.data) {
             setMasterSettings(masterRes.value.data);
@@ -199,9 +199,9 @@ export default function SettingsPage() {
           if (masterProfRes.status === "fulfilled" && masterProfRes.value?.data?.profile) {
             const prof = masterProfRes.value.data.profile;
             setMasterProfile({
-              full_name: prof.full_name || "PAYTUNE Master Administrator",
+              full_name: prof.full_name || user?.user_metadata?.full_name || "Master Administrator",
               avatar_url: prof.avatar_url || prof.profile_image || "",
-              email: prof.email || "master@paytune.com"
+              email: prof.email || user?.email || ""
             });
           }
         } catch (err) {
@@ -234,7 +234,7 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append(type === 'banner' ? 'banner' : 'avatar', file);
       const endpoint = type === 'banner' ? '/api/upload/banner' : '/api/upload/avatar';
-      const res = await axios.post(endpoint, formData, {
+      const res = await api.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.data?.url) {
@@ -256,7 +256,7 @@ export default function SettingsPage() {
     setSaving(true);
     setErrorMsg(null);
     try {
-      await axios.put("/api/user/settings", userProfile);
+      await api.put("/api/user/settings", userProfile);
       await refreshProfile();
       alertSuccess("User profile & preferences saved successfully!");
     } catch (err: any) {
@@ -281,7 +281,7 @@ export default function SettingsPage() {
           website: artistProfile.website
         }
       };
-      const res = await axios.put("/api/artist/settings", payload);
+      const res = await api.put("/api/artist/settings", payload);
       await refreshProfile();
       if (res.data?.requiresReapproval) {
         alertSuccess("Artist settings updated. Note: Mobile money credential edits require master approval.");
@@ -300,7 +300,7 @@ export default function SettingsPage() {
     setSavingMasterProf(true);
     setErrorMsg(null);
     try {
-      const res = await axios.put("/api/master/profile", {
+      const res = await api.put("/api/master/profile", {
         full_name: masterProfile.full_name,
         avatar_url: masterProfile.avatar_url,
         profile_image: masterProfile.avatar_url
@@ -326,7 +326,7 @@ export default function SettingsPage() {
     setSaving(true);
     setErrorMsg(null);
     try {
-      await axios.put("/api/master/settings", masterSettings);
+      await api.put("/api/master/settings", masterSettings);
       alertSuccess("Master platform variables synchronized globally!");
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || err.message || "An error occurred.");
@@ -361,7 +361,7 @@ export default function SettingsPage() {
     setChangingPass(true);
     setErrorMsg(null);
     try {
-      await axios.post("/api/user/change-password", { password: passwordState.newPassword });
+      await api.post("/api/user/change-password", { password: passwordState.newPassword });
       setPasswordState({ currentPassword: "", newPassword: "", confirmPassword: "" });
       alertSuccess("Security parameters updated successfully.");
     } catch (err: any) {
@@ -377,7 +377,7 @@ export default function SettingsPage() {
       return;
     }
     try {
-      await axios.post("/api/user/delete-account");
+      await api.post("/api/user/delete-account");
       setShowDeleteModal(false);
       // Log out
       window.location.href = "/auth";
@@ -892,7 +892,7 @@ export default function SettingsPage() {
                                    value={artistProfile.full_name}
                                    onChange={(e) => setArtistProfile({ ...artistProfile, full_name: e.target.value })}
                                    className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-purple-500"
-                                   placeholder="e.g. Bruce Melodie"
+                                   placeholder="Stage Artist Name"
                                    required
                                  />
                               </div>
@@ -996,7 +996,7 @@ export default function SettingsPage() {
                                          value={artistProfile.phone}
                                          onChange={(e) => setArtistProfile({ ...artistProfile, phone: e.target.value })}
                                          className="w-full h-11 px-3 rounded-xl bg-white border border-gray-150 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
-                                         placeholder="e.g. 0788112233"
+                                         placeholder="e.g. 078XXXXXXX"
                                          required
                                        />
                                     </div>
@@ -1272,7 +1272,7 @@ export default function SettingsPage() {
                                       value={masterSettings.momo_number}
                                       onChange={(e) => setMasterSettings({ ...masterSettings, momo_number: e.target.value })}
                                       className="w-full h-12 px-4 rounded-xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-800 focus:outline-none focus:border-rose-400 font-mono"
-                                      placeholder="1922331"
+                                      placeholder="e.g. 078XXXXXXX"
                                       required
                                     />
                                     <span className="text-[9px] text-gray-400 font-bold block mt-1">Full collection wallet for P2P routing.</span>

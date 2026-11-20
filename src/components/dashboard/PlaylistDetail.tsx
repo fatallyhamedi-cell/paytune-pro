@@ -20,6 +20,7 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlist, onBack
   const [editName, setEditName] = useState(playlist.name || playlist.title || '');
   const [editDesc, setEditDesc] = useState(playlist.description || '');
   const [editPublic, setEditPublic] = useState(playlist.is_public !== false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -69,8 +70,12 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlist, onBack
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to permanently delete this playlist?')) return;
+  const handleDelete = () => {
+    setConfirmDeleteOpen(true);
+  };
+
+  const executeDelete = async () => {
+    setConfirmDeleteOpen(false);
     await deletePlaylist(playlist.id);
     onBack();
     onPlaylistUpdated();
@@ -226,11 +231,17 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlist, onBack
                     className="relative w-16 aspect-video bg-black rounded-lg overflow-hidden shrink-0 cursor-pointer"
                     onClick={() => navigate(`/watch/${vid.id}`)}
                   >
-                    <img
-                      src={vid.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600"}
-                      alt={vid.title}
-                      className="w-full h-full object-cover"
-                    />
+                    {vid.thumbnail_url ? (
+                      <img
+                        src={vid.thumbnail_url}
+                        alt={vid.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-900 flex items-center justify-center">
+                        <Music2 className="w-4 h-4 text-[#FFB300]/60" />
+                      </div>
+                    )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Play className="w-3 h-3 fill-white text-white" />
                     </div>
@@ -346,6 +357,33 @@ export const PlaylistDetail: React.FC<PlaylistDetailProps> = ({ playlist, onBack
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-[#181818] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white">Delete Playlist?</h3>
+            <p className="text-xs text-gray-400">
+              Are you sure you want to permanently delete this playlist? This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteOpen(false)}
+                className="px-4 py-2 text-xs text-gray-400 hover:text-white rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeDelete}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold text-xs rounded-xl"
+              >
+                Delete Permanently
+              </button>
+            </div>
           </div>
         </div>
       )}

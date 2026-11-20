@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Phone, ShieldCheck, Clock, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 interface PhoneAccessRequestModalProps {
@@ -37,7 +37,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
 
     const timer = setTimeout(() => {
       setCheckingStatus(true);
-      axios
+      api
         .get(`/api/access-requests/status?phone=${encodeURIComponent(phone)}&videoId=${encodeURIComponent(videoId)}`)
         .then((res) => {
           if (res.data?.status && res.data.status !== 'none') {
@@ -78,7 +78,7 @@ export const PhoneAccessRequestModal: React.FC<PhoneAccessRequestModalProps> = (
     setSuccessMessage(null);
 
     try {
-      const res = await axios.post('/api/access-requests/submit', {
+      const res = await api.post('/api/access-requests/submit', {
         phone: cleanPhone,
         videoId,
         name: name.trim(),

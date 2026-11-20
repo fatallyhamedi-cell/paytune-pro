@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import axios from "axios";
+import { api } from "../../lib/api";
 import { 
   DollarSign, 
   Users, 
@@ -52,6 +52,8 @@ export default function MembershipDashboard() {
   const [benefitsInput, setBenefitsInput] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [confirmDeleteTierId, setConfirmDeleteTierId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMembershipDetails();
@@ -61,9 +63,9 @@ export default function MembershipDashboard() {
     try {
       setLoading(true);
       const [tiersRes, subsRes, analyticsRes] = await Promise.all([
-        axios.get("/api/artist/membership/tiers"),
-        axios.get("/api/artist/membership/subscribers"),
-        axios.get("/api/artist/membership/analytics")
+        api.get("/api/artist/membership/tiers"),
+        api.get("/api/artist/membership/subscribers"),
+        api.get("/api/artist/membership/analytics")
       ]);
 
       setTiers(Array.isArray(tiersRes.data) ? tiersRes.data : []);
@@ -79,12 +81,13 @@ export default function MembershipDashboard() {
   };
 
   const handleOpenForm = (tier: any = null) => {
+    setFeedbackMsg(null);
     if (tier) {
       setEditingTier(tier);
-      setTierName(tier.name);
-      setPriceRwf(tier.price_rwf.toString());
+      setTierName(tier.tier_name || tier.name || "");
+      setPriceRwf(String(tier.monthly_price ?? tier.price_rwf ?? ""));
       setBenefitsInput(Array.isArray(tier.benefits) ? tier.benefits.join(", ") : "");
-      setIsActive(tier.is_active);
+      setIsActive(tier.is_active ?? true);
     } else {
       setEditingTier(null);
       setTierName("");
@@ -100,49 +103,52 @@ export default function MembershipDashboard() {
     if (!tierName.trim() || !priceRwf) return;
 
     setSubmitting(true);
+    setFeedbackMsg(null);
     const benefitsList = benefitsInput.split(",").map(b => b.trim()).filter(b => b.length > 0);
 
     try {
       if (editingTier) {
         // Update
-        const res = await axios.put(`/api/artist/membership/tiers/${editingTier.id}`, {
+        const res = await api.put(`/api/artist/membership/tiers/${editingTier.id}`, {
           name: tierName,
           price_rwf: Number(priceRwf),
           benefits: benefitsList,
           is_active: isActive
         });
         setTiers(prev => prev.map(t => t.id === editingTier.id ? res.data : t));
-        alert("Membership tier renewed and saved successfully!");
+        setFeedbackMsg({ type: "success", text: "Membership tier renewed and saved successfully!" });
       } else {
         // Create
-        const res = await axios.post("/api/artist/membership/tiers", {
+        const res = await api.post("/api/artist/membership/tiers", {
           name: tierName,
           price_rwf: Number(priceRwf),
           benefits: benefitsList
         });
         setTiers(prev => [...prev, res.data]);
-        alert("New membership tier created successfully!");
+        setFeedbackMsg({ type: "success", text: "New membership tier created successfully!" });
       }
       setShowForm(false);
       // Reload analytics to capture new tier states if pricing changed
       fetchMembershipDetails();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.error || "Failed to persist membership tier data.");
+      setFeedbackMsg({ type: "error", text: err.response?.data?.error || "Failed to persist membership tier data." });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteTier = async (tierId: string) => {
-    if (!window.confirm("Are you sure you want to delete this level? This cannot be undone and is only allowed if there are zero active members currently in this tier.")) return;
+    setFeedbackMsg(null);
     try {
-      await axios.delete(`/api/artist/membership/tiers/${tierId}`);
+      await api.delete(`/api/artist/membership/tiers/${tierId}`);
       setTiers(prev => prev.filter(t => t.id !== tierId));
-      alert("Tier removed successfully.");
+      setConfirmDeleteTierId(null);
+      setFeedbackMsg({ type: "success", text: "Tier removed successfully." });
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.error || "Unable to remove this tier. There might be active users subscripted.");
+      setConfirmDeleteTierId(null);
+      setFeedbackMsg({ type: "error", text: err.response?.data?.error || "Unable to remove this tier. There might be active users subscribed." });
     }
   };
 
@@ -177,6 +183,25 @@ export default function MembershipDashboard() {
           Create Level Tier
         </Button>
       </div>
+
+      {feedbackMsg && (
+        <div
+          className={`mb-6 p-4 rounded-2xl border flex items-center justify-between text-xs font-bold ${
+            feedbackMsg.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : "bg-red-50 border-red-200 text-red-700"
+          }`}
+        >
+          <span>{feedbackMsg.text}</span>
+          <button
+            type="button"
+            onClick={() => setFeedbackMsg(null)}
+            className="p-1 rounded-lg hover:bg-black/5 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Analytics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -214,10 +239,10 @@ export default function MembershipDashboard() {
                         <span className={`inline-flex items-center text-[9px] font-black uppercase px-2 py-0.5 rounded-full mb-2 ${t.is_active ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"}`}>
                           {t.is_active ? "Live & Active" : "Disabled"}
                         </span>
-                        <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">{t.name}</h3>
+                        <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">{t.tier_name || t.name}</h3>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-black text-purple-600">RWF {Number(t.price_rwf || 0).toLocaleString()}</p>
+                        <p className="text-lg font-black text-purple-600">RWF {Number(t.monthly_price ?? t.price_rwf ?? 0).toLocaleString()}</p>
                         <p className="text-[9px] text-gray-400 font-extrabold uppercase tracking-widest leading-none">/ month</p>
                       </div>
                     </div>
@@ -244,7 +269,7 @@ export default function MembershipDashboard() {
                       Configure
                     </Button>
                     <Button
-                      onClick={() => handleDeleteTier(t.id)}
+                      onClick={() => setConfirmDeleteTierId(t.id)}
                       variant="outline"
                       className="text-red-500 border-red-500/10 hover:bg-red-500/5 rounded-xl h-10 w-10 p-0"
                     >
@@ -334,6 +359,8 @@ export default function MembershipDashboard() {
                       <td className="py-4 text-right pr-3">
                         {sub.status === "active" ? (
                           <span className="text-emerald-500 uppercase text-[10px] font-black tracking-widest">Active</span>
+                        ) : sub.status === "pending" ? (
+                          <span className="text-amber-400 uppercase text-[10px] font-black tracking-widest">Pending</span>
                         ) : sub.status === "cancelled" || isCancel ? (
                           <span className="text-red-400 uppercase text-[10px] font-black tracking-widest">Cancelled</span>
                         ) : (
@@ -438,6 +465,33 @@ export default function MembershipDashboard() {
                 </Button>
               </div>
             </form>
+          </Card>
+        </div>
+      )}
+      {/* Delete Tier Confirmation Modal */}
+      {confirmDeleteTierId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
+          <Card className="bg-white dark:bg-[#1A1A1A] border border-gray-100 dark:border-gray-800 p-6 rounded-3xl max-w-sm w-full text-center shadow-2xl space-y-4">
+            <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">Delete Membership Tier?</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              This cannot be undone and is only allowed when there are zero active subscribers in this tier.
+            </p>
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                onClick={() => setConfirmDeleteTierId(null)}
+                className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 h-10 text-xs font-black uppercase rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleDeleteTier(confirmDeleteTierId)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white h-10 text-xs font-black uppercase rounded-xl border-none"
+              >
+                Delete
+              </Button>
+            </div>
           </Card>
         </div>
       )}

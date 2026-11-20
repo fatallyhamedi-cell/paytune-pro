@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { loginWithGoogleDemo, signInWithCredentials, signUpWithCredentials } = useAuth();
+  const { signInWithCredentials, signUpWithCredentials } = useAuth();
   const [isLogin, setIsLogin] = useState(searchParams.get("tab") !== "signup");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -34,11 +34,8 @@ export default function Auth() {
   const [success, setSuccess] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
 
-  // Google OAuth setup modal & demo sign-in
   const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleDemoEmail, setGoogleDemoEmail] = useState("fatallyhamedi@gmail.com");
   const [copiedCallback, setCopiedCallback] = useState(false);
-  const [instantSigningIn, setInstantSigningIn] = useState(false);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -48,6 +45,8 @@ export default function Auth() {
 
   const callbackUrl = `${supabaseProjectInfo.url}/auth/v1/callback`;
   const supabaseProvidersUrl = `https://supabase.com/dashboard/project/${supabaseProjectInfo.projectId}/auth/providers`;
+
+  const [isEmbeddedFrame, setIsEmbeddedFrame] = useState(false);
 
   const handleTabChange = (loginMode: boolean) => {
     setIsLogin(loginMode);
@@ -62,11 +61,33 @@ export default function Auth() {
     setFieldErrors({});
 
     try {
-      // 1. Request OAuth authorization with skipBrowserRedirect to detect provider status first
+      const inIframe = typeof window !== "undefined" && window.self !== window.top;
+      if (inIframe) {
+        setIsEmbeddedFrame(true);
+        setError("Google Sign-In cannot open inside an embedded preview frame. Open PAYTUNE in a full browser tab to continue with Google.");
+        setGoogleLoading(false);
+        return;
+      }
+
+      const statusRes = await fetch("/api/auth/google/status");
+      if (statusRes.ok) {
+        const statusData = await statusRes.json().catch(() => null);
+        if (statusData && !statusData.googleEnabled) {
+          setShowGoogleModal(true);
+          setGoogleLoading(false);
+          return;
+        }
+      }
+
+      const explicitRedirect = searchParams.get("redirect");
+      if (explicitRedirect && explicitRedirect.startsWith("/")) {
+        sessionStorage.setItem("paytune_oauth_redirect", explicitRedirect);
+      }
+
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: `${window.location.origin}/auth/callback`,
           skipBrowserRedirect: true
         }
       });
@@ -82,27 +103,8 @@ export default function Auth() {
       }
 
       if (data?.url) {
-        // 2. Pre-probe authorization URL to prevent landing on a raw 400 JSON error page
-        try {
-          const probeRes = await fetch(data.url);
-          if (!probeRes.ok) {
-            const probeBody = await probeRes.json().catch(() => null);
-            if (
-              probeRes.status === 400 || 
-              probeBody?.msg?.includes('provider is not enabled') || 
-              probeBody?.error_code === 'validation_failed'
-            ) {
-              setShowGoogleModal(true);
-              setGoogleLoading(false);
-              return;
-            }
-          }
-        } catch {
-          // If probe fails due to network/CORS, proceed with redirect
-        }
-
-        // Provider is enabled in Supabase! Redirect user to official Google Sign-In
-        window.location.href = data.url;
+        window.location.assign(data.url);
+        return;
       }
     } catch (err: any) {
       const msg = err?.message || String(err);
@@ -113,21 +115,6 @@ export default function Auth() {
       }
     } finally {
       setGoogleLoading(false);
-    }
-  };
-
-  const handleInstantGoogleSignIn = async () => {
-    if (!googleDemoEmail.trim()) return;
-    setInstantSigningIn(true);
-    try {
-      await loginWithGoogleDemo(googleDemoEmail.trim());
-      setShowGoogleModal(false);
-      const redirect = searchParams.get("redirect") || "/";
-      navigate(redirect);
-    } catch (err: any) {
-      setError(err?.message || "Failed to create Google session");
-    } finally {
-      setInstantSigningIn(false);
     }
   };
 
@@ -184,16 +171,21 @@ export default function Auth() {
             setError(result.error || "Invalid email or password.");
             return;
           }
+          const explicitRedirect = searchParams.get("redirect");
+          if (explicitRedirect) {
+            navigate(explicitRedirect, { replace: true });
+            return;
+          }
           if (result.redirectTo) {
-            navigate(result.redirectTo);
+            navigate(result.redirectTo, { replace: true });
             return;
           }
           if (result.role === 'artist') {
-            if (result.phone_verified === false) {
-              navigate("/artist/verify-phone");
-              return;
-            }
-            navigate("/artist/dashboard");
+            navigate("/artist/dashboard", { replace: true });
+            return;
+          }
+          if (result.role === 'master' || result.role === 'admin') {
+            navigate("/master", { replace: true });
             return;
           }
         } else {
@@ -203,10 +195,11 @@ export default function Auth() {
           });
           if (error) throw error;
         }
-        
-        const redirect = searchParams.get("redirect") || "/";
-        navigate(redirect);
+
+        const redirect = searchParams.get("redirect") || "/dashboard";
+        navigate(redirect, { replace: true });
       } else {
+        let requiresEmailConfirmation = false;
         if (signUpWithCredentials) {
           const result = await signUpWithCredentials(
             formData.email.trim(),
@@ -220,8 +213,9 @@ export default function Auth() {
             setError(result.error || "Failed to create account.");
             return;
           }
+          requiresEmailConfirmation = Boolean(result.requiresEmailConfirmation);
         } else {
-          const { error } = await supabase.auth.signUp({
+          const { data, error } = await supabase.auth.signUp({
             email: formData.email.trim(),
             password: formData.password,
             options: {
@@ -231,13 +225,19 @@ export default function Auth() {
             }
           });
           if (error) throw error;
+          requiresEmailConfirmation = !data?.session;
         }
 
-        setSuccess("Account registered! Signing you in...");
-        setTimeout(() => {
-          const redirect = searchParams.get("redirect") || "/";
-          navigate(redirect);
-        }, 1200);
+        if (requiresEmailConfirmation) {
+          setSuccess("Account created! Please check your email inbox to confirm your account before signing in.");
+          setIsLogin(true);
+        } else {
+          setSuccess("Account registered! Opening your dashboard...");
+          setTimeout(() => {
+            const redirect = searchParams.get("redirect") || "/dashboard";
+            navigate(redirect, { replace: true });
+          }, 600);
+        }
       }
     } catch (err: any) {
       const msg = err?.message || String(err);
@@ -369,9 +369,21 @@ export default function Auth() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-rose-50 text-rose-600 rounded-xl text-[11px] font-bold border border-rose-100 animate-pulse">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{error}</span>
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-[11px] font-bold border border-rose-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+                {isEmbeddedFrame && typeof window !== "undefined" && (
+                  <a
+                    href={window.location.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-purple-700 hover:underline font-extrabold"
+                  >
+                    Open PAYTUNE in a new browser tab <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
               </div>
             )}
 
@@ -473,45 +485,7 @@ export default function Auth() {
               </div>
             </div>
 
-            {/* Instant Solution Section */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-600/5 via-purple-600/10 to-transparent border border-purple-600/20 mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-purple-700" />
-                <span className="text-xs font-black uppercase tracking-wider text-purple-800">Instant Access (Dev / Testing)</span>
-              </div>
-              <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-                Sign in immediately with your Google account right now without waiting for dashboard setup:
-              </p>
-              
-              <div className="space-y-2 mb-3">
-                <Label className="text-[10px] font-black uppercase text-gray-500">Your Google Email</Label>
-                <Input
-                  value={googleDemoEmail}
-                  onChange={(e) => setGoogleDemoEmail(e.target.value)}
-                  placeholder="yourname@gmail.com"
-                  className="bg-white border-gray-200 h-10 text-xs rounded-xl"
-                />
-              </div>
-
-              <Button
-                onClick={handleInstantGoogleSignIn}
-                disabled={instantSigningIn || !googleDemoEmail.trim()}
-                className="w-full h-11 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer border-none"
-              >
-                {instantSigningIn ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Signing In...
-                  </>
-                ) : (
-                  <>
-                    Continue as {googleDemoEmail || "Google User"} &rarr;
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Permanent Supabase Configuration Guide */}
+            {/* Supabase OAuth Configuration Guide */}
             <div className="border-t border-gray-100 pt-5">
               <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider mb-3 flex items-center justify-between">
                 <span>To Enable Google in Supabase:</span>

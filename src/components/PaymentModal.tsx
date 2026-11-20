@@ -7,15 +7,12 @@ import {
   Loader2, 
   CheckCircle2, 
   AlertCircle,
-  Sparkles,
   Lock,
   ArrowRight,
   Info
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { useAuth } from '../hooks/useAuth';
 import { PaymentSuccess } from './PaymentSuccess';
-import { invokeEdgeFunction } from '../lib/supabase';
 
 export interface PaymentModalProps {
   isOpen?: boolean;
@@ -48,8 +45,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   paymentType = 'purchase',
   onSuccess
 }) => {
-  const { user } = useAuth();
-
   // Resolved parameters
   const resolvedVideoId = propVideoId || video?.id || '';
   const resolvedArtistId = propArtistId || (video as any)?.artist_id || '';
@@ -109,35 +104,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   }, [activePaymentId, processing, onSuccess]);
 
   if (!isOpen) return null;
-
-  const handleApproveSimulated = async () => {
-    if (!activePaymentId) return;
-    try {
-      setStatusMessage('Authorizing via Supabase Edge Function...');
-      
-      // Execute 5% VAT & 70/30 split via Edge Function
-      const edgeResult = await invokeEdgeFunction('process-payment', {
-        videoId: resolvedVideoId,
-        userId: user?.id || 'guest_user',
-        amount: resolvedAmount,
-        paymentPhone: phoneNumber,
-        paymentMethod: provider === 'mtn_momo' ? 'MTN MoMo' : provider === 'airtel_money' ? 'Airtel Money' : 'Stripe Card',
-        transactionId: `tx_${Date.now()}`
-      });
-
-      const res = await api.post(`/api/payments/${activePaymentId}/approve`);
-      if (res.data?.status === 'paid' || res.data?.success || edgeResult.data?.success) {
-        setProcessing(false);
-        const finalPayment = res.data?.payment || edgeResult.data?.purchase || res.data;
-        setConfirmedPayment(finalPayment);
-        if (onSuccess) {
-          onSuccess(finalPayment);
-        }
-      }
-    } catch (err: any) {
-      setError('Approval error: ' + (err.response?.data?.message || err.message));
-    }
-  };
 
   const handleInitiatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -394,18 +360,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <Loader2 className="w-4 h-4 shrink-0 animate-spin text-purple-400" />
                   <span>{statusMessage}</span>
                 </div>
-              )}
-
-              {/* Instant Sandbox PIN Simulation Approval Button */}
-              {processing && activePaymentId && (
-                <button
-                  type="button"
-                  onClick={handleApproveSimulated}
-                  className="w-full py-2.5 px-3 rounded-xl border border-purple-600/40 bg-purple-600/15 hover:bg-purple-600/25 text-purple-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span>Approve USSD PIN Prompt (Instant Demo)</span>
-                </button>
               )}
 
               {/* Submit Button */}

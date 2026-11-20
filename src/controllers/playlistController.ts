@@ -1,62 +1,108 @@
 import { Request, Response } from 'express';
-import { getTableData, saveTableData } from '../config/supabase_mock';
+import { rawSupabaseAdmin, supabaseAdmin } from '../config/supabase';
+
+const db = () => rawSupabaseAdmin || supabaseAdmin;
+
+async function hydratePlaylistItems(playlistId: string) {
+  const client = db();
+  const { data: items, error } = await client
+    .from('playlist_items')
+    .select('id, content_type, content_id, position, added_at')
+    .eq('playlist_id', playlistId)
+    .order('position', { ascending: true });
+
+  if (error) throw error;
+  if (!items || items.length === 0) return [];
+
+  const videoIds = items.map((i: any) => i.content_id).filter(Boolean);
+  const { data: videos } = await client
+    .from('videos')
+    .select('id, title, creator_channel_id, artist_profile_id, duration_seconds, is_free, metadata')
+    .in('id', videoIds);
+
+  const artistIds = Array.from(new Set((videos || []).map((v: any) => v.artist_profile_id).filter(Boolean)));
+  const channelIds = Array.from(new Set((videos || []).map((v: any) => v.creator_channel_id).filter(Boolean)));
+
+  const [{ data: artists }, { data: channels }] = await Promise.all([
+    artistIds.length > 0
+      ? client.from('artist_profiles').select('id, artist_name').in('id', artistIds)
+      : Promise.resolve({ data: [] as any[] }),
+    channelIds.length > 0
+      ? client.from('creator_channels').select('id, channel_name').in('id', channelIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const artistMap = new Map((artists || []).map((a: any) => [a.id, a.artist_name]));
+  const channelMap = new Map((channels || []).map((c: any) => [c.id, c.channel_name]));
+  const videoMap = new Map((videos || []).map((v: any) => [v.id, v]));
+
+  return items
+    .map((pv: any) => {
+      const video: any = videoMap.get(pv.content_id);
+      if (!video) return null;
+      const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
+      return {
+        id: video.id,
+        title: video.title,
+        artist_id: video.artist_profile_id || video.creator_channel_id,
+        artist_name:
+          artistMap.get(video.artist_profile_id) ||
+          channelMap.get(video.creator_channel_id) ||
+          meta.artist_name ||
+          'Creator',
+        thumbnail_url: meta.thumbnail_url || '',
+        video_url: meta.video_url || '',
+        duration: Number(video.duration_seconds || 0),
+        category: meta.category || '',
+        price_rwf: Number(meta.price_rwf || 0),
+        price_usd: Number(meta.price_usd || 0),
+        added_at: pv.added_at,
+        order_index: pv.position,
+      };
+    })
+    .filter(Boolean);
+}
 
 export const getUserPlaylists = async (req: Request, res: Response) => {
   const user = (req as any).user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const playlists = getTableData('playlists').filter((p: any) => p.user_id === user.id);
-    const playlistVideos = getTableData('playlist_videos');
-    const allVideos = getTableData('videos');
-    const artists = getTableData('artists');
+    const client = db();
+    const { data: playlists, error } = await client
+      .from('playlists')
+      .select('*')
+      .eq('owner_user_id', user.id)
+      .neq('playlist_type', 'system')
+      .order('updated_at', { ascending: false });
 
-    const enriched = playlists.map((pl: any) => {
-      const pvs = playlistVideos
-        .filter((pv: any) => pv.playlist_id === pl.id)
-        .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    if (error) throw error;
 
-      const videos = pvs.map((pv: any) => {
-        const video = allVideos.find((v: any) => v.id === pv.video_id);
-        if (!video) return null;
-        const artist = artists.find((a: any) => a.id === video.artist_id);
+    const enriched = await Promise.all(
+      (playlists || []).map(async (pl: any) => {
+        const videos = await hydratePlaylistItems(pl.id);
+        const firstThumb = videos[0]?.thumbnail_url || '';
         return {
-          id: video.id,
-          title: video.title,
-          artist_id: video.artist_id,
-          artist_name: artist?.full_name || 'Rwandan Artist',
-          thumbnail_url: video.thumbnail_url,
-          duration: video.duration || 200,
-          category: video.category,
-          price_rwf: video.price_rwf,
-          price_usd: video.price_usd,
-          added_at: pv.added_at
+          id: pl.id,
+          user_id: pl.owner_user_id,
+          name: pl.title,
+          title: pl.title,
+          description: pl.description || '',
+          thumbnail_url: firstThumb,
+          video_count: videos.length,
+          is_public: pl.visibility === 'public',
+          visibility: pl.visibility,
+          created_at: pl.created_at,
+          updated_at: pl.updated_at,
+          videos,
         };
-      }).filter(Boolean);
+      })
+    );
 
-      const defaultThumbnail = videos.length > 0 && videos[0]?.thumbnail_url
-        ? videos[0].thumbnail_url
-        : (pl.thumbnail_url || '');
-
-      return {
-        id: pl.id,
-        user_id: pl.user_id,
-        name: pl.name || pl.title || 'Untitled Playlist',
-        title: pl.title || pl.name || 'Untitled Playlist',
-        description: pl.description || '',
-        thumbnail_url: defaultThumbnail,
-        video_count: videos.length,
-        is_public: pl.is_public !== false,
-        created_at: pl.created_at || new Date().toISOString(),
-        updated_at: pl.updated_at || pl.created_at || new Date().toISOString(),
-        videos
-      };
-    });
-
-    res.json(enriched);
+    return res.json(enriched);
   } catch (err: any) {
     console.error('getUserPlaylists error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to load playlists' });
   }
 };
 
@@ -65,65 +111,38 @@ export const getPlaylistDetails = async (req: Request, res: Response) => {
   const user = (req as any).user;
 
   try {
-    const playlists = getTableData('playlists');
-    const pl = playlists.find((p: any) => p.id === id);
+    const client = db();
+    const { data: pl, error } = await client
+      .from('playlists')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (!pl) {
-      return res.status(404).json({ error: 'Playlist not found' });
-    }
+    if (error) throw error;
+    if (!pl) return res.status(404).json({ error: 'Playlist not found' });
 
-    // If private, ensure current user owns it
-    if (pl.is_public === false && (!user || user.id !== pl.user_id)) {
+    if (pl.visibility === 'private' && (!user || user.id !== pl.owner_user_id)) {
       return res.status(403).json({ error: 'This playlist is private.' });
     }
 
-    const playlistVideos = getTableData('playlist_videos')
-      .filter((pv: any) => pv.playlist_id === id)
-      .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
-
-    const allVideos = getTableData('videos');
-    const artists = getTableData('artists');
-
-    const videos = playlistVideos.map((pv: any) => {
-      const video = allVideos.find((v: any) => v.id === pv.video_id);
-      if (!video) return null;
-      const artist = artists.find((a: any) => a.id === video.artist_id);
-      return {
-        id: video.id,
-        title: video.title,
-        artist_id: video.artist_id,
-        artist_name: artist?.full_name || 'Rwandan Artist',
-        thumbnail_url: video.thumbnail_url,
-        video_url: video.video_url,
-        duration: video.duration || 200,
-        category: video.category,
-        price_rwf: video.price_rwf,
-        price_usd: video.price_usd,
-        added_at: pv.added_at,
-        order_index: pv.order_index
-      };
-    }).filter(Boolean);
-
-    const defaultThumbnail = videos.length > 0 && videos[0]?.thumbnail_url
-      ? videos[0].thumbnail_url
-      : (pl.thumbnail_url || '');
-
-    res.json({
+    const videos = await hydratePlaylistItems(pl.id);
+    return res.json({
       id: pl.id,
-      user_id: pl.user_id,
-      name: pl.name || pl.title || 'Untitled Playlist',
-      title: pl.title || pl.name || 'Untitled Playlist',
+      user_id: pl.owner_user_id,
+      name: pl.title,
+      title: pl.title,
       description: pl.description || '',
-      thumbnail_url: defaultThumbnail,
+      thumbnail_url: videos[0]?.thumbnail_url || '',
       video_count: videos.length,
-      is_public: pl.is_public !== false,
-      created_at: pl.created_at || new Date().toISOString(),
-      updated_at: pl.updated_at || pl.created_at || new Date().toISOString(),
-      videos
+      is_public: pl.visibility === 'public',
+      visibility: pl.visibility,
+      created_at: pl.created_at,
+      updated_at: pl.updated_at,
+      videos,
     });
   } catch (err: any) {
     console.error('getPlaylistDetails error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to load playlist' });
   }
 };
 
@@ -131,39 +150,50 @@ export const createPlaylist = async (req: Request, res: Response) => {
   const user = (req as any).user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { name, title, description, is_public } = req.body;
-  const playlistName = (name || title || '').trim();
-
+  const { name, title, description, is_public } = req.body || {};
+  const playlistName = String(name || title || '').trim();
   if (!playlistName) {
     return res.status(400).json({ error: 'Playlist name is required.' });
   }
 
   try {
-    const playlists = getTableData('playlists');
-    const newPlaylist = {
-      id: `pl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      user_id: user.id,
-      name: playlistName,
-      title: playlistName,
-      description: (description || '').trim(),
-      thumbnail_url: '',
-      video_count: 0,
-      is_public: is_public !== false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
+    const client = db();
+    const slug = `${playlistName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)}-${Date.now().toString(36)}`;
+    const { data: pl, error } = await client
+      .from('playlists')
+      .insert({
+        owner_user_id: user.id,
+        title: playlistName,
+        description: String(description || '').trim() || null,
+        slug,
+        playlist_type: 'personal',
+        visibility: is_public === true ? 'public' : 'private',
+      })
+      .select('*')
+      .single();
 
-    playlists.push(newPlaylist);
-    saveTableData('playlists', playlists);
+    if (error) throw error;
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Playlist created successfully',
-      playlist: { ...newPlaylist, videos: [] }
+      playlist: {
+        id: pl.id,
+        user_id: pl.owner_user_id,
+        name: pl.title,
+        title: pl.title,
+        description: pl.description || '',
+        thumbnail_url: '',
+        video_count: 0,
+        is_public: pl.visibility === 'public',
+        created_at: pl.created_at,
+        updated_at: pl.updated_at,
+        videos: [],
+      },
     });
   } catch (err: any) {
     console.error('createPlaylist error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to create playlist' });
   }
 };
 
@@ -172,36 +202,54 @@ export const updatePlaylist = async (req: Request, res: Response) => {
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { id } = req.params;
-  const { name, title, description, is_public } = req.body;
+  const { name, title, description, is_public } = req.body || {};
 
   try {
-    const playlists = getTableData('playlists');
-    const idx = playlists.findIndex((p: any) => p.id === id && p.user_id === user.id);
+    const client = db();
+    const { data: existing } = await client
+      .from('playlists')
+      .select('*')
+      .eq('id', id)
+      .eq('owner_user_id', user.id)
+      .maybeSingle();
 
-    if (idx === -1) {
+    if (!existing) {
       return res.status(404).json({ error: 'Playlist not found or permission denied.' });
     }
 
-    const updatedName = (name || title || playlists[idx].name || playlists[idx].title).trim();
-    playlists[idx] = {
-      ...playlists[idx],
-      name: updatedName,
-      title: updatedName,
-      description: description !== undefined ? description.trim() : playlists[idx].description,
-      is_public: is_public !== undefined ? is_public : playlists[idx].is_public,
-      updated_at: new Date().toISOString()
-    };
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (name !== undefined || title !== undefined) {
+      updates.title = String(name || title).trim();
+    }
+    if (description !== undefined) {
+      updates.description = String(description).trim();
+    }
+    if (is_public !== undefined) {
+      updates.visibility = is_public ? 'public' : 'private';
+    }
 
-    saveTableData('playlists', playlists);
+    const { data: updated, error } = await client
+      .from('playlists')
+      .update(updates)
+      .eq('id', id)
+      .eq('owner_user_id', user.id)
+      .select('*')
+      .single();
 
-    res.json({
+    if (error) throw error;
+
+    return res.json({
       success: true,
       message: 'Playlist updated successfully',
-      playlist: playlists[idx]
+      playlist: {
+        ...updated,
+        name: updated.title,
+        is_public: updated.visibility === 'public',
+      },
     });
   } catch (err: any) {
     console.error('updatePlaylist error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to update playlist' });
   }
 };
 
@@ -212,25 +260,24 @@ export const deletePlaylist = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const playlists = getTableData('playlists');
-    const exists = playlists.some((p: any) => p.id === id && p.user_id === user.id);
+    const client = db();
+    const { data: deleted, error } = await client
+      .from('playlists')
+      .delete()
+      .eq('id', id)
+      .eq('owner_user_id', user.id)
+      .select('id')
+      .maybeSingle();
 
-    if (!exists) {
+    if (error) throw error;
+    if (!deleted) {
       return res.status(404).json({ error: 'Playlist not found or permission denied.' });
     }
 
-    const filteredPlaylists = playlists.filter((p: any) => p.id !== id);
-    saveTableData('playlists', filteredPlaylists);
-
-    // Also remove associated playlist_videos
-    const playlistVideos = getTableData('playlist_videos');
-    const filteredVideos = playlistVideos.filter((pv: any) => pv.playlist_id !== id);
-    saveTableData('playlist_videos', filteredVideos);
-
-    res.json({ success: true, message: 'Playlist deleted successfully.' });
+    return res.json({ success: true, message: 'Playlist deleted successfully.' });
   } catch (err: any) {
     console.error('deletePlaylist error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to delete playlist' });
   }
 };
 
@@ -239,53 +286,70 @@ export const addVideoToPlaylist = async (req: Request, res: Response) => {
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { id } = req.params;
-  const { videoId } = req.body;
+  const { videoId } = req.body || {};
 
   if (!videoId) {
     return res.status(400).json({ error: 'Video ID is required.' });
   }
 
   try {
-    const playlists = getTableData('playlists');
-    const pl = playlists.find((p: any) => p.id === id && p.user_id === user.id);
+    const client = db();
+    const { data: pl } = await client
+      .from('playlists')
+      .select('id')
+      .eq('id', id)
+      .eq('owner_user_id', user.id)
+      .maybeSingle();
 
     if (!pl) {
       return res.status(404).json({ error: 'Playlist not found.' });
     }
 
-    const playlistVideos = getTableData('playlist_videos');
-    const alreadyExists = playlistVideos.some((pv: any) => pv.playlist_id === id && pv.video_id === videoId);
+    const { data: existing } = await client
+      .from('playlist_items')
+      .select('id')
+      .eq('playlist_id', id)
+      .eq('content_id', videoId)
+      .maybeSingle();
 
-    if (alreadyExists) {
+    if (existing) {
       return res.status(200).json({ success: true, alreadyIn: true, message: 'Video is already in this playlist.' });
     }
 
-    const currentCount = playlistVideos.filter((pv: any) => pv.playlist_id === id).length;
-    const newEntry = {
-      id: `pv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      playlist_id: id,
-      video_id: videoId,
-      order_index: currentCount,
-      added_at: new Date().toISOString()
-    };
+    const { data: video } = await client
+      .from('videos')
+      .select('id, video_type')
+      .eq('id', videoId)
+      .maybeSingle();
 
-    playlistVideos.push(newEntry);
-    saveTableData('playlist_videos', playlistVideos);
+    const { count } = await client
+      .from('playlist_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('playlist_id', id);
 
-    // Update playlist count and thumbnail
-    const allVideos = getTableData('videos');
-    const targetVideo = allVideos.find((v: any) => v.id === videoId);
-    if (targetVideo && targetVideo.thumbnail_url && !pl.thumbnail_url) {
-      pl.thumbnail_url = targetVideo.thumbnail_url;
-    }
-    pl.video_count = currentCount + 1;
-    pl.updated_at = new Date().toISOString();
-    saveTableData('playlists', playlists);
+    const { data: entry, error } = await client
+      .from('playlist_items')
+      .insert({
+        playlist_id: id,
+        content_type: video?.video_type === 'short' ? 'short' : 'video',
+        content_id: videoId,
+        position: count || 0,
+        added_by_user_id: user.id,
+      })
+      .select('*')
+      .single();
 
-    res.json({ success: true, message: 'Video added to playlist', entry: newEntry });
+    if (error) throw error;
+
+    await client
+      .from('playlists')
+      .update({ items_count: (count || 0) + 1, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    return res.json({ success: true, message: 'Video added to playlist', entry });
   } catch (err: any) {
     console.error('addVideoToPlaylist error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to add video to playlist' });
   }
 };
 
@@ -296,27 +360,38 @@ export const removeVideoFromPlaylist = async (req: Request, res: Response) => {
   const { id, videoId } = req.params;
 
   try {
-    const playlists = getTableData('playlists');
-    const pl = playlists.find((p: any) => p.id === id && p.user_id === user.id);
+    const client = db();
+    const { data: pl } = await client
+      .from('playlists')
+      .select('id')
+      .eq('id', id)
+      .eq('owner_user_id', user.id)
+      .maybeSingle();
 
     if (!pl) {
       return res.status(404).json({ error: 'Playlist not found.' });
     }
 
-    const playlistVideos = getTableData('playlist_videos');
-    const filtered = playlistVideos.filter((pv: any) => !(pv.playlist_id === id && pv.video_id === videoId));
+    await client
+      .from('playlist_items')
+      .delete()
+      .eq('playlist_id', id)
+      .eq('content_id', videoId);
 
-    saveTableData('playlist_videos', filtered);
+    const { count } = await client
+      .from('playlist_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('playlist_id', id);
 
-    // Update count
-    pl.video_count = filtered.filter((pv: any) => pv.playlist_id === id).length;
-    pl.updated_at = new Date().toISOString();
-    saveTableData('playlists', playlists);
+    await client
+      .from('playlists')
+      .update({ items_count: count || 0, updated_at: new Date().toISOString() })
+      .eq('id', id);
 
-    res.json({ success: true, message: 'Video removed from playlist.' });
+    return res.json({ success: true, message: 'Video removed from playlist.' });
   } catch (err: any) {
     console.error('removeVideoFromPlaylist error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to remove video from playlist' });
   }
 };
 
@@ -325,36 +400,44 @@ export const reorderVideos = async (req: Request, res: Response) => {
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { id } = req.params;
-  const { videoIds } = req.body;
+  const { videoIds } = req.body || {};
 
   if (!Array.isArray(videoIds)) {
     return res.status(400).json({ error: 'videoIds must be an array of string IDs.' });
   }
 
   try {
-    const playlists = getTableData('playlists');
-    const pl = playlists.find((p: any) => p.id === id && p.user_id === user.id);
+    const client = db();
+    const { data: pl } = await client
+      .from('playlists')
+      .select('id')
+      .eq('id', id)
+      .eq('owner_user_id', user.id)
+      .maybeSingle();
 
     if (!pl) {
       return res.status(404).json({ error: 'Playlist not found.' });
     }
 
-    const playlistVideos = getTableData('playlist_videos');
-    
-    // Update order_index for each video in this playlist
-    videoIds.forEach((vid: string, index: number) => {
-      const pv = playlistVideos.find((item: any) => item.playlist_id === id && item.video_id === vid);
-      if (pv) {
-        pv.order_index = index;
-      }
-    });
+    await Promise.all(
+      videoIds.map((vid: string, index: number) =>
+        client
+          .from('playlist_items')
+          .update({ position: index })
+          .eq('playlist_id', id)
+          .eq('content_id', vid)
+      )
+    );
 
-    saveTableData('playlist_videos', playlistVideos);
+    await client
+      .from('playlists')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', id);
 
-    res.json({ success: true, message: 'Playlist reordered successfully.' });
+    return res.json({ success: true, message: 'Playlist reordered successfully.' });
   } catch (err: any) {
     console.error('reorderVideos error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to reorder playlist' });
   }
 };
 
@@ -362,25 +445,28 @@ export const getShareLink = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const playlists = getTableData('playlists');
-    const pl = playlists.find((p: any) => p.id === id);
+    const client = db();
+    const { data: pl, error } = await client
+      .from('playlists')
+      .select('id, title, visibility')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (!pl) {
-      return res.status(404).json({ error: 'Playlist not found' });
-    }
+    if (error) throw error;
+    if (!pl) return res.status(404).json({ error: 'Playlist not found' });
 
     const protocol = req.protocol || 'https';
     const host = req.get('host') || 'paytune.com';
     const shareUrl = `${protocol}://${host}/playlist/${id}`;
 
-    res.json({
+    return res.json({
       playlistId: id,
-      title: pl.title || pl.name,
+      title: pl.title,
       shareUrl,
-      isPublic: pl.is_public !== false
+      isPublic: pl.visibility === 'public',
     });
   } catch (err: any) {
     console.error('getShareLink error:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || 'Failed to build share link' });
   }
 };

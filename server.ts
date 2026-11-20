@@ -1,19 +1,16 @@
+import "./src/config/env";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import dotenv from "dotenv";
 import cors from "cors";
 import multer from "multer";
-import fs from "fs";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
-import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 import { authenticate, optionalAuthenticate, checkRole } from "./src/middleware/auth";
-import * as artistController from "./src/controllers/artistController";
-import * as videoController from "./src/controllers/videoController";
 import videoRouter from "./src/routes/videoRoutes";
 import purchaseRouter from "./src/routes/purchaseRoutes";
 import commentRouter from "./src/routes/commentRoutes";
@@ -33,47 +30,20 @@ import globalPaymentRouter from "./src/routes/globalPaymentRoutes";
 import paymentRouter from "./src/routes/paymentRoutes";
 import webhookRouter from "./src/routes/webhookRoutes";
 import authRouter from "./src/routes/authRoutes";
-import artistAuthRoutes from "./backend/src/routes/authArtist";
-import artistDashboardRoutes from "./backend/src/routes/artistDashboard";
-import artistUploadRoutes from "./backend/src/routes/artistUploadRoutes";
-import exchangeRoutes from "./backend/src/routes/exchangeRoutes";
 import uploadRouter from "./src/routes/uploadRoutes";
 import copyrightRouter, { dmcaRouter } from "./src/routes/copyrightRoutes";
 import adRouter from "./src/routes/adRoutes";
 import accessRequestRouter from "./src/routes/accessRequestRoutes";
 import edgeFunctionRoutes from "./src/routes/edgeFunctionRoutes";
 import partnerProgramRouter from "./src/routes/partnerProgramRoutes";
+import musicRouter from "./src/routes/musicRoutes";
 import { processAndUploadVideo } from "./src/services/videoService";
 import { processPurchase } from "./src/services/paymentSplitter";
-import { supabaseAdmin, isSupabaseConfigured, supabaseProjectInfo } from "./src/config/supabase";
-import { getDbStore, setDbStore, registerMutationCallback } from "./src/config/supabase_mock";
+import { supabaseAdmin, isSupabaseConfigured, supabaseProjectInfo, ensureSupabaseStorageBuckets } from "./src/config/supabase";
 import { setNotificationIO, notifyOnMembershipJoined, notifyOnSuperThanks } from "./src/services/notificationService";
 import { detectCountryFromRequest } from "./src/services/geoService";
-
-dotenv.config();
-
-const MOCK_DB_FILE = path.join(process.cwd(), "mock_database.json");
-
-// Register server-side database mutation synchronizer (local state persistence)
-registerMutationCallback((db) => {
-  try {
-    fs.writeFileSync(MOCK_DB_FILE, JSON.stringify(db, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Failed to write mock db file on mutation callback:", err);
-  }
-});
-try {
-  if (fs.existsSync(MOCK_DB_FILE)) {
-    const raw = fs.readFileSync(MOCK_DB_FILE, "utf-8");
-    const data = JSON.parse(raw);
-    setDbStore(data);
-    console.log("Loaded existing mock database from mock_database.json");
-  } else {
-    console.log("No existing mock database file found. Using defaults.");
-  }
-} catch (err) {
-  console.error("Error initializing mock DB file:", err);
-}
+import { monitoringService } from "./src/services/monitoringService";
+import { cacheService } from "./src/services/cacheService";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -180,66 +150,84 @@ const paymentLimiter = rateLimit({
 app.use("/api/payment/", paymentLimiter);
 app.use("/api/purchase/", paymentLimiter);
 
-// 5. Performance Monitoring & Latency Tracking Middleware
+// 5. Real Performance Monitoring & Latency Tracking Middleware
 app.use((req, res, next) => {
-  const start = Date.now();
+  const startNs = process.hrtime.bigint();
+  const originalWriteHead = res.writeHead.bind(res);
+  (res as any).writeHead = function (...args: any[]) {
+    const durationMs = Number(process.hrtime.bigint() - startNs) / 1e6;
+    if (!res.headersSent) {
+      res.setHeader('X-Response-Time', `${durationMs.toFixed(2)}ms`);
+    }
+    return originalWriteHead(...args);
+  };
+
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    if (duration > 500 || req.originalUrl.startsWith('/api/payment') || res.statusCode >= 400) {
-      console.log(`[PERF/MONITOR] ${req.method} ${req.originalUrl} [${res.statusCode}] - ${duration}ms`);
+    const durationMs = Number(process.hrtime.bigint() - startNs) / 1e6;
+    if (req.originalUrl.startsWith('/api')) {
+      monitoringService.recordRequest(req.method, req.originalUrl, res.statusCode, durationMs);
+    }
+    if (durationMs > 500 || req.originalUrl.startsWith('/api/payment') || res.statusCode >= 400) {
+      console.log(`[PERF/MONITOR] ${req.method} ${req.originalUrl} [${res.statusCode}] - ${durationMs.toFixed(1)}ms`);
     }
   });
   next();
 });
 
-// --- Systems Diagnostics & E2E Verification Suite ---
-app.get("/api/diagnostics/check", (req, res) => {
+// --- Real Systems Diagnostics, Telemetry & Live Supabase Verification ---
+app.get("/api/diagnostics/check", authenticate, checkRole('master'), async (_req, res) => {
   try {
-    const mockDbStats = fs.existsSync(MOCK_DB_FILE) ? fs.statSync(MOCK_DB_FILE) : null;
-    
+    const snapshot = await monitoringService.getSnapshot();
+
     res.json({
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
+      timestamp: snapshot.timestamp,
+      uptime: snapshot.system.uptimeSeconds,
       database: {
-        engine: "supabase",
+        engine: "postgresql-supabase",
         singleDatabase: true,
         configured: isSupabaseConfigured(),
-        projectId: supabaseProjectInfo.projectId,
-        url: supabaseProjectInfo.url
-      },
-      supabase: {
-        configured: isSupabaseConfigured(),
+        connected: snapshot.supabase.connected,
+        latencyMs: snapshot.supabase.latencyMs,
         projectId: supabaseProjectInfo.projectId,
         url: supabaseProjectInfo.url,
-        urlSet: !!process.env.VITE_SUPABASE_URL,
-        serviceKeySet: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+        tables: snapshot.supabase.tables
+      },
+      supabase: {
+        configured: supabaseProjectInfo.isConfigured,
+        connected: snapshot.supabase.connected,
+        latencyMs: snapshot.supabase.latencyMs,
+        projectId: supabaseProjectInfo.projectId,
+        url: supabaseProjectInfo.url,
+        urlSet: !!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL),
+        serviceKeySet: supabaseProjectInfo.hasServiceKey,
+        storage: snapshot.supabase.storage
       },
       cloudinary: {
-        configured: !!process.env.VITE_CLOUDINARY_CLOUD_NAME
+        configured: !!(process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME)
       },
       paymentGateways: {
         mtnMoMo: !!process.env.MTN_MOMO_API_KEY,
-        airtelMoney: !!process.env.AIRTEL_MONEY_CLIENT_ID,
+        airtelMoney: !!(process.env.AIRTEL_CLIENT_ID || process.env.AIRTEL_MONEY_API_KEY),
         stripe: !!process.env.STRIPE_SECRET_KEY
       },
-      system: {
-        platform: process.platform,
-        nodeVersion: process.version,
-        memoryUsage: process.memoryUsage(),
-        cpuLoadSimulated: Math.floor(Math.random() * 20) + 5
-      },
-      backupStatus: {
-        exists: !!mockDbStats,
-        lastBackup: mockDbStats ? mockDbStats.mtime : null,
-        sizeBytes: mockDbStats ? mockDbStats.size : 0
-      }
+      system: snapshot.system,
+      apiMetrics: snapshot.api
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/diagnostics/run-e2e", async (req, res) => {
+app.get("/api/metrics", authenticate, checkRole('master'), async (_req, res) => {
+  try {
+    const snapshot = await monitoringService.getSnapshot();
+    res.json({ success: true, ...snapshot });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/diagnostics/run-e2e", authenticate, checkRole('master'), async (_req, res) => {
   const logs: string[] = [];
   let status: "SUCCESS" | "FAILED" = "SUCCESS";
 
@@ -248,56 +236,54 @@ app.post("/api/diagnostics/run-e2e", async (req, res) => {
   };
 
   try {
-    log("🚀 Launching Paytune E2E Automated Verification Cycle...");
-    
-    log("⏳ STEP 1: Inspecting Database Layer...");
-    const store = getDbStore();
-    if (!store) {
-      throw new Error("Local mock store missing or uninitialized.");
-    }
-    log(`✅ DB initialized. Current status contains: ${Object.keys(store).length} tables loaded.`);
-    
-    log("⏳ STEP 2: Auditing System User Profiles registry...");
-    const profiles = store.profiles || [];
-    log(`✅ Found ${profiles.length} registered profiles.`);
-    
-    log("⏳ STEP 3: Simulating Media Quality & HLS Transcoding Pipeline...");
-    log("🎬 Feeding raw input horizontal video parameters...");
-    log("📦 Transcoding horizontal frame to HLS stream .m3u8 format with qualities: 360p, 720p, 1080p...");
-    log("✂️ Extracting 30-second paywall preview slice...");
-    log("✅ HLS video segment chunking & CDN replication simulated successfully!");
+    log("Launching PayTune Real End-to-End Infrastructure Verification...");
 
-    log("⏳ STEP 4: Verifying automated Peer-to-Peer MTN MoMo payout split math...");
-    const samplePrice = 10000; 
-    const VAT = Math.round(samplePrice * 0.05); 
-    const net = samplePrice - VAT;
-    const artistRaw = net * 0.7;
-    const platformRaw = net * 0.3;
-    const artistPayout = Math.round(artistRaw);
-    const platformRevenue = Math.round(platformRaw);
-    const doubleCheck = VAT + artistPayout + platformRevenue;
-    
-    log(`💵 Input video price: ${samplePrice} RWF`);
-    log(`🛡️ State regulated VAT deduction (5%): ${VAT} RWF`);
-    log(`💰 Payout Split calculations: Net is ${net} RWF`);
-    log(`   ├─ Artist share (70%): ${artistPayout} RWF`);
-    log(`   └─ Platform share (30%): ${platformRevenue} RWF`);
-    
-    if (doubleCheck !== samplePrice) {
-      const roundingError = samplePrice - doubleCheck;
-      log(`⚠️ Ledger warning: Rounding adjustment of ${roundingError} RWF required.`);
+    log("STEP 1: Probing Live Supabase PostgreSQL Connection & Schema...");
+    const dbHealth = await monitoringService.checkSupabaseHealth();
+    if (!dbHealth.configured || !dbHealth.connected) {
+      throw new Error(dbHealth.error || "Live Supabase PostgreSQL probe failed.");
+    }
+    log(`Connected to Supabase project '${dbHealth.projectId}' in ${dbHealth.latencyMs}ms.`);
+    for (const [table, info] of Object.entries(dbHealth.tables)) {
+      log(`   - table '${table}': ${info.ok ? `OK (${info.count ?? 0} rows)` : `WARN (${info.error})`}`);
+    }
+
+    log("STEP 2: Verifying Supabase Object Storage Buckets...");
+    if (dbHealth.storage.ok) {
+      log(`Storage online. Active buckets: ${dbHealth.storage.buckets.join(", ") || "none"}`);
     } else {
-      log(`✅ Ledger verified. Balanced arithmetic holds perfect!`);
+      log(`Storage check warning: ${dbHealth.storage.error}`);
     }
 
-    log("⏳ STEP 5: Testing WebSocket real-time chat payload handshake...");
-    log("💬 User post comment request simulated on video stream channel SEC-2026");
-    log("✅ Dispatch and broadcast completed safely with 0ms delivery lag.");
+    log("STEP 3: Verifying High-Speed Cache Service Roundtrip...");
+    const cacheTestKey = `paytune:diag:${Date.now()}`;
+    await cacheService.set(cacheTestKey, { ok: true }, 15);
+    const cacheRead = await cacheService.get<{ ok: boolean }>(cacheTestKey);
+    await cacheService.del(cacheTestKey);
+    if (!cacheRead?.ok) {
+      throw new Error("Cache read/write roundtrip failed.");
+    }
+    log("Cache read/write/invalidate verified successfully.");
 
-    log("🎉 Paytune End-to-End Automated Testing Complete!");
+    log("STEP 4: Verifying Automated Financial Ledger Split Arithmetic (5% VAT + 70/30)...");
+    const samplePrice = 10000;
+    const VAT = Math.round(samplePrice * 0.05);
+    const net = samplePrice - VAT;
+    const artistPayout = Math.round(net * 0.7);
+    const platformRevenue = net - artistPayout;
+    const doubleCheck = VAT + artistPayout + platformRevenue;
+    log(`Sample Amount: ${samplePrice} RWF | VAT (5%): ${VAT} RWF | Artist (70% net): ${artistPayout} RWF | Platform: ${platformRevenue} RWF`);
+    if (doubleCheck !== samplePrice) {
+      throw new Error(`Ledger arithmetic mismatch: ${doubleCheck} !== ${samplePrice}`);
+    }
+    log("Double-entry ledger split balance verified.");
+
+    const apiMetrics = monitoringService.getApiMetrics();
+    log(`STEP 5: API Telemetry Summary — Requests: ${apiMetrics.totalRequests}, Avg Latency: ${apiMetrics.avgLatencyMs}ms, p95: ${apiMetrics.p95LatencyMs}ms, Error Rate: ${apiMetrics.errorRatePercent}%`);
+    log("End-to-End Verification Completed Successfully.");
   } catch (err: any) {
     status = "FAILED";
-    log(`❌ ERROR ENCOUNTERED: ${err.message}`);
+    log(`ERROR: ${err.message}`);
   }
 
   res.json({
@@ -307,80 +293,86 @@ app.post("/api/diagnostics/run-e2e", async (req, res) => {
   });
 });
 
-app.get("/api/diagnostics/backup-db", (req, res) => {
+app.get("/api/diagnostics/backup-db", authenticate, checkRole('master'), async (_req, res) => {
   try {
-    const data = getDbStore();
+    const snapshot = await monitoringService.getSnapshot();
     res.setHeader("Content-Type", "application/json");
-    res.setHeader("Content-Disposition", "attachment; filename=paytune_backup.json");
-    res.send(JSON.stringify(data, null, 2));
+    res.setHeader("Content-Disposition", "attachment; filename=paytune_db_diagnostics.json");
+    res.send(JSON.stringify({
+      exported_at: new Date().toISOString(),
+      engine: "postgresql-supabase",
+      projectId: supabaseProjectInfo.projectId,
+      tables: snapshot.supabase.tables,
+      storage: snapshot.supabase.storage
+    }, null, 2));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/diagnostics/restore-db", (req, res) => {
-  try {
-    const data = req.body;
-    if (data && typeof data === "object") {
-      setDbStore(data);
-      fs.writeFileSync(MOCK_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-
-      res.json({ success: true, message: "Database state restored successfully!" });
-    } else {
-      res.status(400).json({ error: "Invalid backup JSON data payload" });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+app.post("/api/diagnostics/restore-db", authenticate, checkRole('master'), (_req, res) => {
+  return res.status(410).json({
+    error: "Local JSON snapshot restore is disabled. PAYTUNE operates directly against PostgreSQL/Supabase."
+  });
 });
 
 // Check configuration on all /api routes except health
 app.use("/api/*", (req, res, next) => {
   if (req.originalUrl === "/api/health") return next();
   if (!isSupabaseConfigured()) {
-    return res.status(503).json({ 
-      error: "Service Not Configured", 
-      message: "Please configure Supabase environment variables in the Settings menu." 
+    return res.status(503).json({
+      error: "Service Not Configured",
+      message: "Please configure Supabase environment variables in the Settings menu."
     });
   }
   next();
 });
 
-// --- Mock DB Sync Endpoint ---
-app.get("/api/mock-db", (req, res) => {
-  try {
-    res.json(getDbStore());
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/mock-db", (req, res) => {
-  try {
-    const data = req.body;
-    if (data && typeof data === 'object') {
-      setDbStore(data);
-      fs.writeFileSync(MOCK_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-
-      res.json({ success: true });
-    } else {
-      res.status(400).json({ error: "Invalid database payload" });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- Public Routes ---
 app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
-app.get("/api/health", (req, res) => res.json({ status: "ok", app: "PAYTUNE" }));
+app.get("/api/health", async (_req, res) => {
+  try {
+    const dbHealth = await monitoringService.checkSupabaseHealth();
+    const sys = monitoringService.getSystemMetrics();
+    return res.json({
+      status: dbHealth.connected ? "ok" : "degraded",
+      app: "PAYTUNE",
+      engine: "postgresql-supabase",
+      projectId: dbHealth.projectId,
+      database: {
+        connected: dbHealth.connected,
+        latencyMs: dbHealth.latencyMs,
+      },
+      storage: dbHealth.storage,
+      uptimeSeconds: sys.uptimeSeconds,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: "error", app: "PAYTUNE", error: err?.message });
+  }
+});
 
 // Geo and Country Detection (Country-based phone input and payout routing)
 app.get("/api/detect-country", async (req, res) => {
   try {
     const geo = await detectCountryFromRequest(req);
-    const countryCode = (geo.country_code || "RW").toUpperCase();
+    if (!geo.is_detected || !geo.country_code) {
+      return res.json({
+        success: true,
+        is_detected: false,
+        country_code: null,
+        currency_code: null,
+        country_name: null,
+        dial_code: null,
+        phone_code: null,
+        payment_gateway: null,
+        payout_provider: null,
+        city: null,
+        ip: geo.ip
+      });
+    }
 
+    const countryCode = geo.country_code.toUpperCase();
     const COUNTRY_INFO: Record<string, { dial_code: string; gateway: string; name: string; currency: string }> = {
       RW: { dial_code: "+250", gateway: "mtn_momo", name: "Rwanda", currency: "RWF" },
       TZ: { dial_code: "+255", gateway: "mpesa", name: "Tanzania", currency: "TZS" },
@@ -398,47 +390,38 @@ app.get("/api/detect-country", async (req, res) => {
       IN: { dial_code: "+91", gateway: "upi", name: "India", currency: "INR" }
     };
 
-    const details = COUNTRY_INFO[countryCode] || {
-      dial_code: "+250",
-      gateway: "mtn_momo",
-      name: geo.country_name || "Rwanda",
-      currency: geo.currency_code || "RWF"
-    };
-
+    const details = COUNTRY_INFO[countryCode];
     return res.json({
       success: true,
+      is_detected: true,
       country_code: countryCode,
-      currency_code: details.currency,
-      country_name: details.name,
-      dial_code: details.dial_code,
-      phone_code: details.dial_code,
-      payment_gateway: details.gateway,
-      payout_provider: details.gateway === 'mtn_momo' ? 'MTN Mobile Money' : details.gateway === 'mpesa' ? 'M-Pesa' : details.gateway === 'paystack' ? 'Paystack' : details.gateway === 'upi' ? 'UPI' : 'Stripe',
+      currency_code: details?.currency || geo.currency_code || null,
+      country_name: details?.name || geo.country_name || countryCode,
+      dial_code: details?.dial_code || null,
+      phone_code: details?.dial_code || null,
+      payment_gateway: details?.gateway || "stripe",
+      payout_provider:
+        details?.gateway === "mtn_momo"
+          ? "MTN Mobile Money"
+          : details?.gateway === "mpesa"
+          ? "M-Pesa"
+          : details?.gateway === "paystack"
+          ? "Paystack"
+          : details?.gateway === "upi"
+          ? "UPI"
+          : "Stripe",
       city: geo.city || null,
-      ip: geo.ip,
-      is_detected: geo.is_detected
+      ip: geo.ip
     });
   } catch (err: any) {
-    return res.json({
-      success: true,
-      country_code: "RW",
-      currency_code: "RWF",
-      country_name: "Rwanda",
-      dial_code: "+250",
-      phone_code: "+250",
-      payment_gateway: "mtn_momo",
-      payout_provider: "MTN Mobile Money"
+    return res.status(500).json({
+      success: false,
+      is_detected: false,
+      error: err?.message || "Country detection failed"
     });
   }
 });
 app.use("/api/upload", uploadRouter);
-const resolvedArtistAuth = (artistAuthRoutes as any)?.default || artistAuthRoutes;
-app.use('/api/auth/artist', resolvedArtistAuth);
-app.use('/auth/artist', resolvedArtistAuth);
-const resolvedArtistDashboard = (artistDashboardRoutes as any)?.default || artistDashboardRoutes;
-app.use('/api/artist', resolvedArtistDashboard);
-const resolvedArtistUpload = (artistUploadRoutes as any)?.default || artistUploadRoutes;
-app.use('/api/artist', resolvedArtistUpload);
 app.use("/api/auth", authRouter);
 app.use("/api/payments", paymentRouter);
 app.use("/api/webhooks", webhookRouter);
@@ -449,8 +432,6 @@ app.use("/api/videos", videoRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/live", liveRouter);
 app.use("/api/artist/live", artistLiveRouter);
-const resolvedExchangeRoutes = (exchangeRoutes as any)?.default || exchangeRoutes;
-app.use("/api/exchange-rates", resolvedExchangeRoutes);
 app.use("/api/ads", adRouter);
 app.use("/api/admin/ads", adRouter);
 app.use("/api/shorts", shortsRouter);
@@ -464,6 +445,7 @@ app.use("/functions/v1", edgeFunctionRoutes);
 app.use("/api/access-requests", accessRequestRouter);
 app.use("/api/partner-program", partnerProgramRouter);
 app.use("/api", partnerProgramRouter);
+app.use("/api/music", musicRouter);
 
 // --- User Dashboard API Endpoints ---
 app.use("/api/user/playlists", playlistRouter);
@@ -476,6 +458,7 @@ app.use("/api/user", userRouter);
 
 // --- Artist Dashboard Routes ---
 app.use("/api/artist", artistVideoRoutes);
+app.use("/api/artist/upload", uploadRouter);
 app.use("/api/artist", artistStudioRouter);
 app.get("/api/artist/:artistId/dashboard", artistStudioRouter);
 
@@ -489,14 +472,20 @@ app.post("/api/artist/short/upload", authenticate, checkRole('artist'), upload.f
   }
 
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
+    const { data: artistProfile } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id')
+      .or(`primary_contact_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (!channel) {
+      return res.status(404).json({ error: "Creator channel not found" });
     }
 
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -510,39 +499,69 @@ app.post("/api/artist/short/upload", authenticate, checkRole('artist'), upload.f
       videoBuffer: videoFile.buffer,
       thumbnailBuffer: thumbFile ? thumbFile.buffer : null,
       originalName: videoFile.originalname,
-      artistId: artist.id,
+      artistId: artistProfile?.id || channel.id,
       metadata: { is_short: true }
     });
 
+    const sourceMediaId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const fileExt = path.extname(videoFile.originalname || 'short.mp4').replace('.', '').slice(0, 16) || 'mp4';
+    await supabaseAdmin.from('media_assets').insert({
+      id: sourceMediaId,
+      owner_user_id: user.id,
+      uploaded_by_user_id: user.id,
+      original_file_name: videoFile.originalname || `short-${sourceMediaId.slice(0, 8)}.mp4`,
+      file_extension: fileExt,
+      mime_type: videoFile.mimetype || 'video/mp4',
+      media_kind: 'video',
+      media_purpose: 'short_source',
+      storage_provider: 'supabase',
+      storage_bucket: 'videos',
+      storage_path: processed.video_url,
+      processing_status: 'ready',
+      metadata: { public_url: processed.video_url },
+      created_at: now,
+      updated_at: now
+    });
+
+    const shortId = crypto.randomUUID();
     const { data: video, error } = await supabaseAdmin
       .from('videos')
       .insert({
-        artist_id: artist.id,
+        id: shortId,
+        creator_channel_id: channel.id,
+        artist_profile_id: artistProfile?.id || null,
+        created_by_user_id: user.id,
+        video_type: 'short',
         title: title || "New Short",
         description: description || "",
-        video_url: processed.video_url,
-        preview_url: processed.preview_url,
-        thumbnail_url: processed.thumbnail_url,
-        category: "Shorts",
-        duration: processed.duration,
-        is_free: true,
-        price_rwf: null,
-        price_usd: null,
-        is_short: true,
+        slug: `short-${shortId.slice(0, 8)}`,
+        duration_seconds: processed.duration || 0,
+        source_media_asset_id: sourceMediaId,
         visibility: visibility || 'public',
-        is_approved: true
+        publication_status: 'published',
+        processing_status: 'completed',
+        moderation_status: 'approved',
+        is_free: true,
+        is_paywalled: false,
+        published_at: now,
+        metadata: {
+          video_url: processed.video_url,
+          preview_url: processed.preview_url,
+          thumbnail_url: processed.thumbnail_url
+        },
+        created_at: now,
+        updated_at: now
       })
       .select()
       .single();
 
     if (error) {
-      console.error("Short upload insert error:", error);
-      return res.status(500).json({ error: "Failed to save Shorts details." });
+      return res.status(500).json({ error: "Failed to save Short details." });
     }
 
     res.json(video);
   } catch (err: any) {
-    console.error("Short upload error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -554,22 +573,22 @@ app.get("/api/artist/shorts", authenticate, checkRole('artist'), async (req: any
   }
 
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) {
+      return res.status(404).json({ error: "Creator channel not found" });
     }
 
     const { data, error } = await supabaseAdmin
       .from('videos')
       .select('*')
-      .eq('artist_id', artist.id)
-      .eq('category', 'Shorts')
-      .order('uploaded_at', { ascending: false });
+      .eq('creator_channel_id', channel.id)
+      .eq('video_type', 'short')
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     res.json(data || []);
@@ -586,23 +605,23 @@ app.delete("/api/artist/short/:id", authenticate, checkRole('artist'), async (re
   }
 
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) {
+      return res.status(404).json({ error: "Creator channel not found" });
     }
 
     const { data: video } = await supabaseAdmin
       .from('videos')
-      .select('artist_id')
+      .select('creator_channel_id, created_by_user_id')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
-    if (!video || video.artist_id !== artist.id) {
+    if (!video || (video.creator_channel_id !== channel.id && video.created_by_user_id !== user.id)) {
       return res.status(403).json({ error: "Unauthorized access" });
     }
 
@@ -613,102 +632,6 @@ app.delete("/api/artist/short/:id", authenticate, checkRole('artist'), async (re
 
     if (error) throw error;
     res.json({ success: true, message: "Short deleted successfully." });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/shorts/feed", optionalAuthenticate, async (req: any, res: any) => {
-  if (!isSupabaseConfigured()) {
-    return res.status(503).json({ error: "Supabase not configured." });
-  }
-
-  const limitParam = Number(req.query.limit || 10);
-  const offsetParam = Number(req.query.offset || 0);
-
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('videos')
-      .select('*, artists(full_name, id)')
-      .eq('category', 'Shorts')
-      .eq('is_active', true)
-      .eq('is_approved', true)
-      .order('uploaded_at', { ascending: false })
-      .range(offsetParam, offsetParam + limitParam - 1);
-
-    if (error) throw error;
-
-    const formattedFeed = (data || []).map(v => ({
-      id: v.id,
-      title: v.title,
-      artist_name: v.artists?.full_name || "Unknown Artist",
-      artist_id: v.artist_id,
-      thumbnail_url: v.thumbnail_url,
-      video_url: v.video_url,
-      views: v.views || 0,
-      likes: v.likes || 0,
-      created_at: v.uploaded_at
-    }));
-
-    res.json(formattedFeed);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/shorts/:id/like", authenticate, async (req: any, res: any) => {
-  const { id } = req.params;
-  const user = req.user;
-  try {
-    const { data: existing } = await supabaseAdmin
-      .from('user_likes')
-      .select('*')
-      .eq('video_id', id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    const { data: video } = await supabaseAdmin.from('videos').select('likes').eq('id', id).single();
-    let likes = video?.likes || 0;
-
-    if (existing) {
-      await supabaseAdmin.from('user_likes').delete().eq('id', existing.id);
-      likes = Math.max(0, likes - 1);
-      await supabaseAdmin.from('videos').update({ likes }).eq('id', id);
-      return res.json({ liked: false, likes });
-    } else {
-      await supabaseAdmin.from('user_likes').insert({ video_id: id, user_id: user.id });
-      likes = likes + 1;
-      await supabaseAdmin.from('videos').update({ likes }).eq('id', id);
-      return res.json({ liked: true, likes });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/shorts/:id/view", optionalAuthenticate, async (req: any, res: any) => {
-  const { id } = req.params;
-  const user = req.user;
-  const { watched_seconds, completed, device_type, country } = req.body;
-
-  try {
-    const { data: video } = await supabaseAdmin.from('videos').select('views').eq('id', id).single();
-    if (!video) {
-       return res.status(404).json({ error: "Short not found" });
-    }
-    const views = (video.views || 0) + 1;
-    await supabaseAdmin.from('videos').update({ views }).eq('id', id);
-
-    await supabaseAdmin.from('shorts_analytics').insert({
-      short_id: id,
-      user_id: user?.id || null,
-      watched_seconds: Number(watched_seconds || 0),
-      completed: completed === true || completed === 'true',
-      device_type: device_type || 'web',
-      country: country || 'RW'
-    });
-
-    res.json({ success: true, views });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -736,80 +659,79 @@ app.post("/api/purchase/initiate", authenticate, async (req, res) => {
 
 // --- Settings & Profile Routes ---
 
-// User Profile & Preferences
 app.get("/api/user/settings", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
-     const { data, error } = await supabaseAdmin
-       .from('profiles')
-       .select('*')
-       .eq('id', user.id)
-       .single();
-     
-     if (error || !data) {
-       const defaultProfile = {
-         id: user.id,
-         email: user.email,
-         full_name: user.user_metadata?.full_name || "Platform Fan",
-         username: user.email?.split('@')[0] || "user",
-         phone: "",
-         saved_payment_phones: [],
-         notification_pref_upload: true,
-       };
-       return res.json(defaultProfile);
-     }
-     res.json(data);
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: "User profile not found" });
+    }
+    res.json({ ...data, full_name: data.display_name || user.user_metadata?.full_name || "" });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.put("/api/user/settings", authenticate, async (req, res) => {
   const user = (req as any).user;
-  const { full_name, email, phone, saved_payment_phones, notification_pref_upload } = req.body;
+  const { full_name, display_name, username, bio } = req.body;
   try {
-     const { data, error } = await supabaseAdmin
-       .from('profiles')
-       .upsert({
-         id: user.id,
-         full_name,
-         email,
-         phone,
-         saved_payment_phones: saved_payment_phones || [],
-         notification_pref_upload: notification_pref_upload !== false,
-         updated_at: new Date().toISOString()
-       })
-       .select()
-       .single();
-     
-     if (error) throw error;
-     res.json({ success: true, profile: data });
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .upsert(
+        {
+          user_id: user.id,
+          display_name: display_name || full_name || null,
+          username: username || null,
+          bio: bio || null,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, profile: { ...data, full_name: data.display_name || "" } });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Change Password Handler
 app.post("/api/user/change-password", authenticate, async (req, res) => {
-  const { password } = req.body;
+  const user = (req as any).user;
+  const nextPassword = String(req.body?.newPassword || req.body?.password || "");
+  if (!nextPassword || nextPassword.length < 6) {
+    return res.status(400).json({ error: "New password must be at least 6 characters." });
+  }
   try {
-     // Trigger simulated or auth service updates safely
-     const { error } = await supabaseAdmin.auth.updateUser({ password });
-     if (error) throw error;
-     res.json({ success: true, message: "Password updated successfully!" });
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, { password: nextPassword });
+    if (error) throw error;
+    res.json({ success: true, message: "Password updated successfully!" });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Delete Account Handler
 app.post("/api/user/delete-account", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
-     await supabaseAdmin.from('profiles').delete().eq('id', user.id);
-     res.json({ success: true, message: "Account deleted successfully!" });
+    await supabaseAdmin
+      .from('account_deletion_requests')
+      .insert({
+        user_id: user.id,
+        status: 'requested',
+        requested_at: new Date().toISOString()
+      });
+    res.json({ success: true, message: "Account deletion request submitted." });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -817,155 +739,48 @@ app.post("/api/user/delete-account", authenticate, async (req, res) => {
 app.get("/api/artist/settings", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
-     const { data, error } = await supabaseAdmin
-       .from('artists')
-       .select('*')
-       .eq('user_id', user.id)
-       .single();
-     
-     if (error) throw error;
-     res.json(data);
+    const { data: artist, error } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('*')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    res.json(artist);
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.put("/api/artist/settings", authenticate, async (req, res) => {
   const user = (req as any).user;
-  const { full_name, bio, profile_image, phone, momo_code, momo_provider, active_notifications } = req.body;
+  const { full_name, artist_name, bio, profile_image, avatar_path } = req.body;
   try {
-     const { data: currentArtist } = await supabaseAdmin
-       .from('artists')
-       .select('phone, momo_code, is_approved')
-       .eq('user_id', user.id)
-       .single();
+    const { data: currentArtist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-     let isApproved = currentArtist?.is_approved;
-     if (currentArtist && (currentArtist.momo_code !== momo_code || currentArtist.phone !== phone)) {
-       isApproved = false; // requires prompt re-approval
-     }
+    if (!currentArtist) return res.status(404).json({ error: "Artist profile not found" });
 
-     const { data, error } = await supabaseAdmin
-       .from('artists')
-       .update({
-         full_name,
-         bio,
-         profile_image,
-         phone,
-         momo_code,
-         momo_provider,
-         is_approved: isApproved,
-         active_notifications: active_notifications || { purchase: true, subscriber: true, comment: true, payout: true },
-         updated_at: new Date().toISOString()
-       })
-       .eq('user_id', user.id)
-       .select()
-       .single();
-     
-     if (error) throw error;
-     res.json({ 
-       success: true, 
-       artist: data, 
-       requiresReapproval: isApproved === false && currentArtist?.is_approved === true 
-     });
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    if (artist_name || full_name) updatePayload.artist_name = artist_name || full_name;
+    if (bio !== undefined) updatePayload.bio_en = bio;
+    if (avatar_path || profile_image) updatePayload.avatar_path = avatar_path || profile_image;
+
+    const { data, error } = await supabaseAdmin
+      .from('artist_profiles')
+      .update(updatePayload)
+      .eq('id', currentArtist.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, artist: { ...data, bio: data.bio_en || "" } });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Interactive Comments API ---
-app.get("/api/videos/:id/comments", optionalAuthenticate, async (req, res) => {
-  const { id } = req.params;
-  try {
-     const { data: comments, error } = await supabaseAdmin
-       .from('user_comments')
-       .select('*, profiles(id, full_name, username)')
-       .eq('video_id', id)
-       .order('created_at', { ascending: false });
-
-     if (error) throw error;
-     res.json(comments || []);
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/videos/:id/comments", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  const { comment_text, parent_comment_id } = req.body;
-
-  try {
-     if (!comment_text || comment_text.trim() === "") {
-       return res.status(400).json({ error: "Comment text cannot be empty." });
-     }
-
-     const { data: comment, error } = await supabaseAdmin
-       .from('user_comments')
-       .insert({
-         video_id: id,
-         user_id: user.id,
-         comment_text,
-         parent_comment_id: parent_comment_id || null,
-         created_at: new Date().toISOString()
-       })
-       .select('*, profiles(id, full_name, username)')
-       .single();
-
-     if (error) throw error;
-     res.json(comment);
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.delete("/api/comments/:id", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  try {
-     const { data: comment, error: commentError } = await supabaseAdmin
-       .from('user_comments')
-       .select('*, videos(artist_id)')
-       .eq('id', id)
-       .single();
-
-     if (commentError || !comment) {
-       return res.status(404).json({ error: "Comment not found" });
-     }
-
-     let isAuthorized = comment.user_id === user.id;
-
-     if (!isAuthorized) {
-       const { data: artistRecord } = await supabaseAdmin
-         .from('artists')
-         .select('id')
-         .eq('user_id', user.id)
-         .single();
-       
-       if (artistRecord && comment.videos?.artist_id === artistRecord.id) {
-         isAuthorized = true;
-       }
-     }
-
-     if (!isAuthorized) {
-       if (user.role === 'master' || (user.user_metadata && user.user_metadata.role === 'master')) {
-         isAuthorized = true;
-       }
-     }
-
-     if (!isAuthorized) {
-       return res.status(403).json({ error: "Unauthorized to delete this comment." });
-     }
-
-     const { error: deleteError } = await supabaseAdmin
-       .from('user_comments')
-       .delete()
-       .eq('id', id);
-
-     if (deleteError) throw deleteError;
-     res.json({ success: true, message: "Comment deleted successfully." });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -975,131 +790,46 @@ app.get("/api/videos/:id/like-status", optionalAuthenticate, async (req, res) =>
   const user = (req as any).user;
   if (!user) return res.json({ liked: false });
   try {
-     const { data, error } = await supabaseAdmin
-       .from('user_likes')
-       .select('*')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-     
-     res.json({ liked: !!data });
+    const { data } = await supabaseAdmin
+      .from('content_reactions')
+      .select('id')
+      .eq('content_type', 'video')
+      .eq('content_id', id)
+      .eq('user_id', user.id)
+      .eq('reaction_type', 'like')
+      .maybeSingle();
+
+    res.json({ liked: !!data });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/videos/:id/like", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  try {
-     const { data: existing } = await supabaseAdmin
-       .from('user_likes')
-       .select('*')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-
-     const { data: video } = await supabaseAdmin.from('videos').select('likes').eq('id', id).single();
-     let likes = video?.likes || 0;
-
-     if (existing) {
-       await supabaseAdmin.from('user_likes').delete().eq('id', existing.id);
-       likes = Math.max(0, likes - 1);
-       await supabaseAdmin.from('videos').update({ likes }).eq('id', id);
-       return res.json({ liked: false, likes });
-     } else {
-       await supabaseAdmin.from('user_likes').insert({ video_id: id, user_id: user.id });
-       likes = likes + 1;
-       await supabaseAdmin.from('videos').update({ likes }).eq('id', id);
-       return res.json({ liked: true, likes });
-     }
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Video Ratings API (1-5 Stars) ---
-app.get("/api/videos/:id/rate-status", optionalAuthenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  if (!user) return res.json({ rating: 0 });
-  try {
-     const { data } = await supabaseAdmin
-       .from('user_ratings')
-       .select('rating')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-     
-     res.json({ rating: data?.rating || 0 });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/videos/:id/rate", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  const { rating } = req.body;
-
-  if (!rating || rating < 1 || rating > 5) {
-     return res.status(400).json({ error: "Rating must be between 1 and 5" });
-  }
-
-  try {
-     const { error: upsertError } = await supabaseAdmin
-       .from('user_ratings')
-       .upsert({
-         user_id: user.id,
-         video_id: id,
-         rating,
-         rated_at: new Date().toISOString()
-       }, { onConflict: 'user_id,video_id' });
-
-     if (upsertError) throw upsertError;
-
-     const { data: ratings, error: ratingsError } = await supabaseAdmin
-       .from('user_ratings')
-       .select('rating')
-       .eq('video_id', id);
-
-     if (ratingsError) throw ratingsError;
-
-     const count = ratings.length;
-     const avg = count > 0 ? ratings.reduce((acc, current) => acc + current.rating, 0) / count : 0;
-
-     const { error: videoUpdateError } = await supabaseAdmin
-       .from('videos')
-       .update({
-         rating_avg: Number(avg.toFixed(2)),
-         rating_count: count
-       })
-       .eq('id', id);
-
-     if (videoUpdateError) throw videoUpdateError;
-
-     res.json({ success: true, rating, rating_avg: avg, rating_count: count });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Video Wishlist API ---
+// --- Video Wishlist API (backed by user's Wishlist playlist) ---
 app.get("/api/videos/:id/wishlist-status", optionalAuthenticate, async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
   if (!user) return res.json({ inWishlist: false });
   try {
-     const { data } = await supabaseAdmin
-       .from('wishlist')
-       .select('*')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-     
-     res.json({ inWishlist: !!data });
+    const { data: list } = await supabaseAdmin
+      .from('playlists')
+      .select('id')
+      .eq('owner_user_id', user.id)
+      .eq('title', 'Wishlist')
+      .maybeSingle();
+
+    if (!list) return res.json({ inWishlist: false });
+
+    const { data: item } = await supabaseAdmin
+      .from('playlist_items')
+      .select('id')
+      .eq('playlist_id', list.id)
+      .eq('content_id', id)
+      .maybeSingle();
+
+    res.json({ inWishlist: !!item });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1107,41 +837,100 @@ app.post("/api/videos/:id/wishlist", authenticate, async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
   try {
-     const { data: existing } = await supabaseAdmin
-       .from('wishlist')
-       .select('*')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
+    let { data: list } = await supabaseAdmin
+      .from('playlists')
+      .select('id')
+      .eq('owner_user_id', user.id)
+      .eq('playlist_type', 'system')
+      .eq('title', 'Wishlist')
+      .maybeSingle();
 
-     if (existing) {
-       await supabaseAdmin.from('wishlist').delete().eq('id', existing.id);
-       return res.json({ inWishlist: false });
-     } else {
-       await supabaseAdmin.from('wishlist').insert({ video_id: id, user_id: user.id });
-       return res.json({ inWishlist: true });
-     }
+    if (!list) {
+      const { data: legacyList } = await supabaseAdmin
+        .from('playlists')
+        .select('id')
+        .eq('owner_user_id', user.id)
+        .eq('title', 'Wishlist')
+        .maybeSingle();
+      list = legacyList;
+    }
+
+    if (!list) {
+      const { data: created, error: createErr } = await supabaseAdmin
+        .from('playlists')
+        .insert({
+          owner_user_id: user.id,
+          playlist_type: 'system',
+          is_system_playlist: true,
+          title: 'Wishlist',
+          description: 'Saved Watch Later videos',
+          visibility: 'private'
+        })
+        .select('id')
+        .single();
+      if (createErr) throw createErr;
+      list = created;
+    }
+
+    const { data: existing } = await supabaseAdmin
+      .from('playlist_items')
+      .select('id')
+      .eq('playlist_id', list.id)
+      .eq('content_id', id)
+      .maybeSingle();
+
+    let inWishlist = false;
+    if (existing) {
+      await supabaseAdmin.from('playlist_items').delete().eq('id', existing.id);
+      inWishlist = false;
+    } else {
+      const { count: currentCount } = await supabaseAdmin
+        .from('playlist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('playlist_id', list.id);
+
+      await supabaseAdmin.from('playlist_items').insert({
+        playlist_id: list.id,
+        content_type: 'video',
+        content_id: id,
+        position: currentCount || 0,
+        added_by_user_id: user.id
+      });
+      inWishlist = true;
+    }
+
+    const { count: updatedCount } = await supabaseAdmin
+      .from('playlist_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('playlist_id', list.id);
+
+    await supabaseAdmin
+      .from('playlists')
+      .update({ items_count: updatedCount || 0, updated_at: new Date().toISOString() })
+      .eq('id', list.id);
+
+    return res.json({ inWishlist });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// --- Artist Subscriptions API ---
+// --- Artist Subscriptions / Follows API ---
 app.get("/api/artist/:id/subscribe-status", optionalAuthenticate, async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
   if (!user) return res.json({ subscribed: false });
   try {
-     const { data } = await supabaseAdmin
-       .from('subscriptions')
-       .select('*')
-       .eq('artist_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-     
-     res.json({ subscribed: !!data });
+    const { data } = await supabaseAdmin
+      .from('artist_follows')
+      .select('id')
+      .eq('artist_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    res.json({ subscribed: !!data });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1149,376 +938,113 @@ app.post("/api/artist/:id/subscribe", authenticate, async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
   try {
-     const { data: existing } = await supabaseAdmin
-       .from('subscriptions')
-       .select('*')
-       .eq('artist_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
+    const { data: existing } = await supabaseAdmin
+      .from('artist_follows')
+      .select('id')
+      .eq('artist_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-     if (existing) {
-       await supabaseAdmin.from('subscriptions').delete().eq('id', existing.id);
-       return res.json({ subscribed: false });
-     } else {
-       await supabaseAdmin.from('subscriptions').insert({ artist_id: id, user_id: user.id });
-       return res.json({ subscribed: true });
-     }
+    if (existing) {
+      await supabaseAdmin
+        .from('artist_follows')
+        .delete()
+        .eq('artist_id', id)
+        .eq('user_id', user.id);
+      return res.json({ subscribed: false });
+    } else {
+      await supabaseAdmin
+        .from('artist_follows')
+        .insert({ artist_id: id, user_id: user.id });
+      return res.json({ subscribed: true });
+    }
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Playlists API handled by playlistRouter mounted at /api/user/playlists ---
-
-// --- Gifting API ---
-app.post("/api/videos/:id/gift", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  const { recipient_email, message, phone, provider } = req.body;
-
-  if (!recipient_email || !recipient_email.includes('@')) {
-     return res.status(400).json({ error: "Valid recipient email is required." });
-  }
-
-  try {
-     const { data: video } = await supabaseAdmin.from('videos').select('*').eq('id', id).single();
-     if (!video) return res.status(404).json({ error: "Video not found" });
-
-     const transactionId = `GIFT-${user.id.slice(0,4).toUpperCase()}-${Date.now()}`;
-     const price = Number(video.price_rwf || 0);
-     const vat = Number((price * 0.05).toFixed(2));
-     const after_vat = price - vat;
-     const artist_share = Number((after_vat * 0.70).toFixed(2));
-     const owner_share = Number((after_vat * 0.30).toFixed(2));
-
-     const { error: purchaseErr } = await supabaseAdmin
-       .from('purchases')
-       .insert({
-         user_id: user.id,
-         video_id: id,
-         payment_phone: phone || "0788000000",
-         amount_paid: price,
-         vat_amount: vat,
-         after_vat: after_vat,
-         artist_share: artist_share,
-         owner_share: owner_share,
-         transaction_id: transactionId,
-         payment_method: provider || "MTN",
-         receipt_number: `REC-GFT-${Date.now()}`
-       });
-
-     if (purchaseErr) throw purchaseErr;
-
-     const { data: gift, error: giftError } = await supabaseAdmin
-       .from('gifts')
-       .insert({
-         sender_id: user.id,
-         recipient_email,
-         video_id: id,
-         message: message || "A special gift for you!",
-         created_at: new Date().toISOString()
-       })
-       .select()
-       .single();
-
-     if (giftError) throw giftError;
-
-     const { data: recipientProfile } = await supabaseAdmin
-       .from('profiles')
-       .select('id')
-       .eq('email', recipient_email)
-       .maybeSingle();
-
-     if (recipientProfile) {
-       await supabaseAdmin.from('notifications').insert({
-         user_id: recipientProfile.id,
-         type: 'gift_received',
-         title: 'You Received a Gift Video!',
-         message: `${user.user_metadata?.full_name || 'A friend'} purchased a lifetime premium video of "${video.title}" for you!`,
-         related_id: gift.id
-       });
-     }
-
-     res.json({ success: true, gift, transactionId });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/user/gifts", authenticate, async (req, res) => {
-  const user = (req as any).user;
-  try {
-     const { data, error } = await supabaseAdmin
-       .from('gifts')
-       .select('*, sender_id, videos(*, artists(full_name))')
-       .eq('recipient_email', user.email);
-
-     if (error) throw error;
-     res.json(data || []);
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/gifts/:giftId/claim", authenticate, async (req, res) => {
-  const { giftId } = req.params;
-  const user = (req as any).user;
-  try {
-     const { data: gift, error: giftError } = await supabaseAdmin
-       .from('gifts')
-       .select('*, videos(*)')
-       .eq('id', giftId)
-       .single();
-
-     if (giftError || !gift) {
-       return res.status(404).json({ error: "Gift not found" });
-     }
-
-     if (gift.recipient_email !== user.email) {
-       return res.status(403).json({ error: "This gift was sent to a different email address." });
-     }
-
-     if (gift.claimed_at) {
-       return res.status(451).json({ error: "This gift has already been claimed." });
-     }
-
-     const { error: purchaseErr } = await supabaseAdmin
-       .from('purchases')
-       .insert({
-         user_id: user.id,
-         video_id: gift.video_id,
-         payment_phone: "GIFT-CLAIMED",
-         amount_paid: 0,
-         vat_amount: 0,
-         after_vat: 0,
-         artist_share: 0,
-         owner_share: 0,
-         transaction_id: `CLAIMED-${giftId.slice(0,6).toUpperCase()}-${Date.now()}`,
-         payment_method: "GIFT-CLAIM",
-         receipt_number: `REC-CLM-${Date.now()}`,
-         purchased_at: new Date().toISOString()
-       });
-
-     if (purchaseErr) throw purchaseErr;
-
-     const { error: updateError } = await supabaseAdmin
-       .from('gifts')
-       .update({ claimed_at: new Date().toISOString() })
-       .eq('id', giftId);
-
-     if (updateError) throw updateError;
-
-     await supabaseAdmin.from('notifications').insert({
-       user_id: gift.sender_id,
-       type: 'gift_claimed',
-       title: 'Your Gift was Claimed!',
-       message: `${user.user_metadata?.full_name || user.email} successfully claimed their gift video "${gift.videos?.title}"!`,
-       related_id: giftId
-     });
-
-     res.json({ success: true, message: "Gift successfully added to your life-time library." });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Watch Progress & History API ---
-app.get("/api/videos/:id/progress", optionalAuthenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  if (!user) return res.json({ position: 0 });
-  try {
-     const { data } = await supabaseAdmin
-       .from('watch_progress')
-       .select('position_seconds')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-     
-     res.json({ position: data?.position_seconds || 0 });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/videos/:id/progress", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  const { position, completed } = req.body;
-  try {
-     await supabaseAdmin
-       .from('watch_progress')
-       .upsert({
-         user_id: user.id,
-         video_id: id,
-         position_seconds: Math.floor(position || 0),
-         updated_at: new Date().toISOString()
-       }, { onConflict: 'user_id,video_id' });
-
-     const { data: existing } = await supabaseAdmin
-       .from('watch_history')
-       .select('*')
-       .eq('video_id', id)
-       .eq('user_id', user.id)
-       .maybeSingle();
-
-     if (existing) {
-       await supabaseAdmin
-         .from('watch_history')
-         .update({
-           position_seconds: Math.floor(position || 0),
-           completed: !!completed,
-           last_watched_at: new Date().toISOString()
-         })
-         .eq('id', existing.id);
-     } else {
-       await supabaseAdmin
-         .from('watch_history')
-         .insert({
-           user_id: user.id,
-           video_id: id,
-           position_seconds: Math.floor(position || 0),
-           completed: !!completed,
-           last_watched_at: new Date().toISOString()
-         });
-     }
-
-     res.json({ success: true });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Watch history handled by historyRouter mounted at /api/user/history ---
-
-// Master Configuration Settlers
-app.get("/api/master/settings", authenticate, checkRole('master'), async (req, res) => {
-  try {
-     const { data, error } = await supabaseAdmin
-       .from('platform_settings')
-       .select('*')
-       .eq('id', 'platform-config')
-       .single();
-     
-     if (error || !data) {
-       const fallbackData = {
-         id: "platform-config",
-         platform_name: "PAYTUNE",
-         vat_percentage: 5,
-         commission_percentage: 30,
-         min_withdrawal: 5000,
-         momo_number: "1922331",
-         maintenance_mode: false,
-         welcome_template: "Welcome to PAYTUNE! Enjoy unlimited access to premium Rwandan music.",
-         receipt_template: "Thank you for supporting Rwandan artists. Your purchase is complete: {{video_title}}.",
-       };
-       return res.json(fallbackData);
-     }
-     res.json(data);
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
-  }
-});
-
-app.put("/api/master/settings", authenticate, checkRole('master'), async (req, res) => {
-  const { 
-     platform_name, 
-     vat_percentage, 
-     commission_percentage, 
-     min_withdrawal, 
-     momo_number, 
-     maintenance_mode, 
-     welcome_template, 
-     receipt_template 
-  } = req.body;
-  try {
-     const { data, error } = await supabaseAdmin
-       .from('platform_settings')
-       .upsert({
-         id: "platform-config",
-         platform_name,
-         vat_percentage: Number(vat_percentage || 5),
-         commission_percentage: Number(commission_percentage || 30),
-         min_withdrawal: Number(min_withdrawal || 5000),
-         momo_number: momo_number || "1922331",
-         maintenance_mode: !!maintenance_mode,
-         welcome_template: welcome_template || "",
-         receipt_template: receipt_template || "",
-         updated_at: new Date().toISOString()
-       })
-       .select()
-       .single();
-     
-     if (error) throw error;
-     res.json({ success: true, settings: data });
-  } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 // ==========================================
-// --- YouTube-Style Analytics APIs ---
+// --- Creator Analytics APIs ---
 // ==========================================
 
 app.get("/api/artist/analytics/overview", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
     const { data: artist } = await supabaseAdmin
-      .from('artists')
-      .select('id, total_earnings')
-      .eq('user_id', user.id)
+      .from('artist_profiles')
+      .select('id')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
       .maybeSingle();
 
-    if (!artist) {
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id')
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (!artist && !channel) {
       return res.status(403).json({ error: "Unauthorized. Artist profile required." });
     }
 
     const { data: videos } = await supabaseAdmin
       .from('videos')
-      .select('id, title, views, price_rwf')
-      .eq('artist_id', artist.id);
+      .select('id, title, metadata')
+      .or(
+        [
+          artist?.id ? `artist_profile_id.eq.${artist.id}` : '',
+          channel?.id ? `creator_channel_id.eq.${channel.id}` : ''
+        ]
+          .filter(Boolean)
+          .join(',')
+      );
 
-    const videoIds = videos?.map(v => v.id) || [];
-
+    const videoIds = (videos || []).map((v: any) => v.id);
     let analyticsRecords: any[] = [];
     if (videoIds.length > 0) {
       const { data: analytics } = await supabaseAdmin
-        .from('video_analytics')
+        .from('video_daily_analytics')
         .select('*')
         .in('video_id', videoIds);
       analyticsRecords = analytics || [];
     }
 
-    const totalViews = analyticsRecords.length || videos?.reduce((sum, v) => sum + (v.views || 0), 0) || 0;
-    const totalWatchTimeSeconds = analyticsRecords.reduce((sum, r) => sum + (r.watch_seconds || 0), 0);
+    const totalViews = analyticsRecords.reduce((sum, r) => sum + Number(r.valid_views || r.total_view_events || 0), 0);
+    const totalWatchTimeSeconds = analyticsRecords.reduce((sum, r) => sum + Number(r.total_watch_seconds || 0), 0);
     const totalWatchTimeMinutes = Math.round(totalWatchTimeSeconds / 60);
     const averageViewDuration = totalViews > 0 ? Math.round(totalWatchTimeSeconds / totalViews) : 0;
 
-    const { data: subs } = await supabaseAdmin
-      .from('subscriptions')
-      .select('id')
-      .eq('artist_id', artist.id);
-    const subscribersGained = subs?.length || 0;
+    let subscribersGained = 0;
+    if (artist?.id) {
+      const { count } = await supabaseAdmin
+        .from('artist_follows')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('artist_id', artist.id);
+      subscribersGained = count || 0;
+    }
 
-    const estimatedRevenue = Number(artist.total_earnings || 0);
-
-    const revenueByCountry = [
-      { country: "Rwanda", amount: Math.round(estimatedRevenue * 0.85) },
-      { country: "United States", amount: Math.round(estimatedRevenue * 0.10) },
-      { country: "Belgium", amount: Math.round(estimatedRevenue * 0.05) }
-    ];
+    let estimatedRevenue = 0;
+    if (channel?.id) {
+      const { data: acct } = await supabaseAdmin
+        .from('creator_earning_accounts')
+        .select('available_balance, settled_total, pending_balance')
+        .eq('creator_channel_id', channel.id)
+        .maybeSingle();
+      if (acct) {
+        estimatedRevenue = Number(acct.available_balance || 0) + Number(acct.settled_total || 0) + Number(acct.pending_balance || 0);
+      }
+    }
 
     const topVideos = (videos || [])
-      .map(v => {
-        const videoAnaytics = analyticsRecords.filter(r => r.video_id === v.id);
-        const vSeconds = videoAnaytics.reduce((sum, r) => sum + (r.watch_seconds || 0), 0);
-        const vViews = videoAnaytics.length || v.views || 0;
+      .map((v: any) => {
+        const videoAnalytics = analyticsRecords.filter((r) => r.video_id === v.id);
+        const vSeconds = videoAnalytics.reduce((sum, r) => sum + Number(r.total_watch_seconds || 0), 0);
+        const vViews = videoAnalytics.reduce((sum, r) => sum + Number(r.valid_views || r.total_view_events || 0), 0);
         return {
           id: v.id,
           title: v.title,
           views: vViews,
           watchTime: Math.round(vSeconds / 60),
-          revenue: Math.round((vViews * (v.price_rwf || 0)) * 0.70)
+          revenue: 0
         };
       })
       .sort((a, b) => b.views - a.views)
@@ -1530,7 +1056,7 @@ app.get("/api/artist/analytics/overview", authenticate, async (req, res) => {
       averageViewDuration,
       subscribersGained,
       estimatedRevenue,
-      revenueByCountry,
+      revenueByCountry: [],
       topVideos
     });
   } catch (err: any) {
@@ -1543,37 +1069,48 @@ app.get("/api/artist/analytics/watch-time", authenticate, async (req, res) => {
   const { period = "week" } = req.query;
   try {
     const { data: artist } = await supabaseAdmin
-      .from('artists')
+      .from('artist_profiles')
       .select('id')
-      .eq('user_id', user.id)
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
       .maybeSingle();
 
-    if (!artist) return res.status(403).json({ error: "Artist record not found." });
+    if (!artist) return res.status(403).json({ error: "Artist profile not found." });
 
-    const daysCount = period === "year" ? 12 : period === "month" ? 30 : 7;
-    const records: any[] = [];
+    const daysCount = period === "year" ? 365 : period === "month" ? 30 : 7;
+    const since = new Date(Date.now() - daysCount * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const d = new Date();
-      if (period === "year") {
-        d.setMonth(d.getMonth() - i);
-        const monthLabel = d.toLocaleString('default', { month: 'short' });
-        records.push({
-          name: monthLabel,
-          views: Math.floor(Math.random() * 200 + 50),
-          watchTime: Math.floor(Math.random() * 1500 + 400),
-          revenue: Math.floor(Math.random() * 8000 + 1000)
-        });
-      } else {
-        d.setDate(d.getDate() - i);
-        records.push({
-          name: d.toLocaleDateString('default', { month: 'short', day: 'numeric' }),
-          views: Math.floor(Math.random() * 45 + 10),
-          watchTime: Math.floor(Math.random() * 300 + 50),
-          revenue: Math.floor(Math.random() * 2000 + 200)
-        });
-      }
+    const { data: videos } = await supabaseAdmin
+      .from('videos')
+      .select('id')
+      .eq('artist_profile_id', artist.id);
+
+    const videoIds = (videos || []).map((v: any) => v.id);
+    if (videoIds.length === 0) {
+      return res.json([]);
     }
+
+    const { data: analyticsRows, error } = await supabaseAdmin
+      .from('video_daily_analytics')
+      .select('analytics_date, valid_views, total_view_events, total_watch_seconds')
+      .in('video_id', videoIds)
+      .gte('analytics_date', since)
+      .order('analytics_date', { ascending: true });
+
+    if (error) throw error;
+
+    const grouped = new Map<string, { views: number; watchTime: number; revenue: number }>();
+    for (const row of analyticsRows || []) {
+      const dateKey = String(row.analytics_date);
+      const prev = grouped.get(dateKey) || { views: 0, watchTime: 0, revenue: 0 };
+      prev.views += Number(row.valid_views || row.total_view_events || 0);
+      prev.watchTime += Math.round(Number(row.total_watch_seconds || 0) / 60);
+      grouped.set(dateKey, prev);
+    }
+
+    const records = Array.from(grouped.entries()).map(([date, stats]) => ({
+      name: date,
+      ...stats
+    }));
 
     res.json(records);
   } catch (err: any) {
@@ -1582,59 +1119,115 @@ app.get("/api/artist/analytics/watch-time", authenticate, async (req, res) => {
 });
 
 app.get("/api/artist/analytics/demographics", authenticate, async (req, res) => {
-  res.json({
-    devices: [
-      { name: "Mobile", value: 65 },
-      { name: "Desktop", value: 25 },
-      { name: "Tablet", value: 10 }
-    ],
-    countries: [
-      { name: "Rwanda", value: 75 },
-      { name: "United States", value: 12 },
-      { name: "Belgium", value: 8 },
-      { name: "Kenya", value: 5 }
-    ],
-    browsers: [
-      { name: "Chrome", value: 55 },
-      { name: "Safari", value: 28 },
-      { name: "Firefox", value: 12 },
-      { name: "Edge", value: 5 }
-    ]
-  });
+  const user = (req as any).user;
+  try {
+    const { data: artist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id')
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (!artist && !channel) return res.status(403).json({ error: "Artist profile not found." });
+
+    const { data: videos } = await supabaseAdmin
+      .from('videos')
+      .select('id')
+      .or([
+        artist?.id ? `artist_profile_id.eq.${artist.id}` : '',
+        channel?.id ? `creator_channel_id.eq.${channel.id}` : ''
+      ].filter(Boolean).join(','));
+
+    const videoIds = (videos || []).map((v: any) => v.id);
+    if (videoIds.length === 0) {
+      return res.json({ devices: [], countries: [], browsers: [] });
+    }
+
+    const { data: events, error } = await supabaseAdmin
+      .from('video_view_events')
+      .select('metadata')
+      .in('video_id', videoIds)
+      .limit(1000);
+
+    if (error) throw error;
+
+    const countBy = (field: 'device_type' | 'country_code' | 'browser') => {
+      const map = new Map<string, number>();
+      for (const row of events || []) {
+        const meta = (row as any).metadata || {};
+        const key = String(meta[field] || (field === 'browser' ? meta.platform : '') || '').trim();
+        if (!key) continue;
+        map.set(key, (map.get(key) || 0) + 1);
+      }
+      return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+    };
+
+    res.json({
+      devices: countBy('device_type'),
+      countries: countBy('country_code'),
+      browsers: countBy('browser')
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/artist/analytics/revenue", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
-      .select('id, total_earnings')
-      .eq('user_id', user.id)
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id')
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
       .maybeSingle();
 
-    if (!artist) return res.status(403).json({ error: "Artist profile required." });
+    if (!channel) return res.status(403).json({ error: "Creator channel required." });
 
-    const totalRev = Number(artist.total_earnings || 0);
+    const { data: account } = await supabaseAdmin
+      .from('creator_earning_accounts')
+      .select('id')
+      .eq('creator_channel_id', channel.id)
+      .maybeSingle();
+
+    if (!account) {
+      return res.json({
+        estimatedRevenue: 0,
+        revenueBySource: [],
+        revenueByMethod: [],
+        revenueMonthly: []
+      });
+    }
+
+    const { data: txs, error } = await supabaseAdmin
+      .from('creator_earning_transactions')
+      .select('revenue_source, creator_amount, created_at')
+      .eq('earning_account_id', account.id);
+
+    if (error) throw error;
+
+    let totalRev = 0;
+    const bySource = new Map<string, number>();
+    const byMonth = new Map<string, number>();
+
+    for (const tx of txs || []) {
+      const amt = Number(tx.creator_amount || 0);
+      totalRev += amt;
+      const src = String(tx.revenue_source || 'other');
+      bySource.set(src, (bySource.get(src) || 0) + amt);
+      const month = String(tx.created_at || '').slice(0, 7);
+      if (month) byMonth.set(month, (byMonth.get(month) || 0) + amt);
+    }
 
     res.json({
       estimatedRevenue: totalRev,
-      revenueBySource: [
-        { name: "Direct Video Purchases", value: Math.round(totalRev * 0.75) },
-        { name: "Live Ticket Sales", value: Math.round(totalRev * 0.15) },
-        { name: "Super Chats & Tips", value: Math.round(totalRev * 0.10) }
-      ],
-      revenueByMethod: [
-        { name: "MTN MoMo", value: Math.round(totalRev * 0.80) },
-        { name: "Airtel Money", value: Math.round(totalRev * 0.12) },
-        { name: "Stripe", value: Math.round(totalRev * 0.08) }
-      ],
-      revenueMonthly: [
-        { month: "Jan", revenue: Math.round(totalRev * 0.1) },
-        { month: "Feb", revenue: Math.round(totalRev * 0.12) },
-        { month: "Mar", revenue: Math.round(totalRev * 0.18) },
-        { month: "Apr", revenue: Math.round(totalRev * 0.25) },
-        { month: "May", revenue: Math.round(totalRev * 0.35) }
-      ]
+      revenueBySource: Array.from(bySource.entries()).map(([name, value]) => ({ name, value })),
+      revenueByMethod: [],
+      revenueMonthly: Array.from(byMonth.entries()).map(([month, revenue]) => ({ month, revenue }))
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -1642,37 +1235,96 @@ app.get("/api/artist/analytics/revenue", authenticate, async (req, res) => {
 });
 
 app.get("/api/artist/analytics/traffic-sources", authenticate, async (req, res) => {
-  res.json([
-    { name: "Direct Link", value: 40 },
-    { name: "Search Results", value: 30 },
-    { name: "Platform Recommendations", value: 20 },
-    { name: "External Sites & Socials", value: 10 }
-  ]);
+  const user = (req as any).user;
+  try {
+    const { data: artist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id')
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
+
+    if (!artist && !channel) return res.status(403).json({ error: "Artist profile required." });
+
+    const { data: videos } = await supabaseAdmin
+      .from('videos')
+      .select('id')
+      .or([
+        artist?.id ? `artist_profile_id.eq.${artist.id}` : '',
+        channel?.id ? `creator_channel_id.eq.${channel.id}` : ''
+      ].filter(Boolean).join(','));
+
+    const videoIds = (videos || []).map((v: any) => v.id);
+    if (videoIds.length === 0) return res.json([]);
+
+    const { data: events, error } = await supabaseAdmin
+      .from('video_view_events')
+      .select('traffic_source')
+      .in('video_id', videoIds)
+      .limit(1000);
+
+    if (error) throw error;
+
+    const map = new Map<string, number>();
+    for (const ev of events || []) {
+      const src = String((ev as any).traffic_source || '').trim() || 'Direct';
+      map.set(src, (map.get(src) || 0) + 1);
+    }
+
+    res.json(Array.from(map.entries()).map(([name, value]) => ({ name, value })));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post("/api/user/watch/heartbeat", optionalAuthenticate, async (req, res) => {
-  const { videoId, positionSeconds, completed, deviceType = "desktop", browser = "chrome", country = "RW", referrer = "direct" } = req.body;
+  const { videoId, positionSeconds, completed, deviceType = "desktop", browser = "web", country = null, referrer = "direct" } = req.body;
   const user = (req as any).user;
   try {
-     const { data: video } = await supabaseAdmin.from('videos').select('views').eq('id', videoId).single();
-     if (video) {
-       await supabaseAdmin.from('videos').update({ views: (video.views || 0) + 1 }).eq('id', videoId);
-     }
+    if (!videoId) return res.status(400).json({ error: "videoId is required" });
 
-     await supabaseAdmin.from('video_analytics').insert({
-       video_id: videoId,
-       user_id: user ? user.id : null,
-       watch_seconds: Math.floor(positionSeconds || 10),
-       completed: !!completed,
-       device_type: deviceType,
-       browser,
-       country,
-       referrer
-     });
+    const { data: video } = await supabaseAdmin
+      .from('videos')
+      .select('id, metadata')
+      .eq('id', videoId)
+      .maybeSingle();
 
-     res.json({ success: true });
+    const now = new Date().toISOString();
+    if (video) {
+      const meta = (video.metadata && typeof video.metadata === 'object' ? video.metadata : {}) as Record<string, any>;
+      const nextViews = Number(meta.view_count ?? meta.views ?? 0) + 1;
+      await supabaseAdmin
+        .from('videos')
+        .update({
+          metadata: { ...meta, view_count: nextViews, views: nextViews },
+          updated_at: now
+        })
+        .eq('id', videoId);
+    }
+
+    await supabaseAdmin.from('video_view_events').insert({
+      video_id: videoId,
+      viewer_user_id: user ? user.id : null,
+      occurred_at: now,
+      watch_duration_seconds: Math.max(0, Math.floor(Number(positionSeconds || 0))),
+      validation_status: 'valid',
+      traffic_source: referrer,
+      metadata: {
+        is_completed: Boolean(completed),
+        device_type: deviceType,
+        browser,
+        country_code: country
+      }
+    });
+
+    res.json({ success: true });
   } catch (err: any) {
-     res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1683,89 +1335,49 @@ app.use("/api/artist/live", artistLiveRouter);
 app.use("/api/live", liveRouter);
 
 // ==========================================
-// CHANNEL MEMBERSHIPS (V3 SUBSCRIPTIONS)
-// ==========================================
-
-// Get available membership tiers for an artist (public route)
-// ==========================================
 // CHANNEL MEMBERSHIPS & SUPER THANKS (SUPABASE)
 // ==========================================
 
-// Helper: resolve default membership tiers if none yet created for an artist
-function getDefaultArtistTiers(artistId: string) {
-  return [
-    {
-      id: `tier-bronze-${artistId}`,
-      artist_id: artistId,
-      name: "Bronze Fan",
-      price_rwf: 1500,
-      price_usd: 1.25,
-      benefits: [
-        "Official fan loyalty badge next to your name",
-        "Exclusive custom artist emojis in live chats and comments",
-        "Priority reply in video comment discussions"
-      ],
-      is_active: true,
-      max_members: null,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: `tier-silver-${artistId}`,
-      artist_id: artistId,
-      name: "Silver VIP",
-      price_rwf: 4500,
-      price_usd: 3.75,
-      benefits: [
-        "All Bronze Fan perks included",
-        "48-hour early access to new official music videos",
-        "Exclusive behind-the-scenes recording studio clips",
-        "Members-only community polls on upcoming releases"
-      ],
-      is_active: true,
-      max_members: null,
-      created_at: new Date().toISOString()
-    },
-    {
-      id: `tier-gold-${artistId}`,
-      artist_id: artistId,
-      name: "Gold All-Access",
-      price_rwf: 12000,
-      price_usd: 9.99,
-      benefits: [
-        "All Silver & Bronze perks included",
-        "Access to monthly private live stream Q&A sessions",
-        "Free unreleased acoustic MP3 downloads",
-        "Your name in the end credits of official music videos",
-        "Direct VIP messaging & priority concert ticket reservations"
-      ],
-      is_active: true,
-      max_members: 100,
-      created_at: new Date().toISOString()
-    }
-  ];
-}
-
-// ----------------------------------------------------
-// Public: Get membership tiers for an artist
-// Supports /api/artist/:id/membership, /api/artists/:id/membership, /api/artist/:artistId/membership
-// ----------------------------------------------------
 const handleGetArtistMembershipTiers = async (req: express.Request, res: express.Response) => {
   const artistId = req.params.id || req.params.artistId;
   try {
-    const { data: tiers, error } = await supabaseAdmin
-      .from('membership_tiers')
-      .select('*')
-      .eq('artist_id', artistId)
-      .eq('is_active', true)
-      .order('price_rwf', { ascending: true });
+    let channelId = artistId;
+    const { data: directChannel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id')
+      .eq('id', artistId)
+      .maybeSingle();
 
-    if (error) throw error;
-    if (tiers && tiers.length > 0) {
-      return res.json(tiers);
+    if (!directChannel) {
+      const { data: artistProfile } = await supabaseAdmin
+        .from('artist_profiles')
+        .select('id, created_by_user_id, primary_contact_user_id')
+        .eq('id', artistId)
+        .maybeSingle();
+
+      const ownerUserId = artistProfile?.primary_contact_user_id || artistProfile?.created_by_user_id;
+      if (ownerUserId) {
+        const { data: ownedChannel } = await supabaseAdmin
+          .from('creator_channels')
+          .select('id')
+          .or(`owner_user_id.eq.${ownerUserId},created_by_user_id.eq.${ownerUserId}`)
+          .limit(1)
+          .maybeSingle();
+        if (ownedChannel?.id) {
+          channelId = ownedChannel.id;
+        }
+      }
     }
 
-    // Return realistic fallback tiers so fans always see membership options
-    return res.json(getDefaultArtistTiers(artistId));
+    const { data: tiers, error } = await supabaseAdmin
+      .from('creator_membership_tiers')
+      .select('*')
+      .eq('creator_channel_id', channelId)
+      .eq('is_active', true)
+      .order('monthly_price', { ascending: true });
+
+    if (error) throw error;
+    return res.json(tiers || []);
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to load membership tiers" });
   }
@@ -1775,76 +1387,60 @@ app.get("/api/artist/:artistId/membership", handleGetArtistMembershipTiers);
 app.get("/api/artist/:id/membership", handleGetArtistMembershipTiers);
 app.get("/api/artists/:id/membership", handleGetArtistMembershipTiers);
 
-// ----------------------------------------------------
-// ARTIST: Membership Tiers Management
-// ----------------------------------------------------
-
-// GET /api/artist/membership/tiers – returns artist's tiers
 app.get("/api/artist/membership/tiers", authenticate, checkRole('artist'), async (req, res) => {
   const user = (req as any).user;
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) return res.status(404).json({ error: "Creator channel not found" });
 
     const { data: tiers, error } = await supabaseAdmin
-      .from('membership_tiers')
+      .from('creator_membership_tiers')
       .select('*')
-      .eq('artist_id', artist.id)
-      .order('price_rwf', { ascending: true });
+      .eq('creator_channel_id', channel.id)
+      .order('monthly_price', { ascending: true });
 
     if (error) throw error;
-
-    if (!tiers || tiers.length === 0) {
-      // Seed default tiers for this artist so they have ready-to-use tiers
-      const defaults = getDefaultArtistTiers(artist.id);
-      for (const d of defaults) {
-        await supabaseAdmin.from('membership_tiers').insert(d);
-      }
-      return res.json(defaults);
-    }
-
-    res.json(tiers);
+    res.json(tiers || []);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/artist/membership/tiers – create tier. Body: name, price_rwf, price_usd, benefits (array), max_members (optional)
 app.post("/api/artist/membership/tiers", authenticate, checkRole('artist'), async (req, res) => {
   const user = (req as any).user;
-  const { name, price_rwf, price_usd, benefits, max_members } = req.body;
+  const { name, tier_name, price_rwf, monthly_price, benefits, tier_description } = req.body;
   try {
-    if (!name || !price_rwf) {
-      return res.status(400).json({ error: "Name and price_rwf are required" });
+    const effectiveName = tier_name || name;
+    const effectivePrice = Number(monthly_price ?? price_rwf);
+    if (!effectiveName || !effectivePrice || effectivePrice < 0) {
+      return res.status(400).json({ error: "Tier name and monthly price are required" });
     }
 
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
-
-    const priceRwfNum = Number(price_rwf);
-    const priceUsdNum = price_usd !== undefined ? Number(price_usd) : Number((priceRwfNum / 1200).toFixed(2));
+    if (!channel) return res.status(404).json({ error: "Creator channel not found" });
 
     const { data: tier, error } = await supabaseAdmin
-      .from('membership_tiers')
+      .from('creator_membership_tiers')
       .insert({
-        artist_id: artist.id,
-        name: String(name).trim(),
-        price_rwf: priceRwfNum,
-        price_usd: priceUsdNum,
+        creator_channel_id: channel.id,
+        tier_name: String(effectiveName).trim(),
+        tier_description: tier_description || null,
+        currency_code: 'RWF',
+        monthly_price: effectivePrice,
         benefits: Array.isArray(benefits) ? benefits : [benefits].filter(Boolean),
         is_active: true,
-        max_members: max_members ? Number(max_members) : null,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
       .select()
       .single();
@@ -1856,49 +1452,39 @@ app.post("/api/artist/membership/tiers", authenticate, checkRole('artist'), asyn
   }
 });
 
-// PUT /api/artist/membership/tiers/:id (and :tierId) – update tier (name, price, benefits, is_active, max_members)
 const handleUpdateArtistTier = async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;
   const tierId = req.params.id || req.params.tierId;
-  const { name, price, price_rwf, price_usd, benefits, is_active, max_members } = req.body;
+  const { name, tier_name, price, price_rwf, monthly_price, benefits, is_active } = req.body;
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) return res.status(404).json({ error: "Creator channel not found" });
 
-    // Validate tier belongs to artist
     const { data: existingTier } = await supabaseAdmin
-      .from('membership_tiers')
-      .select('artist_id')
+      .from('creator_membership_tiers')
+      .select('creator_channel_id')
       .eq('id', tierId)
-      .single();
+      .maybeSingle();
 
-    if (!existingTier || existingTier.artist_id !== artist.id) {
+    if (!existingTier || existingTier.creator_channel_id !== channel.id) {
       return res.status(403).json({ error: "Unauthorized or tier not found" });
     }
 
-    const effectivePriceRwf = price_rwf !== undefined ? Number(price_rwf) : (price !== undefined ? Number(price) : undefined);
-    const updatePayload: any = {
-      updated_at: new Date().toISOString()
-    };
-    if (name) updatePayload.name = String(name).trim();
-    if (effectivePriceRwf !== undefined) {
-      updatePayload.price_rwf = effectivePriceRwf;
-      if (price_usd === undefined) {
-        updatePayload.price_usd = Number((effectivePriceRwf / 1200).toFixed(2));
-      }
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    if (tier_name || name) updatePayload.tier_name = String(tier_name || name).trim();
+    if (monthly_price !== undefined || price_rwf !== undefined || price !== undefined) {
+      updatePayload.monthly_price = Number(monthly_price ?? price_rwf ?? price);
     }
-    if (price_usd !== undefined) updatePayload.price_usd = Number(price_usd);
     if (benefits !== undefined) updatePayload.benefits = Array.isArray(benefits) ? benefits : [benefits];
     if (is_active !== undefined) updatePayload.is_active = Boolean(is_active);
-    if (max_members !== undefined) updatePayload.max_members = max_members ? Number(max_members) : null;
 
     const { data: updated, error } = await supabaseAdmin
-      .from('membership_tiers')
+      .from('creator_membership_tiers')
       .update(updatePayload)
       .eq('id', tierId)
       .select()
@@ -1914,45 +1500,42 @@ const handleUpdateArtistTier = async (req: express.Request, res: express.Respons
 app.put("/api/artist/membership/tiers/:id", authenticate, checkRole('artist'), handleUpdateArtistTier);
 app.put("/api/artist/membership/tiers/:tierId", authenticate, checkRole('artist'), handleUpdateArtistTier);
 
-// DELETE /api/artist/membership/tiers/:id (and :tierId) – delete tier (only if no active members)
 const handleDeleteArtistTier = async (req: express.Request, res: express.Response) => {
   const user = (req as any).user;
   const tierId = req.params.id || req.params.tierId;
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) return res.status(404).json({ error: "Creator channel not found" });
 
-    // Validate tier belongs to artist
     const { data: existingTier } = await supabaseAdmin
-      .from('membership_tiers')
-      .select('artist_id')
+      .from('creator_membership_tiers')
+      .select('creator_channel_id')
       .eq('id', tierId)
-      .single();
+      .maybeSingle();
 
-    if (!existingTier || existingTier.artist_id !== artist.id) {
+    if (!existingTier || existingTier.creator_channel_id !== channel.id) {
       return res.status(403).json({ error: "Unauthorized or tier not found" });
     }
 
-    // Check if there are active members in this tier
     const { data: members } = await supabaseAdmin
-      .from('memberships')
+      .from('creator_memberships')
       .select('id')
-      .eq('tier_id', tierId)
-      .eq('status', 'active');
+      .eq('membership_tier_id', tierId)
+      .eq('membership_status', 'active');
 
     if (members && members.length > 0) {
-      return res.status(400).json({ 
-        error: "Cannot delete tier with active members. Please deactivate it instead so current subscribers retain access." 
+      return res.status(400).json({
+        error: "Cannot delete tier with active members. Deactivate it instead so subscribers retain access."
       });
     }
 
     const { error } = await supabaseAdmin
-      .from('membership_tiers')
+      .from('creator_membership_tiers')
       .delete()
       .eq('id', tierId);
 
@@ -1966,38 +1549,53 @@ const handleDeleteArtistTier = async (req: express.Request, res: express.Respons
 app.delete("/api/artist/membership/tiers/:id", authenticate, checkRole('artist'), handleDeleteArtistTier);
 app.delete("/api/artist/membership/tiers/:tierId", authenticate, checkRole('artist'), handleDeleteArtistTier);
 
-// GET /api/artist/membership/subscribers – returns members: user_id, user_name, tier_name, subscribed_at, status, next_billing
 app.get("/api/artist/membership/subscribers", authenticate, checkRole('artist'), async (req, res) => {
   const user = (req as any).user;
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) return res.status(404).json({ error: "Creator channel not found" });
 
     const { data: subscribers, error } = await supabaseAdmin
-      .from('memberships')
-      .select('*, profiles(id, full_name, username, email), membership_tiers(*)')
-      .eq('artist_id', artist.id)
+      .from('creator_memberships')
+      .select('*, creator_membership_tiers(*)')
+      .eq('creator_channel_id', channel.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    const formatted = (subscribers || []).map((sub: any) => ({
-      id: sub.id,
-      user_id: sub.user_id,
-      user_name: sub.profiles?.full_name || sub.profiles?.username || "Fan Supporter",
-      tier_name: sub.membership_tiers?.name || sub.tier?.name || "VIP Member",
-      subscribed_at: sub.created_at || sub.current_period_start,
-      status: sub.status,
-      next_billing: sub.current_period_end,
-      cancel_at_period_end: Boolean(sub.cancel_at_period_end),
-      profiles: sub.profiles,
-      membership_tiers: sub.membership_tiers || sub.tier
-    }));
+    const subUserIds = Array.from(new Set((subscribers || []).map((s: any) => s.subscriber_user_id).filter(Boolean)));
+    const { data: profs } = subUserIds.length > 0
+      ? await supabaseAdmin.from('profiles').select('user_id, display_name, username, avatar_storage_path').in('user_id', subUserIds)
+      : { data: [] };
+    const profMap = new Map<string, any>((profs || []).map((p: any) => [String(p.user_id), p]));
+
+    const formatted = (subscribers || []).map((sub: any) => {
+      const prof = profMap.get(String(sub.subscriber_user_id));
+      return {
+        id: sub.id,
+        user_id: sub.subscriber_user_id,
+        tier_name: sub.creator_membership_tiers?.tier_name || "Member",
+        subscribed_at: sub.started_at || sub.created_at,
+        status: sub.membership_status,
+        next_billing: sub.current_period_end,
+        current_period_end: sub.current_period_end,
+        cancel_at_period_end: Boolean(sub.cancelled_at),
+        profiles: prof ? {
+          full_name: prof.display_name || prof.username || "PAYTUNE Fan",
+          username: prof.username || "member",
+          avatar_url: prof.avatar_storage_path || ""
+        } : null,
+        membership_tiers: sub.creator_membership_tiers
+          ? { name: sub.creator_membership_tiers.tier_name, ...sub.creator_membership_tiers }
+          : null,
+        creator_membership_tiers: sub.creator_membership_tiers
+      };
+    });
 
     res.json(formatted);
   } catch (err: any) {
@@ -2005,130 +1603,126 @@ app.get("/api/artist/membership/subscribers", authenticate, checkRole('artist'),
   }
 });
 
-// GET /api/artist/membership/analytics – returns: mrr, total_members, churn_rate, revenue_chart: labels + values
 app.get("/api/artist/membership/analytics", authenticate, checkRole('artist'), async (req, res) => {
   const user = (req as any).user;
   try {
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
       .select('id')
-      .eq('user_id', user.id)
-      .single();
+      .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .maybeSingle();
 
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    if (!channel) return res.status(404).json({ error: "Creator channel not found" });
 
     const { data: subs } = await supabaseAdmin
-      .from('memberships')
-      .select('*, membership_tiers(*)')
-      .eq('artist_id', artist.id);
+      .from('creator_memberships')
+      .select('*, creator_membership_tiers(monthly_price)')
+      .eq('creator_channel_id', channel.id);
 
     const allSubs = subs || [];
-    const activeSubs = allSubs.filter((s: any) => s.status === 'active');
-    const cancelledSubs = allSubs.filter((s: any) => s.status === 'cancelled');
+    const activeSubs = allSubs.filter((s: any) => s.membership_status === 'active');
+    const cancelledSubs = allSubs.filter((s: any) => s.membership_status === 'cancelled');
 
-    let totalMRR = 0;
-    activeSubs.forEach((s: any) => {
-      const tierObj = s.membership_tiers || s.tier;
-      if (tierObj) {
-        totalMRR += Number(tierObj.price_rwf || 0);
-      }
-    });
+    const totalMRR = activeSubs.reduce(
+      (sum: number, s: any) => sum + Number(s.creator_membership_tiers?.monthly_price ?? s.price_snapshot ?? 0),
+      0
+    );
 
     const activeCount = activeSubs.length;
     const cancelledCount = cancelledSubs.length;
     const totalCount = activeCount + cancelledCount;
-    const churnRate = totalCount > 0 ? (cancelledCount / totalCount) * 100 : 0;
+    const churnRate = totalCount > 0 ? Number(((cancelledCount / totalCount) * 100).toFixed(1)) : 0;
     const arpu = activeCount > 0 ? Math.round(totalMRR / activeCount) : 0;
 
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    const multipliers = [0.65, 0.72, 0.80, 0.88, 0.94, 1.0];
-    const revenueChartValues = multipliers.map(m => Math.round(totalMRR * m));
+    const months = Array.from(new Set(allSubs.map((s: any) => String(s.created_at || '').slice(0, 7)).filter(Boolean))).sort();
+    const revenueChartValues = months.map((m) =>
+      allSubs
+        .filter((s: any) => String(s.created_at || '').slice(0, 7) === m && s.membership_status === 'active')
+        .reduce((acc: number, s: any) => acc + Number(s.creator_membership_tiers?.monthly_price ?? s.price_snapshot ?? 0), 0)
+    );
 
     res.json({
       mrr: totalMRR,
       total_members: totalCount,
       activeSubscribers: activeCount,
-      churn_rate: parseFloat(churnRate.toFixed(1)),
-      churnRate: parseFloat(churnRate.toFixed(1)),
-      revenue_chart: {
-        labels: months,
-        values: revenueChartValues
-      },
+      churn_rate: churnRate,
+      churnRate,
+      revenue_chart: { labels: months, values: revenueChartValues },
       arpu,
       revenueHistory: months.map((m, i) => ({ month: m, revenue: revenueChartValues[i] })),
-      subscribersHistory: months.map((m, i) => ({ month: m, count: Math.round(activeCount * multipliers[i]) }))
+      subscribersHistory: months.map((m) => ({
+        month: m,
+        count: allSubs.filter((s: any) => String(s.created_at || '').slice(0, 7) === m && s.membership_status === 'active').length
+      }))
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ----------------------------------------------------
-// USER: Membership Subscription Activities
-// ----------------------------------------------------
-
-// POST /api/user/membership/subscribe
-// Body: artistId, tierId, paymentMethod, paymentPhone?
-// Creates Stripe subscription or manual renewal for MTN/Airtel. Returns subscription details.
 app.post("/api/user/membership/subscribe", authenticate, async (req, res) => {
   const user = (req as any).user;
-  const { artistId, tierId, paymentMethod, paymentPhone, provider } = req.body;
+  const { artistId, tierId, paymentMethod, provider } = req.body;
   try {
     if (!artistId || !tierId) {
       return res.status(400).json({ error: "artistId and tierId are required" });
     }
 
-    // 1. Fetch tier details
-    let { data: tierObj } = await supabaseAdmin
-      .from('membership_tiers')
+    const { data: tierObj } = await supabaseAdmin
+      .from('creator_membership_tiers')
       .select('*')
       .eq('id', tierId)
-      .single();
+      .maybeSingle();
 
-    // If tier was a virtual fallback tier, find or instantiate it
     if (!tierObj) {
-      const defaults = getDefaultArtistTiers(artistId);
-      const match = defaults.find(d => d.id === tierId) || defaults[0];
-      const { data: created } = await supabaseAdmin
-        .from('membership_tiers')
-        .insert(match)
-        .select()
-        .single();
-      tierObj = created || match;
+      return res.status(404).json({ error: "Membership tier not found in database" });
     }
 
-    const amountPaid = Number(tierObj.price_rwf || 1500);
+    const isStripe = paymentMethod === 'stripe' || paymentMethod === 'card';
+    const hasGateway = isStripe
+      ? Boolean(process.env.STRIPE_SECRET_KEY)
+      : (provider || '').toUpperCase() === 'AIRTEL'
+      ? Boolean(process.env.AIRTEL_CLIENT_ID && process.env.AIRTEL_CLIENT_SECRET)
+      : Boolean(process.env.MTN_SUBSCRIPTION_KEY && process.env.MTN_API_USER && process.env.MTN_API_KEY);
 
-    // 2. Check if active membership already exists
+    if (!hasGateway) {
+      return res.status(503).json({
+        provider_configured: false,
+        error: "Payment provider credentials are not configured. Paid memberships require live MTN MoMo, Airtel Money, or Stripe keys."
+      });
+    }
+
     const { data: existingActive } = await supabaseAdmin
-      .from('memberships')
+      .from('creator_memberships')
       .select('id')
-      .eq('user_id', user.id)
-      .eq('artist_id', artistId)
-      .eq('status', 'active')
-      .single();
+      .eq('subscriber_user_id', user.id)
+      .eq('creator_channel_id', tierObj.creator_channel_id)
+      .eq('membership_status', 'active')
+      .maybeSingle();
 
     if (existingActive) {
-      return res.status(400).json({ error: "You already have an active subscription with this artist." });
+      return res.status(400).json({ error: "You already have an active subscription with this creator." });
     }
 
-    // 3. Subscription dates
     const startPeriod = new Date().toISOString();
     const endPeriod = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const isStripe = paymentMethod === 'stripe' || paymentMethod === 'card';
-    const stripeSubscriptionId = isStripe ? `sub_stripe_${Date.now()}_${Math.random().toString(36).substring(2, 7)}` : null;
+    const txId = `SUB-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const amountPaid = Number(tierObj.monthly_price || 0);
 
     const { data: sub, error: subError } = await supabaseAdmin
-      .from('memberships')
+      .from('creator_memberships')
       .insert({
-        user_id: user.id,
-        artist_id: artistId,
-        tier_id: tierObj.id,
-        status: 'active',
+        subscriber_user_id: user.id,
+        creator_channel_id: tierObj.creator_channel_id,
+        membership_tier_id: tierObj.id,
+        membership_status: 'pending',
+        price_snapshot: amountPaid,
+        currency_code: tierObj.currency_code || 'RWF',
+        started_at: startPeriod,
         current_period_start: startPeriod,
         current_period_end: endPeriod,
-        cancel_at_period_end: false,
-        stripe_subscription_id: stripeSubscriptionId,
+        payment_provider: isStripe ? 'stripe' : (provider || 'mtn_momo').toLowerCase(),
+        provider_subscription_reference: txId,
         created_at: startPeriod,
         updated_at: startPeriod
       })
@@ -2137,71 +1731,10 @@ app.post("/api/user/membership/subscribe", authenticate, async (req, res) => {
 
     if (subError) throw subError;
 
-    // 4. Split: 5% VAT -> 70% artist / 30% platform owner
-    const vatRate = 0.05;
-    const vatAmount = Number((amountPaid * vatRate).toFixed(2));
-    const afterVat = Number((amountPaid - vatAmount).toFixed(2));
-    const artistShare = Number((afterVat * 0.70).toFixed(2));
-    const ownerShare = Number((afterVat * 0.30).toFixed(2));
-
-    const txId = `SUB-PMT-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-    // 5. Record payment in membership_payments table
-    const { data: payment, error: pmtError } = await supabaseAdmin
-      .from('membership_payments')
-      .insert({
-        membership_id: sub.id,
-        amount: amountPaid,
-        currency: 'RWF',
-        transaction_id: txId,
-        payment_method: isStripe ? 'stripe_card' : `momo_${(provider || 'MTN').toLowerCase()}`,
-        period_start: startPeriod,
-        period_end: endPeriod,
-        vat_amount: vatAmount,
-        after_vat: afterVat,
-        artist_share: artistShare,
-        owner_share: ownerShare,
-        paid_at: startPeriod
-      })
-      .select()
-      .single();
-
-    if (pmtError) console.error("Payment insert note:", pmtError);
-
-    // 6. Update artist pending balance
-    const { data: artistRec } = await supabaseAdmin
-      .from('artists')
-      .select('pending_balance, total_earnings')
-      .eq('id', artistId)
-      .single();
-
-    if (artistRec) {
-      await supabaseAdmin
-        .from('artists')
-        .update({
-          pending_balance: (artistRec.pending_balance || 0) + artistShare,
-          total_earnings: (artistRec.total_earnings || 0) + artistShare
-        })
-        .eq('id', artistId);
-    }
-
-    // 7. Send notification to user and artist
-    try {
-      notifyOnMembershipJoined({
-        memberUser: { id: user.id, name: user.user_metadata?.full_name || user.full_name || user.email || 'A fan' },
-        artistId,
-        tierName: tierObj.name || 'VIP Member',
-        tierPrice: amountPaid,
-        currency: 'RWF'
-      });
-    } catch (notifErr) {
-      console.warn("Membership notification error:", notifErr);
-    }
-
     res.json({
       success: true,
-      membership: { ...sub, membership_tiers: tierObj },
-      payment,
+      status: 'pending',
+      membership: { ...sub, creator_membership_tiers: tierObj },
       transactionId: txId
     });
   } catch (err: any) {
@@ -2209,39 +1742,27 @@ app.post("/api/user/membership/subscribe", authenticate, async (req, res) => {
   }
 });
 
-// DELETE /api/user/membership/:id/cancel (and :membershipId) – cancel membership at period end
 const handleCancelUserMembership = async (req: express.Request, res: express.Response) => {
   const membershipId = req.params.id || req.params.membershipId;
   const user = (req as any).user;
   try {
-    const { data: sub, error: fetchError } = await supabaseAdmin
-      .from('memberships')
-      .select('*')
-      .eq('id', membershipId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (fetchError || !sub) {
-      return res.status(404).json({ error: "Membership subscription not found or unauthorized." });
-    }
-
-    const { data: updatedSub, error: updateError } = await supabaseAdmin
-      .from('memberships')
+    const { data: updatedSub, error } = await supabaseAdmin
+      .from('creator_memberships')
       .update({
-        cancel_at_period_end: true,
+        membership_status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', membershipId)
+      .eq('subscriber_user_id', user.id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (updateError) throw updateError;
+    if (error || !updatedSub) {
+      return res.status(404).json({ error: "Membership subscription not found or unauthorized." });
+    }
 
-    res.json({
-      success: true,
-      membership: updatedSub,
-      message: `Membership will end on ${new Date(sub.current_period_end).toLocaleDateString()}`
-    });
+    res.json({ success: true, membership: updatedSub });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2250,34 +1771,25 @@ const handleCancelUserMembership = async (req: express.Request, res: express.Res
 app.delete("/api/user/membership/:id/cancel", authenticate, handleCancelUserMembership);
 app.delete("/api/user/membership/:membershipId/cancel", authenticate, handleCancelUserMembership);
 
-// PUT /api/user/membership/:id/reactivate (and :membershipId) – reactivate cancelled membership
 const handleReactivateUserMembership = async (req: express.Request, res: express.Response) => {
   const membershipId = req.params.id || req.params.membershipId;
   const user = (req as any).user;
   try {
-    const { data: sub, error: fetchError } = await supabaseAdmin
-      .from('memberships')
-      .select('*')
-      .eq('id', membershipId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (fetchError || !sub) {
-      return res.status(404).json({ error: "Membership subscription not found or unauthorized." });
-    }
-
-    const { data: updatedSub, error: updateError } = await supabaseAdmin
-      .from('memberships')
+    const { data: updatedSub, error } = await supabaseAdmin
+      .from('creator_memberships')
       .update({
-        cancel_at_period_end: false,
-        status: 'active',
+        cancelled_at: null,
+        membership_status: 'active',
         updated_at: new Date().toISOString()
       })
       .eq('id', membershipId)
+      .eq('subscriber_user_id', user.id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (updateError) throw updateError;
+    if (error || !updatedSub) {
+      return res.status(404).json({ error: "Membership subscription not found or unauthorized." });
+    }
 
     res.json({ success: true, membership: updatedSub });
   } catch (err: any) {
@@ -2288,37 +1800,33 @@ const handleReactivateUserMembership = async (req: express.Request, res: express
 app.put("/api/user/membership/:id/reactivate", authenticate, handleReactivateUserMembership);
 app.put("/api/user/membership/:membershipId/reactivate", authenticate, handleReactivateUserMembership);
 
-// GET /api/user/membership/active – returns user's active memberships: artist_id, artist_name, tier_name, price, next_billing
 app.get("/api/user/membership/active", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
     const { data: subs, error } = await supabaseAdmin
-      .from('memberships')
-      .select('*, artists(id, full_name, profile_image, bio), membership_tiers(*)')
-      .eq('user_id', user.id)
-      .eq('status', 'active');
+      .from('creator_memberships')
+      .select('*, creator_channels(id, owner_user_id, channel_name, avatar_path), creator_membership_tiers(*)')
+      .eq('subscriber_user_id', user.id)
+      .eq('membership_status', 'active');
 
     if (error) throw error;
 
-    const formatted = (subs || []).map((s: any) => {
-      const tierObj = s.membership_tiers || s.tier;
-      return {
-        id: s.id,
-        artist_id: s.artist_id,
-        artist_name: s.artists?.full_name || "Artist",
-        tier_name: tierObj?.name || "VIP Member",
-        price: tierObj?.price_rwf || 1500,
-        price_rwf: tierObj?.price_rwf || 1500,
-        price_usd: tierObj?.price_usd || 1.25,
-        next_billing: s.current_period_end,
-        status: s.status,
-        cancel_at_period_end: Boolean(s.cancel_at_period_end),
-        current_period_start: s.current_period_start,
-        current_period_end: s.current_period_end,
-        artists: s.artists,
-        membership_tiers: tierObj
-      };
-    });
+    const formatted = (subs || []).map((s: any) => ({
+      id: s.id,
+      membership_tier_id: s.membership_tier_id,
+      creator_channel_id: s.creator_channel_id,
+      artist_profile_id: null,
+      artist_id: s.creator_channel_id,
+      artist_name: s.creator_channels?.channel_name || "",
+      tier_name: s.creator_membership_tiers?.tier_name || "Member",
+      price: Number(s.creator_membership_tiers?.monthly_price ?? s.price_snapshot ?? 0),
+      next_billing: s.current_period_end,
+      status: s.membership_status,
+      current_period_start: s.current_period_start,
+      current_period_end: s.current_period_end,
+      creator_channels: s.creator_channels,
+      creator_membership_tiers: s.creator_membership_tiers
+    }));
 
     res.json(formatted);
   } catch (err: any) {
@@ -2326,86 +1834,44 @@ app.get("/api/user/membership/active", authenticate, async (req, res) => {
   }
 });
 
-// GET /api/user/membership/payments – returns membership payment history
 app.get("/api/user/membership/payments", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
-    // 1. Fetch user's memberships
-    const { data: userSubs, error: subsErr } = await supabaseAdmin
-      .from('memberships')
-      .select('id, artist_id, tier_id, artists(id, full_name, profile_image), membership_tiers(id, name, price_rwf, price_usd)')
-      .eq('user_id', user.id);
-
-    if (subsErr) throw subsErr;
-
-    if (!userSubs || userSubs.length === 0) {
-      return res.json([]);
-    }
-
-    const subIds = userSubs.map((s: any) => s.id);
-    const subMap = new Map<string, any>(userSubs.map((s: any) => [s.id, s]));
-
-    // 2. Fetch payments for user's memberships
-    const { data: payments, error: pmtErr } = await supabaseAdmin
-      .from('membership_payments')
+    const { data: txs, error } = await supabaseAdmin
+      .from('financial_transactions')
       .select('*')
-      .in('membership_id', subIds)
-      .order('paid_at', { ascending: false });
+      .eq('user_id', user.id)
+      .eq('revenue_source', 'membership')
+      .order('created_at', { ascending: false });
 
-    if (pmtErr) throw pmtErr;
-
-    const formatted = (payments || []).map((p: any) => {
-      const sub = subMap.get(p.membership_id);
-      const tierObj = sub?.membership_tiers || sub?.tier;
-      return {
-        ...p,
-        artist_id: sub?.artist_id,
-        artist_name: sub?.artists?.full_name || "Artist",
-        artist_image: sub?.artists?.profile_image,
-        tier_name: tierObj?.name || "VIP Member"
-      };
-    });
-
-    res.json(formatted);
+    if (error) throw error;
+    res.json(txs || []);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/user/membership/exclusive – returns exclusive content (members-only videos, shorts, live replays)
 app.get("/api/user/membership/exclusive", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
-    // 1. Get user active memberships
     const { data: activeSubs } = await supabaseAdmin
-      .from('memberships')
-      .select('*, membership_tiers(*)')
-      .eq('user_id', user.id)
-      .eq('status', 'active');
+      .from('creator_memberships')
+      .select('creator_channel_id')
+      .eq('subscriber_user_id', user.id)
+      .eq('membership_status', 'active');
 
-    if (!activeSubs || activeSubs.length === 0) {
-      return res.json([]);
-    }
+    const channelIds = (activeSubs || []).map((s: any) => s.creator_channel_id).filter(Boolean);
+    if (channelIds.length === 0) return res.json([]);
 
-    // 2. Fetch videos requiring membership or marked exclusive
     const { data: videos, error } = await supabaseAdmin
       .from('videos')
-      .select('*, artists(id, full_name, profile_image)')
-      .eq('is_active', true);
+      .select('*, creator_channels(id, channel_name, avatar_path)')
+      .in('creator_channel_id', channelIds)
+      .eq('visibility', 'members_only')
+      .eq('publication_status', 'published');
 
     if (error) throw error;
-
-    const exclusiveVideos = (videos || []).filter((v: any) => {
-      // Check if video is marked as members-only
-      const isMembersOnly = v.min_membership_tier_id || v.is_exclusive || v.category === 'Exclusive';
-      if (!isMembersOnly) return false;
-
-      // Check if user has an active membership for this artist
-      const sub = activeSubs.find((s: any) => s.artist_id === v.artist_id);
-      return Boolean(sub);
-    });
-
-    res.json(exclusiveVideos);
+    res.json(videos || []);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2415,31 +1881,16 @@ app.get("/api/user/membership/exclusive", authenticate, async (req, res) => {
 // SUPER THANKS (DONATIONS)
 // ----------------------------------------------------
 
-// GET /api/super-thanks/presets – returns preset amounts (RWF + USD)
-app.get("/api/super-thanks/presets", (req, res) => {
+app.get("/api/super-thanks/presets", (_req, res) => {
   res.json({
     rwf: [500, 1000, 2500, 5000, 10000, 25000],
-    usd: [1.00, 2.00, 5.00, 10.00, 20.00, 50.00]
+    usd: [1.0, 2.0, 5.0, 10.0, 20.0, 50.0]
   });
 });
 
-// POST /api/super-thanks/send – body: artistId, videoId?, liveStreamId?, amount, currency, message, isPublic.
-// Process payment via MTN/Airtel/Stripe. Records donation in super_thanks table, sends notification. Split: 5% VAT -> 70% artist / 30% platform owner
-app.post("/api/super-thanks/send", async (req, res) => {
+app.post("/api/super-thanks/send", authenticate, async (req, res) => {
   try {
-    let user = (req as any).user;
-    if (!user) {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-          user = jwt.verify(token, process.env.JWT_SECRET || 'paytune_jwt_secret_dev_key') as any;
-        } catch {
-          // guest or invalid token
-        }
-      }
-    }
-
+    const user = (req as any).user;
     const {
       artistId,
       videoId,
@@ -2449,7 +1900,7 @@ app.post("/api/super-thanks/send", async (req, res) => {
       message,
       isPublic,
       paymentMethod,
-      paymentPhone
+      provider
     } = req.body;
 
     if (!artistId) {
@@ -2461,47 +1912,51 @@ app.post("/api/super-thanks/send", async (req, res) => {
       return res.status(400).json({ error: "Valid donation amount is required" });
     }
 
-    const currency = (rawCurrency || 'RWF').toUpperCase();
+    const isStripe = paymentMethod === 'stripe' || paymentMethod === 'card' || provider === 'stripe';
+    const hasGateway = isStripe
+      ? Boolean(process.env.STRIPE_SECRET_KEY)
+      : (provider || '').toUpperCase() === 'AIRTEL'
+      ? Boolean(process.env.AIRTEL_CLIENT_ID && process.env.AIRTEL_CLIENT_SECRET)
+      : Boolean(process.env.MTN_SUBSCRIPTION_KEY && process.env.MTN_API_USER && process.env.MTN_API_KEY);
 
-    // Verify artist exists
-    const { data: artist } = await supabaseAdmin
-      .from('artists')
-      .select('id, user_id, full_name, pending_balance, total_earnings')
-      .eq('id', artistId)
-      .single();
-
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
+    if (!hasGateway) {
+      return res.status(503).json({
+        provider_configured: false,
+        error: "Payment provider credentials are not configured. Super Thanks payments require live gateway keys."
+      });
     }
 
-    // Split: 5% VAT, 70% artist / 30% platform owner
-    const vatRate = 0.05;
-    const vatAmount = Number((amount * vatRate).toFixed(2));
+    const currency = (rawCurrency || 'RWF').toUpperCase();
+    const { data: channel } = await supabaseAdmin
+      .from('creator_channels')
+      .select('id, channel_name')
+      .eq('id', artistId)
+      .maybeSingle();
+
+    if (!channel) {
+      return res.status(404).json({ error: "Creator channel not found" });
+    }
+
+    const vatAmount = Number((amount * 0.05).toFixed(2));
     const afterVat = Number((amount - vatAmount).toFixed(2));
-    const artistShare = Number((afterVat * 0.70).toFixed(2));
-    const ownerShare = Number((afterVat * 0.30).toFixed(2));
+    const artistShare = Number((afterVat * 0.7).toFixed(2));
+    const ownerShare = Number((afterVat * 0.3).toFixed(2));
+    const txId = `STX-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
-    const txId = `STX-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    const userId = user ? user.id : 'guest-fan';
-    const userName = user?.full_name || user?.name || user?.username || 'Generous Fan';
-
-    // Insert into super_thanks table
     const { data: donation, error: donErr } = await supabaseAdmin
       .from('super_thanks')
       .insert({
-        user_id: userId,
-        artist_id: artistId,
-        video_id: videoId || null,
-        live_stream_id: liveStreamId || null,
+        creator_channel_id: channel.id,
+        sender_user_id: user.id,
+        content_type: liveStreamId ? 'livestream' : 'video',
+        content_id: liveStreamId || videoId || channel.id,
+        currency_code: currency,
         amount,
-        currency,
-        message: message ? String(message).trim() : 'Thank you for your incredible music!',
-        is_public: isPublic !== false,
-        transaction_id: txId,
-        vat_amount: vatAmount,
-        after_vat: afterVat,
-        artist_share: artistShare,
-        owner_share: ownerShare,
+        public_message: message ? String(message).trim() : null,
+        is_message_public: isPublic !== false,
+        event_status: 'pending',
+        payment_provider: isStripe ? 'stripe' : (provider || 'mtn_momo').toLowerCase(),
+        provider_payment_reference: txId,
         created_at: new Date().toISOString()
       })
       .select()
@@ -2509,78 +1964,26 @@ app.post("/api/super-thanks/send", async (req, res) => {
 
     if (donErr) throw donErr;
 
-    // Credit artist balances
-    await supabaseAdmin
-      .from('artists')
-      .update({
-        pending_balance: (artist.pending_balance || 0) + artistShare,
-        total_earnings: (artist.total_earnings || 0) + artistShare
-      })
-      .eq('id', artistId);
-
-    // Send notification to artist
-    try {
-      notifyOnSuperThanks({
-        donorUser: { id: user?.id || 'guest', name: userName },
-        artistId,
-        videoOrStreamTitle: videoId ? 'Music Video' : (liveStreamId ? 'Live Broadcast' : 'Artist Channel'),
-        videoId,
-        streamId: liveStreamId,
-        amount,
-        currency,
-        message
-      });
-    } catch (notifErr) {
-      console.warn("Super Thanks notification error:", notifErr);
-    }
-
-    // Real-time broadcast if socket.io is active
-    if ((global as any).ioInstance) {
-      (global as any).ioInstance.emit("super_thanks:new", {
-        donation,
-        artistId,
-        userName,
-        amount,
-        currency,
-        message
-      });
-      if (liveStreamId) {
-        (global as any).ioInstance.to(liveStreamId).emit("chat:super_thanks", {
-          id: donation.id,
-          user_name: userName,
-          amount,
-          currency,
-          message,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
-
     res.json({
       success: true,
+      status: 'pending',
       donation,
       transactionId: txId,
-      split: {
-        vat_amount: vatAmount,
-        after_vat: afterVat,
-        artist_share: artistShare,
-        owner_share: ownerShare
-      }
+      split: { vat_amount: vatAmount, after_vat: afterVat, artist_share: artistShare, owner_share: ownerShare }
     });
   } catch (err: any) {
-    console.error("Super Thanks send error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/super-thanks/artist/:id – returns artist's donations: total, count, average_amount, top_donors (user_name, total_amount)
 app.get("/api/super-thanks/artist/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const { data: donations, error } = await supabaseAdmin
       .from('super_thanks')
-      .select('*, profiles(id, full_name, username, avatar_url), videos(id, title, thumbnail_url)')
-      .eq('artist_id', id)
+      .select('*')
+      .eq('creator_channel_id', id)
+      .eq('event_status', 'confirmed')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -2590,27 +1993,11 @@ app.get("/api/super-thanks/artist/:id", async (req, res) => {
     const count = list.length;
     const average_amount = count > 0 ? Math.round(total / count) : 0;
 
-    // Aggregate top donors
-    const donorMap = new Map<string, { user_name: string; total_amount: number; count: number; avatar_url?: string }>();
-    list.forEach((d: any) => {
-      const uId = d.user_id || 'anonymous';
-      const uName = d.profiles?.full_name || d.profiles?.username || 'Fan Supporter';
-      const avatar = d.profiles?.avatar_url || '';
-      const existing = donorMap.get(uId) || { user_name: uName, total_amount: 0, count: 0, avatar_url: avatar };
-      existing.total_amount += Number(d.amount || 0);
-      existing.count += 1;
-      donorMap.set(uId, existing);
-    });
-
-    const top_donors = Array.from(donorMap.values())
-      .sort((a, b) => b.total_amount - a.total_amount)
-      .slice(0, 10);
-
     res.json({
       total,
       count,
       average_amount,
-      top_donors,
+      top_donors: [],
       donations: list
     });
   } catch (err: any) {
@@ -2618,14 +2005,13 @@ app.get("/api/super-thanks/artist/:id", async (req, res) => {
   }
 });
 
-// GET /api/super-thanks/user – returns user's donation history
 app.get("/api/super-thanks/user", authenticate, async (req, res) => {
   const user = (req as any).user;
   try {
     const { data: donations, error } = await supabaseAdmin
       .from('super_thanks')
-      .select('*, artists(id, full_name, profile_image), videos(id, title, thumbnail_url)')
-      .eq('user_id', user.id)
+      .select('*, creator_channels(id, channel_name, avatar_path)')
+      .eq('sender_user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -2636,226 +2022,53 @@ app.get("/api/super-thanks/user", authenticate, async (req, res) => {
 });
 
 // ----------------------------------------------------
-// WEBHOOKS: Stripe, MTN MoMo, Airtel Money, Renewal
+// WEBHOOKS
 // ----------------------------------------------------
 
-// POST /api/webhooks/stripe – Stripe webhook for subscription payments
 app.post("/api/webhooks/stripe", async (req, res) => {
   const event = req.body;
   try {
     const eventType = event.type;
-    console.log(`[Stripe Webhook] Event received: ${eventType}`);
-
-    if (eventType === 'invoice.payment_succeeded') {
-      const invoice = event.data?.object;
-      const subscriptionId = invoice?.subscription;
-      const amountPaid = (invoice?.amount_paid || 0) / 100;
-
-      if (subscriptionId) {
-        const { data: sub } = await supabaseAdmin
-          .from('memberships')
-          .select('*, membership_tiers(*)')
-          .eq('stripe_subscription_id', subscriptionId)
-          .single();
-
-        if (sub) {
-          const nextStart = sub.current_period_end;
-          const nextEnd = new Date(new Date(sub.current_period_end).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-          await supabaseAdmin
-            .from('memberships')
-            .update({
-              status: 'active',
-              current_period_start: nextStart,
-              current_period_end: nextEnd,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', sub.id);
-
-          const txId = `STRP-INV-${Date.now()}`;
-          const vat = amountPaid * 0.05;
-          const afterVat = amountPaid - vat;
-          const artistShare = afterVat * 0.70;
-          const ownerShare = afterVat * 0.30;
-
-          await supabaseAdmin
-            .from('membership_payments')
-            .insert({
-              membership_id: sub.id,
-              amount: amountPaid,
-              currency: (invoice?.currency || 'RWF').toUpperCase(),
-              transaction_id: txId,
-              payment_method: 'stripe_recurring',
-              period_start: nextStart,
-              period_end: nextEnd,
-              vat_amount: vat,
-              after_vat: afterVat,
-              artist_share: artistShare,
-              owner_share: ownerShare,
-              paid_at: new Date().toISOString()
-            });
-
-          const { data: artistRec } = await supabaseAdmin
-            .from('artists')
-            .select('pending_balance, total_earnings')
-            .eq('id', sub.artist_id)
-            .single();
-
-          if (artistRec) {
-            await supabaseAdmin
-              .from('artists')
-              .update({
-                pending_balance: (artistRec.pending_balance || 0) + artistShare,
-                total_earnings: (artistRec.total_earnings || 0) + artistShare
-              })
-              .eq('id', sub.artist_id);
-          }
-        }
-      }
-    } else if (eventType === 'invoice.payment_failed') {
-      const invoice = event.data?.object;
-      console.warn(`[Stripe Webhook] Invoice payment failed for subscription: ${invoice?.subscription}`);
-    } else if (eventType === 'customer.subscription.deleted') {
+    if (eventType === 'customer.subscription.deleted') {
       const subscription = event.data?.object;
       if (subscription?.id) {
         await supabaseAdmin
-          .from('memberships')
-          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .eq('stripe_subscription_id', subscription.id);
+          .from('creator_memberships')
+          .update({ membership_status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq('provider_subscription_reference', subscription.id);
       }
     }
-
     res.json({ received: true });
   } catch (err: any) {
-    console.error("Stripe webhook processing error:", err);
     res.status(400).json({ error: err.message });
   }
 });
 
-// POST /api/webhooks/mtn – MTN mobile money webhook
 app.post("/api/webhooks/mtn", async (req, res) => {
   try {
-    const payload = req.body;
-    console.log("[MTN MoMo Webhook] Callback received:", payload);
-    const { transactionId, status } = payload;
-
+    const { transactionId, status } = req.body || {};
     if (transactionId && (status === 'SUCCESSFUL' || status === 'SUCCESS')) {
       await supabaseAdmin
-        .from('membership_payments')
-        .update({ payment_method: `mtn_momo_confirmed` })
-        .eq('transaction_id', transactionId);
+        .from('payment_intents')
+        .update({ payment_status: 'succeeded', updated_at: new Date().toISOString() })
+        .eq('provider_payment_reference', transactionId);
     }
-
-    res.json({ status: "SUCCESS", message: "MTN callback processed" });
+    res.json({ status: "SUCCESS" });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/webhooks/airtel – Airtel mobile money webhook
 app.post("/api/webhooks/airtel", async (req, res) => {
   try {
-    const payload = req.body;
-    console.log("[Airtel Money Webhook] Callback received:", payload);
-    const { transactionId, status } = payload;
-
+    const { transactionId, status } = req.body || {};
     if (transactionId && (status === 'SUCCESS' || status === 'COMPLETED')) {
       await supabaseAdmin
-        .from('membership_payments')
-        .update({ payment_method: `airtel_money_confirmed` })
-        .eq('transaction_id', transactionId);
+        .from('payment_intents')
+        .update({ payment_status: 'succeeded', updated_at: new Date().toISOString() })
+        .eq('provider_payment_reference', transactionId);
     }
-
-    res.json({ status: "SUCCESS", message: "Airtel callback processed" });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/webhooks/membership/renewal – simulated background recurring renewal
-app.post("/api/webhooks/membership/renewal", async (req, res) => {
-  const { membershipId } = req.body;
-  try {
-    const { data: sub, error } = await supabaseAdmin
-      .from('memberships')
-      .select('*, membership_tiers(*)')
-      .eq('id', membershipId)
-      .single();
-
-    if (error || !sub) return res.status(404).json({ error: "Membership subscription not found." });
-
-    if (sub.status !== 'active') {
-      return res.status(400).json({ error: "Subscription is not active." });
-    }
-
-    if (sub.cancel_at_period_end) {
-      const { data: expiredSub } = await supabaseAdmin
-        .from('memberships')
-        .update({ status: 'expired', updated_at: new Date().toISOString() })
-        .eq('id', membershipId)
-        .select()
-        .single();
-
-      return res.json({ status: "expired", membership: expiredSub });
-    }
-
-    // Renew for another 30 days
-    const nextStart = sub.current_period_end;
-    const nextEnd = new Date(new Date(sub.current_period_end).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    const { data: updatedSub } = await supabaseAdmin
-      .from('memberships')
-      .update({
-        current_period_start: nextStart,
-        current_period_end: nextEnd,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', membershipId)
-      .select()
-      .single();
-
-    const tierObj = sub.membership_tiers || sub.tier;
-    const amount = Number(tierObj?.price_rwf || 1500);
-    const vat = amount * 0.05;
-    const afterVat = amount - vat;
-    const artistShare = afterVat * 0.70;
-    const ownerShare = afterVat * 0.30;
-
-    const txId = "RECURRING-PMT-" + Date.now();
-    await supabaseAdmin
-      .from('membership_payments')
-      .insert({
-        membership_id: membershipId,
-        amount,
-        currency: 'RWF',
-        transaction_id: txId,
-        payment_method: 'recurring_auto',
-        period_start: nextStart,
-        period_end: nextEnd,
-        vat_amount: vat,
-        after_vat: afterVat,
-        artist_share: artistShare,
-        owner_share: ownerShare,
-        paid_at: nextStart
-      });
-
-    const { data: artistRec } = await supabaseAdmin
-      .from('artists')
-      .select('pending_balance, total_earnings')
-      .eq('id', sub.artist_id)
-      .single();
-
-    if (artistRec) {
-      await supabaseAdmin
-        .from('artists')
-        .update({
-          pending_balance: (artistRec.pending_balance || 0) + artistShare,
-          total_earnings: (artistRec.total_earnings || 0) + artistShare
-        })
-        .eq('id', sub.artist_id);
-    }
-
-    res.json({ success: true, status: 'renewed', membership: updatedSub });
+    res.json({ status: "SUCCESS" });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2863,20 +2076,16 @@ app.post("/api/webhooks/membership/renewal", async (req, res) => {
 
 // --- Vite Middleware ---
 async function startServer() {
-  console.log("🚀 Starting PAYTUNE server initialization (Supabase unified database)...");
-  
-  // Load local state snapshot if exists
-  try {
-    const MOCK_DB_FILE = path.join(process.cwd(), "mock_database.json");
-    if (fs.existsSync(MOCK_DB_FILE)) {
-      const raw = fs.readFileSync(MOCK_DB_FILE, "utf-8");
-      const data = JSON.parse(raw);
-      setDbStore(data);
-      console.log("✅ Supabase local database snapshot initialized from mock_database.json");
-    }
-  } catch (err) {
-    console.error("⚠️ Error loading database state:", err);
-  }
+  console.log("Starting PAYTUNE server (PostgreSQL/Supabase unified database)...");
+
+  // Non-blocking storage bucket verification for Supabase media delivery
+  ensureSupabaseStorageBuckets()
+    .then((res) => {
+      if (res.checked) {
+        console.log(`Supabase Storage buckets ready: ${res.existing.join(', ')}`);
+      }
+    })
+    .catch(() => {});
 
   const httpServer = http.createServer(app);
   const io = new SocketIOServer(httpServer, {
@@ -2891,6 +2100,8 @@ async function startServer() {
 
   // Active socket room tracking for clean leave/disconnect
   const socketRooms = new Map<string, Set<string>>();
+  const socketSessionIds = new Map<string, string>();
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   const handleJoin = async (socket: any, streamId: string, userId?: string) => {
     if (!streamId) return;
@@ -2901,25 +2112,37 @@ async function startServer() {
     }
     socketRooms.get(socket.id)!.add(streamId);
 
-    const roomSize = io.sockets.adapter.rooms.get(room)?.size || 1;
+    const roomSize = io.sockets.adapter.rooms.get(room)?.size || 0;
     io.to(room).emit("viewer:count", { count: roomSize, streamId });
     io.to(room).emit("viewer:join", { count: roomSize, streamId });
 
-    // Track active viewer in database if logged in
-    if (userId) {
+    if (UUID_RE.test(streamId)) {
       try {
-        await supabaseAdmin.from('live_viewers').upsert({
-          stream_id: streamId,
-          user_id: userId,
-          last_heartbeat: new Date().toISOString()
-        }, { onConflict: 'stream_id,user_id' });
-      } catch (e) {
-        // non-blocking
+        const now = new Date().toISOString();
+        const validUserId = userId && UUID_RE.test(userId) ? userId : null;
+        const { data: sess } = await supabaseAdmin
+          .from('livestream_viewer_sessions')
+          .insert({
+            livestream_id: streamId,
+            user_id: validUserId,
+            anonymous_session_id: validUserId ? null : crypto.randomUUID(),
+            joined_at: now,
+            last_heartbeat_at: now,
+            is_active: true,
+            session_metadata: { socket_id: socket.id }
+          })
+          .select('id')
+          .maybeSingle();
+        if (sess?.id) {
+          socketSessionIds.set(`${socket.id}:${streamId}`, sess.id);
+        }
+      } catch {
+        // Non-blocking telemetry insert
       }
     }
   };
 
-  const handleLeave = (socket: any, streamId: string) => {
+  const handleLeave = async (socket: any, streamId: string) => {
     if (!streamId) return;
     const room = `stream:${streamId}`;
     socket.leave(room);
@@ -2928,6 +2151,19 @@ async function startServer() {
     const roomSize = io.sockets.adapter.rooms.get(room)?.size || 0;
     io.to(room).emit("viewer:count", { count: roomSize, streamId });
     io.to(room).emit("viewer:leave", { count: roomSize, streamId });
+
+    const sessionId = socketSessionIds.get(`${socket.id}:${streamId}`);
+    socketSessionIds.delete(`${socket.id}:${streamId}`);
+    if (sessionId) {
+      try {
+        await supabaseAdmin
+          .from('livestream_viewer_sessions')
+          .update({ is_active: false, left_at: new Date().toISOString() })
+          .eq('id', sessionId);
+      } catch {
+        // Non-blocking telemetry update
+      }
+    }
   };
 
   io.on("connection", (socket) => {
@@ -2938,44 +2174,61 @@ async function startServer() {
       handleJoin(socket, streamId, userId);
     });
 
-    // 2. Chat message
+    // 2. Chat message persisted to PostgreSQL livestream_chat_messages
     socket.on("chat:send", async (data: any) => {
-      const { streamId, message, user } = data;
+      const { streamId, message, user } = data || {};
       if (!streamId || !message) return;
 
-      // Check if user is blocked
-      if (user?.id) {
+      if (user?.id && UUID_RE.test(user.id) && UUID_RE.test(streamId)) {
         try {
           const { data: blocked } = await supabaseAdmin
-            .from("live_chat_blocked_users")
+            .from("livestream_chat_moderation_actions")
             .select("id")
-            .eq("stream_id", streamId)
-            .eq("user_id", user.id)
+            .eq("livestream_id", streamId)
+            .eq("target_user_id", user.id)
+            .in("action_type", ["ban", "mute", "timeout"])
+            .limit(1)
             .maybeSingle();
 
           if (blocked) {
             socket.emit("error", { message: "You are blocked from chatting in this broadcast." });
             return;
           }
-        } catch (e) {}
+        } catch {
+          // Proceed if moderation table probe fails cleanly
+        }
       }
 
-      const msgObj = {
-        id: "lcm-" + Date.now() + Math.random().toString(36).substr(2, 4),
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const senderName = user?.user_metadata?.full_name || user?.full_name || "Listener";
+
+      if (user?.id && UUID_RE.test(user.id) && UUID_RE.test(streamId)) {
+        try {
+          await supabaseAdmin.from("livestream_chat_messages").insert({
+            id,
+            livestream_id: streamId,
+            user_id: user.id,
+            message_text: String(message),
+            message_status: 'visible',
+            created_at: now,
+            metadata: { sender_name: senderName }
+          });
+        } catch {
+          // Non-blocking chat persistence
+        }
+      }
+
+      io.to(`stream:${streamId}`).emit("chat:message", {
+        id,
         stream_id: streamId,
         user_id: user?.id || null,
-        user_name: user?.user_metadata?.full_name || user?.full_name || "Anonymous",
-        message: message,
+        user_name: senderName,
+        message: String(message),
         is_super_chat: false,
         super_chat_amount: 0,
-        created_at: new Date().toISOString()
-      };
-
-      try {
-        await supabaseAdmin.from("live_chat_messages").insert(msgObj);
-      } catch (e) {}
-
-      io.to(`stream:${streamId}`).emit("chat:message", msgObj);
+        created_at: now
+      });
     });
 
     // Direct chat:message event
@@ -3048,12 +2301,15 @@ async function startServer() {
     });
   });
 
-  // Global error handler — catch multer limits, payload limits, and return JSON 413
+  // Global error handler — catch multer limits, payload limits, and return JSON 400/413
   app.use((err: any, _req: any, res: any, next: any) => {
     if (err?.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
-        error: 'File too large. Videos must be under 500 MB, audio under 100 MB, images under 10 MB.',
+        error: 'File too large. Videos must be under 2 GB, audio under 100 MB, images under 15 MB.',
       });
+    }
+    if (err?.name === 'MulterError') {
+      return res.status(400).json({ error: err.message || 'Invalid multipart upload field', code: err.code });
     }
     if (err?.message?.includes('File too large') || err?.type === 'entity.too.large') {
       return res.status(413).json({ error: err.message || 'Payload Too Large' });
@@ -3063,6 +2319,16 @@ async function startServer() {
       return res.status(err?.status || 500).json({ error: err?.message || 'Server error' });
     }
     next();
+  });
+
+  // Ensure unmatched API routes return structured JSON 404 rather than HTML SPA fallback
+  app.use("/api/*", (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: "API endpoint not found",
+      method: req.method,
+      path: req.originalUrl,
+    });
   });
 
   if (process.env.NODE_ENV !== "production") {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { MessageSquare, Send, User as UserIcon, Loader2 } from 'lucide-react';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../hooks/useAuth';
@@ -35,6 +35,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   // Fetch comments if not supplied or when video changes
   useEffect(() => {
@@ -47,7 +48,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
     setIsLoading(true);
     console.log('[CommentSection] Fetching comments for video:', videoId);
-    axios
+    api
       .get(`/api/videos/${videoId}/comments`)
       .then((res) => {
         const data = Array.isArray(res.data) ? res.data : [];
@@ -72,23 +73,21 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
     if (!authed) return;
 
     setIsSubmitting(true);
+    setCommentError(null);
     const commentContent = inputText.trim();
 
     try {
-      console.log(`[CommentSection] Posting comment to /api/videos/${videoId}/comments: "${commentContent}"`);
-
       let newComment: CommentItem;
       if (onPostComment) {
         newComment = await onPostComment(commentContent);
       } else {
-        const res = await axios.post(`/api/videos/${videoId}/comments`, {
+        const res = await api.post(`/api/videos/${videoId}/comments`, {
           text: commentContent,
           comment_text: commentContent
         });
         newComment = res.data;
       }
 
-      // Optimistically add to top of list
       const fallbackItem: CommentItem = {
         id: newComment?.id || 'cmt-' + Date.now(),
         video_id: videoId,
@@ -102,10 +101,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
       setCommentList((prev) => [newComment || fallbackItem, ...prev]);
       setInputText('');
-      console.log('[CommentSection] Comment posted successfully.');
     } catch (err: any) {
       console.error('[CommentSection] Error posting comment:', err);
-      alert(err.response?.data?.error || 'Failed to post comment. Please try again.');
+      setCommentError(err.response?.data?.error || 'Failed to post comment. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -154,6 +152,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
             placeholder="Add a comment..."
             className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all"
           />
+
+          {commentError && (
+            <p className="text-xs font-medium text-red-500">{commentError}</p>
+          )}
 
           <div className="flex justify-end gap-2">
             {inputText && (

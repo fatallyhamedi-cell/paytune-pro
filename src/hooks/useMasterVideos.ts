@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterVideo {
   id: string;
@@ -31,18 +31,11 @@ export const useMasterVideos = () => {
   const [sortBy, setSortBy] = useState<string>("uploaded_at");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchVideos = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/videos", {
-        headers,
+      const res = await api.get("/api/master/videos", {
         params: {
           visibility: visibilityFilter,
           type: typeFilter,
@@ -56,26 +49,24 @@ export const useMasterVideos = () => {
       }
     } catch (err: any) {
       console.error("useMasterVideos error:", err);
-      setError(err.message || "Failed to load videos");
+      setError(err.response?.data?.error || err.message || "Failed to load videos");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, visibilityFilter, typeFilter, searchQuery, sortBy]);
+  }, [visibilityFilter, typeFilter, searchQuery, sortBy]);
 
   useEffect(() => {
     fetchVideos();
   }, [fetchVideos]);
 
   const updateVideo = async (id: string, updates: Partial<MasterVideo>) => {
-    const headers = getHeaders();
-    const res = await axios.put(`/api/master/videos/${id}`, updates, { headers });
+    const res = await api.put(`/api/master/videos/${id}`, updates);
     fetchVideos();
     return res.data;
   };
 
   const deleteVideo = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.delete(`/api/master/videos/${id}`, { headers });
+    const res = await api.delete(`/api/master/videos/${id}`);
     fetchVideos();
     return res.data;
   };

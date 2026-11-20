@@ -1,14 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
-import { supabase as rootSupabase, supabaseAdmin as rootSupabaseAdmin } from '../../../src/config/supabase';
+import {
+  supabase as rootSupabase,
+  supabaseAdmin as rootSupabaseAdmin,
+  sanitizeSupabaseUrl,
+  resolveSupabaseKeys,
+} from '../../../src/config/supabase';
 
-const url = process.env.SUPABASE_URL || 'https://reuekwbqdjtwqzpyqtuc.supabase.co';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
+const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const { serviceKey } = resolveSupabaseKeys();
+const cleanUrl = rawUrl ? sanitizeSupabaseUrl(rawUrl) : '';
 
-export const supabase: any = (serviceKey && serviceKey.startsWith('sb_secret_'))
-  ? createClient(url, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-  : (rootSupabaseAdmin || rootSupabase);
+export const supabase: any =
+  cleanUrl && serviceKey && serviceKey.startsWith('sb_secret_') && rootSupabaseAdmin
+    ? rootSupabaseAdmin
+    : cleanUrl && serviceKey
+      ? createClient(cleanUrl, serviceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+      : (rootSupabaseAdmin || rootSupabase);
 
-export const supabaseAdmin: any = supabase;
+export const supabaseAdmin: any = rootSupabaseAdmin || supabase;
 export default supabase;

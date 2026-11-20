@@ -68,10 +68,10 @@ export default function ArtistVideos() {
   const loadVideos = () => {
     setLoading(true);
     api.get('/artist/videos')
-      .then(r => setVideos(r.data.videos || []))
-      .catch(err => {
+      .then((r) => setVideos(Array.isArray(r.data) ? r.data : (r.data?.videos || [])))
+      .catch((err) => {
         console.error('Failed to load videos:', err);
-        setError(err.response?.data?.error || 'Failed to load videos');
+        setError(err.response?.data?.message || err.response?.data?.error || 'Failed to load videos');
       })
       .finally(() => setLoading(false));
   };
@@ -125,12 +125,14 @@ export default function ArtistVideos() {
 
   const handleDelete = async (id: string) => {
     setDeleteLoading(true);
+    setError('');
     try {
       await api.delete(`/artist/videos/${id}`);
       setVideos(prev => prev.filter(v => v.id !== id));
       setDeletingId(null);
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete video');
+      setError(err.response?.data?.error || 'Failed to delete video');
+      setDeletingId(null);
     } finally {
       setDeleteLoading(false);
     }
@@ -171,16 +173,16 @@ export default function ArtistVideos() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-white tracking-tight">Your Releases & Catalog</h1>
-            <span className="bg-purple-600/20 text-purple-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-purple-600/30">
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Your Releases & Catalog</h1>
+            <span className="bg-purple-100 dark:bg-purple-600/20 text-purple-700 dark:text-purple-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-600/30">
               {videos.length} {videos.length === 1 ? 'Track' : 'Tracks'}
             </span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Manage, edit pricing, or monitor performance of all your releases</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Manage, edit pricing, or monitor performance of all your releases</p>
         </div>
         <Link
           to="/artist/dashboard/upload"
-          className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-400 hover:to-purple-300 text-black px-4 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-purple-600/10 transition-all cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Upload Media</span>
@@ -188,7 +190,7 @@ export default function ArtistVideos() {
       </div>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500/50 text-red-400 p-4 rounded-xl text-sm flex items-center gap-3">
+        <div className="bg-red-50 dark:bg-red-500/20 border border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-400 p-4 rounded-xl text-sm flex items-center gap-3">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -203,7 +205,7 @@ export default function ArtistVideos() {
             placeholder="Search by title or genre..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-[#161616] border border-gray-800 focus:border-purple-500 text-white rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-500"
+            className="w-full bg-white dark:bg-[#161616] border border-gray-200 dark:border-gray-800 focus:border-purple-500 text-gray-900 dark:text-white rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-all placeholder:text-gray-400"
           />
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -213,8 +215,8 @@ export default function ArtistVideos() {
               onClick={() => setFilterType(tab)}
               className={`px-3 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
                 filterType === tab
-                  ? 'bg-purple-600 text-black font-bold shadow-md shadow-purple-600/20'
-                  : 'bg-[#161616] text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700'
+                  ? 'bg-purple-600 text-white font-bold shadow-sm'
+                  : 'bg-white dark:bg-[#161616] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'
               }`}
             >
               {tab === 'paid' ? 'Pay-Per-View' : tab}
@@ -225,21 +227,21 @@ export default function ArtistVideos() {
 
       {/* Videos List / Grid */}
       {filteredVideos.length === 0 ? (
-        <div className="bg-[#161616] rounded-2xl p-12 text-center border border-gray-800 space-y-4">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-[#222] border border-gray-800 flex items-center justify-center text-purple-600">
+        <div className="bg-white dark:bg-[#161616] rounded-2xl p-12 text-center border border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-purple-50 dark:bg-[#222] border border-purple-200 dark:border-gray-800 flex items-center justify-center text-purple-600">
             {filterType === 'audio' ? <Music className="w-8 h-8" /> : <VideoIcon className="w-8 h-8" />}
           </div>
           <div>
-            <h3 className="text-white font-bold text-base">
+            <h3 className="text-gray-900 dark:text-white font-bold text-base">
               {searchQuery ? 'No releases match your query' : 'No releases found in this category'}
             </h3>
-            <p className="text-gray-400 text-xs mt-1">
+            <p className="text-gray-600 dark:text-gray-400 text-xs mt-1">
               {searchQuery ? 'Try clearing your search filters' : 'Upload your first audio track or music video to start earning.'}
             </p>
           </div>
           <Link
             to="/artist/dashboard/upload"
-            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-400 text-black px-5 py-2.5 rounded-xl font-bold text-xs"
+            className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs"
           >
             <Plus className="w-4 h-4" />
             Upload New Media

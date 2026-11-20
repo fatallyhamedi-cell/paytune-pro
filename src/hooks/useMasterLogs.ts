@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterLog {
   id: string;
@@ -19,18 +19,11 @@ export const useMasterLogs = () => {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [adminFilter, setAdminFilter] = useState<string>("");
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/logs", {
-        headers,
+      const res = await api.get("/api/master/logs", {
         params: {
           action: actionFilter,
           admin: adminFilter
@@ -42,20 +35,18 @@ export const useMasterLogs = () => {
       }
     } catch (err: any) {
       console.error("useMasterLogs error:", err);
-      setError(err.message || "Failed to load audit logs");
+      setError(err.response?.data?.error || err.message || "Failed to load audit logs");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, actionFilter, adminFilter]);
+  }, [actionFilter, adminFilter]);
 
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
   const exportCSV = async () => {
-    const headers = getHeaders();
-    const res = await axios.get("/api/master/logs/export", {
-      headers,
+    const res = await api.get("/api/master/logs/export", {
       responseType: "blob"
     });
     const url = window.URL.createObjectURL(new Blob([res.data]));

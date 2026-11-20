@@ -1,20 +1,34 @@
-import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
-import { supabaseAdmin } from '../config/supabase';
-import { getDbStore, notifyMutation } from '../config/supabase_mock';
+import { Request, Response } from 'express';
+import { rawSupabaseAdmin, supabaseAdmin } from '../config/supabase';
 
-export interface AccessRequestItem {
-  id: string;
-  phone: string;
-  video_id: string;
-  user_id?: string | null;
-  name?: string;
-  note?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-  reviewed_at?: string | null;
-  reviewed_by?: string | null;
-  decision_note?: string | null;
+const db = () => rawSupabaseAdmin || supabaseAdmin;
+
+function mapCaseToAccessRequest(row: any) {
+  const meta = row?.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  const mappedStatus =
+    row.case_status === 'resolved' || meta.access_status === 'approved'
+      ? 'approved'
+      : row.case_status === 'dismissed' || row.case_status === 'closed' || meta.access_status === 'rejected'
+        ? 'rejected'
+        : 'pending';
+
+  return {
+    id: row.id,
+    case_reference: row.case_reference,
+    requester_user_id: row.opened_by || meta.requester_user_id || null,
+    requester_phone: meta.requester_phone || '',
+    phone: meta.requester_phone || '',
+    video_id: row.content_id,
+    artist_profile_id: meta.artist_profile_id || null,
+    creator_channel_id: meta.creator_channel_id || null,
+    status: mappedStatus,
+    request_notes: row.decision_summary || row.investigation_notes || meta.request_notes || null,
+    reviewed_at: row.reviewed_at || row.resolved_at || null,
+    reviewed_by: row.resolved_by || null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }
 
 /**
@@ -23,236 +37,322 @@ export interface AccessRequestItem {
  */
 export const submitAccessRequest = async (req: Request, res: Response) => {
   try {
-    const { phone, videoId, name, note } = req.body;
+    const { phone, videoId, note } = req.body || {};
     const user = (req as any).user;
 
-    if (!phone || !phone.trim()) {
+    if (!phone || !String(phone).trim()) {
       return res.status(400).json({ error: 'Phone number is required.' });
     }
-
     if (!videoId) {
       return res.status(400).json({ error: 'Video ID is required.' });
     }
 
-    const cleanPhone = phone.trim().replace(/\s+/g, '');
+    const cleanPhone = String(phone).trim().replace(/\s+/g, '');
+    const client = db();
 
-    // Check if video exists
-    const store = getDbStore();
-    const video = (store?.videos || []).find((v: any) => String(v.id) === String(videoId));
+    const { data: video } = await client
+      .from('videos')
+      .select('id, artist_profile_id, creator_channel_id')
+      .eq('id', videoId)
+      .maybeSingle();
 
-    // Check if an existing approved or pending request exists
-    const existing = (store?.access_requests || []).find(
-      (r: any) => r.phone === cleanPhone && String(r.video_id) === String(videoId)
-    );
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found.' });
+    }
 
-    if (existing) {
-      if (existing.status === 'approved') {
+    const { data: existingRow } = await client
+      .from('moderation_cases')
+      .select('*')
+      .eq('case_type', 'access_request')
+      .eq('content_id', videoId)
+      .contains('metadata', { requester_phone: cleanPhone })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingRow) {
+      const mapped = mapCaseToAccessRequest(existingRow);
+      if (mapped.status === 'approved') {
         return res.json({
           success: true,
           status: 'approved',
-          message: `Phone number ${cleanPhone} already has approved access to this video! You have full playback privilege.`,
-          request: existing
+          message: `Phone number ${cleanPhone} already has approved access to this video.`,
+          request: mapped,
         });
       }
-      if (existing.status === 'pending') {
+      if (mapped.status === 'pending') {
         return res.json({
           success: true,
           status: 'pending',
-          message: `Your access request for ${cleanPhone} is already submitted and currently under review by platform administrators. Once approved, you will automatically receive playback privilege to watch this video.`,
-          request: existing
+          message: `Your access request for ${cleanPhone} is currently under review by platform administrators.`,
+          request: mapped,
         });
       }
     }
 
-    const newRequest: AccessRequestItem = {
-      id: `req-${randomUUID().substring(0, 10)}`,
-      phone: cleanPhone,
-      video_id: String(videoId),
-      user_id: user?.id || null,
-      name: name?.trim() || 'Viewer',
-      note: note?.trim() || 'Requested special viewing access',
-      status: 'pending',
-      created_at: new Date().toISOString()
-    };
+    const now = new Date().toISOString();
+    const { data: created, error } = await client
+      .from('moderation_cases')
+      .insert({
+        id: randomUUID(),
+        case_reference: `ACC-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 4).toUpperCase()}`,
+        case_type: 'access_request',
+        case_status: 'open',
+        priority: 2,
+        content_entity_type: 'video',
+        content_id: videoId,
+        opened_by: user?.id || null,
+        case_summary: `Viewer phone access request (${cleanPhone})`,
+        investigation_notes: note ? String(note).trim() : null,
+        evidence_references: [],
+        opened_at: now,
+        metadata: {
+          requester_user_id: user?.id || null,
+          requester_phone: cleanPhone,
+          artist_profile_id: video.artist_profile_id || null,
+          creator_channel_id: video.creator_channel_id || null,
+          access_status: 'pending',
+          request_notes: note ? String(note).trim() : null,
+        },
+        created_at: now,
+        updated_at: now,
+      })
+      .select('*')
+      .single();
 
-    store.access_requests = store.access_requests || [];
-    store.access_requests.push(newRequest);
-    notifyMutation('access_requests');
-
-    try {
-      await supabaseAdmin.from('access_requests').insert(newRequest);
-    } catch {}
+    if (error) throw error;
 
     return res.json({
       success: true,
       status: 'pending',
-      message: `Access request submitted for ${cleanPhone}! Your request is pending review by platform administrators. Once approved, you will automatically receive playback privilege to watch this video.`,
-      request: newRequest
+      message: `Access request submitted for ${cleanPhone} and queued for administrator review.`,
+      request: mapCaseToAccessRequest(created),
     });
   } catch (error: any) {
     console.error('submitAccessRequest error:', error);
-    return res.status(500).json({ error: 'Failed to submit access request' });
+    return res.status(500).json({ error: error.message || 'Failed to submit access request' });
   }
 };
 
 /**
  * GET /api/access-requests/status
- * Check status of request for given phone and videoId
  */
 export const checkAccessRequestStatus = async (req: Request, res: Response) => {
   try {
     const { phone, videoId } = req.query;
-
     if (!phone || !videoId) {
       return res.status(400).json({ error: 'phone and videoId query parameters required' });
     }
 
     const cleanPhone = String(phone).trim().replace(/\s+/g, '');
-    const store = getDbStore();
+    const client = db();
 
-    const request = (store?.access_requests || []).find(
-      (r: any) => r.phone === cleanPhone && String(r.video_id) === String(videoId)
-    );
+    const { data: row, error } = await client
+      .from('moderation_cases')
+      .select('*')
+      .eq('case_type', 'access_request')
+      .eq('content_id', String(videoId))
+      .contains('metadata', { requester_phone: cleanPhone })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (!request) {
+    if (error) throw error;
+    if (!row) {
       return res.json({ exists: false, status: 'none', hasAccess: false });
     }
 
+    const request = mapCaseToAccessRequest(row);
     return res.json({
       exists: true,
       status: request.status,
       hasAccess: request.status === 'approved',
-      request
+      request,
     });
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to check status' });
+    console.error('checkAccessRequestStatus error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to check status' });
   }
 };
 
 /**
  * GET /api/access-requests/list
- * Admin endpoint to list all access requests
  */
-export const listAccessRequests = async (req: Request, res: Response) => {
+export const listAccessRequests = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const requests = store?.access_requests || [];
+    const client = db();
+    const { data: rows, error } = await client
+      .from('moderation_cases')
+      .select('*')
+      .eq('case_type', 'access_request')
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-    // Augment with video titles
-    const augmented = requests.map((r: any) => {
-      const vid = (store?.videos || []).find((v: any) => String(v.id) === String(r.video_id));
+    if (error) throw error;
+
+    const mapped = (rows || []).map(mapCaseToAccessRequest);
+    const videoIds = Array.from(new Set(mapped.map((r: any) => r.video_id).filter(Boolean)));
+    const { data: videos } = videoIds.length > 0
+      ? await client.from('videos').select('id, title, metadata').in('id', videoIds)
+      : { data: [] as any[] };
+
+    const videoMap = new Map((videos || []).map((v: any) => [v.id, v]));
+
+    const augmented = mapped.map((r: any) => {
+      const vid: any = videoMap.get(r.video_id);
       return {
         ...r,
-        video_title: vid?.title || 'Video #' + r.video_id,
-        video_thumbnail: vid?.thumbnail_url || ''
+        video_title: vid?.title || `Video ${r.video_id}`,
+        video_thumbnail: vid?.metadata?.thumbnail_url || '',
       };
     });
 
-    // Sort newest first
-    augmented.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
     return res.json({ success: true, count: augmented.length, requests: augmented });
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to list access requests' });
+    console.error('listAccessRequests error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to list access requests' });
   }
 };
 
 /**
  * POST /api/access-requests/:id/approve
- * Admin approves request and grants entitlement in purchases
  */
 export const approveAccessRequest = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { decisionNote } = req.body;
+    const { decisionNote } = req.body || {};
     const adminUser = (req as any).user;
+    const client = db();
 
-    const store = getDbStore();
-    const request = (store?.access_requests || []).find((r: any) => r.id === id);
+    const { data: row, error: findErr } = await client
+      .from('moderation_cases')
+      .select('*')
+      .eq('id', id)
+      .eq('case_type', 'access_request')
+      .maybeSingle();
 
-    if (!request) {
+    if (findErr) throw findErr;
+    if (!row) {
       return res.status(404).json({ error: 'Access request not found' });
     }
 
-    request.status = 'approved';
-    request.reviewed_at = new Date().toISOString();
-    request.reviewed_by = adminUser?.email || 'admin@paytune.rw';
-    request.decision_note = decisionNote || 'Approved by platform administrator';
+    const request = mapCaseToAccessRequest(row);
+    const now = new Date().toISOString();
+    const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+    const noteText = decisionNote || request.request_notes || 'Approved by platform administrator';
 
-    // Grant verified entitlement in purchases
-    store.purchases = store.purchases || [];
+    const { data: updated, error: updErr } = await client
+      .from('moderation_cases')
+      .update({
+        case_status: 'resolved',
+        reviewed_at: now,
+        resolved_at: now,
+        resolved_by: adminUser?.id || null,
+        decision_summary: noteText,
+        metadata: {
+          ...meta,
+          access_status: 'approved',
+          request_notes: noteText,
+        },
+        updated_at: now,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
 
-    // Find or create profile for phone
-    let targetUserId = request.user_id;
-    if (!targetUserId) {
-      const existingUser = (store?.users || []).find((u: any) => u.phone === request.phone);
-      targetUserId = existingUser?.id || `user-vip-${request.phone.replace(/[^0-9]/g, '').slice(-6)}`;
+    if (updErr) throw updErr;
+
+    if (request.requester_user_id && request.creator_channel_id) {
+      const { data: existingGrant } = await client
+        .from('premium_content_access_grants')
+        .select('id')
+        .eq('user_id', request.requester_user_id)
+        .eq('content_id', request.video_id)
+        .is('revoked_at', null)
+        .maybeSingle();
+
+      if (!existingGrant) {
+        await client.from('premium_content_access_grants').insert({
+          creator_channel_id: request.creator_channel_id,
+          user_id: request.requester_user_id,
+          content_type: 'video',
+          content_id: request.video_id,
+          grant_reason: 'admin_phone_approval',
+          grant_metadata: {
+            access_request_id: id,
+            phone: request.requester_phone,
+            approved_by: adminUser?.id || null,
+          },
+        });
+      }
     }
-
-    const alreadyPurchased = store.purchases.some(
-      (p: any) => (p.user_id === targetUserId || p.payment_phone === request.phone) && String(p.video_id) === String(request.video_id)
-    );
-
-    if (!alreadyPurchased) {
-      const entitlement = {
-        id: `vip-entitle-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        user_id: targetUserId,
-        video_id: request.video_id,
-        amount_paid: 0,
-        paid_currency: 'RWF',
-        payment_phone: request.phone,
-        payment_method: 'admin_phone_approval',
-        status: 'active',
-        receipt_number: `VIP-PHONE-${Date.now().toString(36).toUpperCase()}`,
-        purchased_at: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      };
-      store.purchases.push(entitlement);
-    }
-
-    notifyMutation('access_requests');
-    notifyMutation('purchases');
 
     return res.json({
       success: true,
-      message: `Access approved for ${request.phone}! Playback privilege granted.`,
-      request
+      message: `Access approved for ${request.requester_phone}.`,
+      request: mapCaseToAccessRequest(updated),
     });
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to approve request' });
+    console.error('approveAccessRequest error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to approve request' });
   }
 };
 
 /**
  * POST /api/access-requests/:id/reject
- * Admin rejects access request
  */
 export const rejectAccessRequest = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { decisionNote } = req.body;
+    const { decisionNote } = req.body || {};
     const adminUser = (req as any).user;
+    const client = db();
 
-    const store = getDbStore();
-    const request = (store?.access_requests || []).find((r: any) => r.id === id);
+    const { data: row, error: findErr } = await client
+      .from('moderation_cases')
+      .select('*')
+      .eq('id', id)
+      .eq('case_type', 'access_request')
+      .maybeSingle();
 
-    if (!request) {
+    if (findErr) throw findErr;
+    if (!row) {
       return res.status(404).json({ error: 'Access request not found' });
     }
 
-    request.status = 'rejected';
-    request.reviewed_at = new Date().toISOString();
-    request.reviewed_by = adminUser?.email || 'admin@paytune.rw';
-    request.decision_note = decisionNote || 'Declined by administrator';
+    const request = mapCaseToAccessRequest(row);
+    const now = new Date().toISOString();
+    const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+    const noteText = decisionNote || 'Declined by administrator';
 
-    notifyMutation('access_requests');
+    const { data: updated, error: updErr } = await client
+      .from('moderation_cases')
+      .update({
+        case_status: 'dismissed',
+        reviewed_at: now,
+        resolved_at: now,
+        resolved_by: adminUser?.id || null,
+        decision_summary: noteText,
+        metadata: {
+          ...meta,
+          access_status: 'rejected',
+          request_notes: noteText,
+        },
+        updated_at: now,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (updErr) throw updErr;
 
     return res.json({
       success: true,
-      message: `Access request for ${request.phone} has been rejected.`,
-      request
+      message: `Access request for ${request.requester_phone} has been rejected.`,
+      request: mapCaseToAccessRequest(updated),
     });
   } catch (error: any) {
-    return res.status(500).json({ error: 'Failed to reject request' });
+    console.error('rejectAccessRequest error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to reject request' });
   }
 };

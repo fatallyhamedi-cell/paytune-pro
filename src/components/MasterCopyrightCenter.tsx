@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { 
   ShieldCheck, 
   Scale, 
@@ -26,8 +26,12 @@ export function MasterCopyrightCenter() {
   const [dmcaRequests, setDmcaRequests] = useState<DMCARequest[]>([]);
   const [disputes, setDisputes] = useState<CopyrightDispute[]>([]);
   const [strikes, setStrikes] = useState<InfringementStrike[]>([]);
-  const [escrowTotal, setEscrowTotal] = useState<number>(665);
+  const [escrowTotal, setEscrowTotal] = useState<number>(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmDmcaId, setConfirmDmcaId] = useState<string | null>(null);
+  const [rejectDmcaId, setRejectDmcaId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('Insufficient proof of ownership / invalid claim');
 
   // Forensic Watermark Trace State
   const [traceToken, setTraceToken] = useState('');
@@ -42,17 +46,19 @@ export function MasterCopyrightCenter() {
 
   const fetchMasterCopyrightData = async () => {
     try {
-      const [claimsRes, dmcaRes, disputesRes, strikesRes] = await Promise.all([
-        axios.get('/api/copyright/claims').catch(() => ({ data: { claims: [] } })),
-        axios.get('/api/dmca/requests').catch(() => ({ data: { requests: [] } })),
-        axios.get('/api/copyright/disputes').catch(() => ({ data: { disputes: [] } })),
-        axios.get('/api/copyright/strikes').catch(() => ({ data: { strikes: [] } }))
+      const [claimsRes, dmcaRes, disputesRes, strikesRes, analyticsRes] = await Promise.all([
+        api.get('/api/copyright/claims').catch(() => ({ data: { claims: [] } })),
+        api.get('/api/dmca/requests').catch(() => ({ data: { requests: [] } })),
+        api.get('/api/copyright/disputes').catch(() => ({ data: { disputes: [] } })),
+        api.get('/api/copyright/strikes').catch(() => ({ data: { strikes: [] } })),
+        api.get('/api/copyright/analytics').catch(() => ({ data: { escrowTotalRwf: 0 } }))
       ]);
 
       setClaims(claimsRes.data?.claims || []);
       setDmcaRequests(dmcaRes.data?.requests || []);
       setDisputes(disputesRes.data?.disputes || []);
       setStrikes(strikesRes.data?.strikes || []);
+      setEscrowTotal(Number(analyticsRes.data?.escrowTotalRwf || 0));
     } catch (err) {
       console.error("Failed to load master copyright data:", err);
     } finally {
@@ -64,44 +70,59 @@ export function MasterCopyrightCenter() {
     fetchMasterCopyrightData();
   }, []);
 
-  const handleApproveDmca = async (requestId: string) => {
-    if (!window.confirm("Approve this DMCA notice? The video will be blocked immediately and a copyright strike will be issued to the uploader.")) return;
+  const handleApproveDmca = (requestId: string) => {
+    setConfirmDmcaId(requestId);
+  };
 
+  const executeApproveDmca = async () => {
+    if (!confirmDmcaId) return;
+    const requestId = confirmDmcaId;
+    setConfirmDmcaId(null);
+    setErrorMsg(null);
     try {
-      await axios.post(`/api/dmca/requests/${requestId}/action`, {
+      await api.post(`/api/dmca/requests/${requestId}/action`, {
         action: 'approve',
         admin_notes: 'Approved by Master Admin. Video removed and strike recorded.'
       });
       setFeedback(`DMCA Notice ${requestId} approved. Video disabled and strike applied.`);
       await fetchMasterCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Action failed');
+      setErrorMsg(err.response?.data?.error || err.message || 'Action failed');
     }
   };
 
-  const handleRejectDmca = async (requestId: string) => {
-    const reason = prompt("Enter reason for rejecting DMCA notice:", "Insufficient proof of ownership / invalid claim");
-    if (!reason) return;
+  const handleRejectDmca = (requestId: string) => {
+    setRejectReason('Insufficient proof of ownership / invalid claim');
+    setRejectDmcaId(requestId);
+  };
 
+  const executeRejectDmca = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectDmcaId || !rejectReason.trim()) return;
+    const requestId = rejectDmcaId;
+    const reason = rejectReason.trim();
+    setRejectDmcaId(null);
+    setErrorMsg(null);
     try {
-      await axios.post(`/api/dmca/requests/${requestId}/action`, {
+      await api.post(`/api/dmca/requests/${requestId}/action`, {
         action: 'reject',
         admin_notes: reason
       });
       setFeedback(`DMCA Notice ${requestId} rejected.`);
       await fetchMasterCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Action failed');
+      setErrorMsg(err.response?.data?.error || err.message || 'Action failed');
     }
   };
 
   const handlePolicyChange = async (claimId: string, newPolicy: 'monetize' | 'block') => {
+    setErrorMsg(null);
     try {
-      await axios.patch(`/api/copyright/claims/${claimId}/policy`, { policy: newPolicy });
+      await api.patch(`/api/copyright/claims/${claimId}/policy`, { policy: newPolicy });
       setFeedback(`Claim policy updated to ${newPolicy.toUpperCase()}`);
       await fetchMasterCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to update policy');
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to update policy');
     }
   };
 
@@ -111,11 +132,12 @@ export function MasterCopyrightCenter() {
 
     setTracing(true);
     setTraceResult(null);
+    setErrorMsg(null);
     try {
-      const res = await axios.get(`/api/copyright/watermark/trace?token=${encodeURIComponent(traceToken.trim())}`);
+      const res = await api.get(`/api/copyright/watermark/trace?token=${encodeURIComponent(traceToken.trim())}`);
       setTraceResult(res.data);
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Forensic watermark not found in records.');
+      setErrorMsg(err.response?.data?.error || err.message || 'Forensic watermark not found in records.');
     } finally {
       setTracing(false);
     }
@@ -125,8 +147,9 @@ export function MasterCopyrightCenter() {
     e.preventDefault();
     if (!strikeArtistId || !strikeReason) return;
 
+    setErrorMsg(null);
     try {
-      await axios.post('/api/copyright/strikes', {
+      await api.post('/api/copyright/strikes', {
         artist_id: strikeArtistId,
         video_id: strikeVideoId || 'manual-flag',
         reason: strikeReason
@@ -138,17 +161,18 @@ export function MasterCopyrightCenter() {
       setStrikeVideoId('');
       await fetchMasterCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to issue strike');
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to issue strike');
     }
   };
 
   const handleToggleBanArtist = async (artistId: string, currentBanned: boolean) => {
+    setErrorMsg(null);
     try {
-      await axios.post(`/api/copyright/strikes/${artistId}/ban-toggle`, { is_banned: !currentBanned });
+      await api.post(`/api/copyright/strikes/${artistId}/ban-toggle`, { is_banned: !currentBanned });
       setFeedback(`Artist ${artistId} ${!currentBanned ? 'banned' : 'unbanned'} successfully.`);
       await fetchMasterCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to toggle ban');
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to toggle ban');
     }
   };
 
@@ -203,7 +227,7 @@ export function MasterCopyrightCenter() {
         </div>
       </div>
 
-      {/* Feedback Banner */}
+      {/* Feedback & Error Banners */}
       {feedback && (
         <div className="p-4 rounded-2xl bg-purple-600/10 border border-purple-600/20 text-purple-600 text-xs font-bold flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -211,6 +235,15 @@ export function MasterCopyrightCenter() {
             <span>{feedback}</span>
           </div>
           <button onClick={() => setFeedback(null)} className="text-xs underline">Dismiss</button>
+        </div>
+      )}
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg(null)} className="text-xs underline">Dismiss</button>
         </div>
       )}
 
@@ -519,65 +552,82 @@ export function MasterCopyrightCenter() {
             </form>
 
             {/* Trace Result Output */}
-            {traceResult && (
-              <div className="p-5 rounded-2xl bg-purple-600/5 border border-purple-600/20 space-y-4">
-                <div className="flex items-center justify-between border-b border-purple-600/20 pb-3">
-                  <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Forensic Watermark Match Confirmed</span>
+            {traceResult && (() => {
+              const match = traceResult.results?.[0] || traceResult.watermark || null;
+              if (!match) {
+                return (
+                  <div className="p-5 rounded-2xl bg-gray-100 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-800 text-xs text-gray-500">
+                    No forensic watermark sessions matched your query.
                   </div>
-                  <span className="font-mono text-xs text-purple-600">{traceResult.watermark?.id}</span>
+                );
+              }
+              const viewerName = match.user_name || traceResult.user?.name || 'Authorized Purchaser';
+              const viewerEmail = match.user_email || traceResult.user?.email || 'N/A';
+              const tokenLabel = match.watermark_token || match.id;
+              const ipAddr = match.watermark_data?.userIp || match.ip_address || 'Not recorded';
+              const device = match.watermark_data?.device || match.user_agent || 'Not recorded';
+              const embeddedAt = match.embedded_at || match.created_at;
+
+              return (
+                <div className="p-5 rounded-2xl bg-purple-600/5 border border-purple-600/20 space-y-4">
+                  <div className="flex items-center justify-between border-b border-purple-600/20 pb-3">
+                    <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Forensic Watermark Match Confirmed ({traceResult.totalMatches || 1})</span>
+                    </div>
+                    <span className="font-mono text-xs text-purple-600">{tokenLabel}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <span className="text-gray-400 font-bold block">Identified Viewer:</span>
+                      <p className="text-gray-900 dark:text-white font-bold">{viewerName}</p>
+                      <p className="text-gray-500">{viewerEmail}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400 font-bold block">User ID:</span>
+                      <p className="font-mono text-purple-600">{match.user_id || 'N/A'}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400 font-bold block">Target Video ID:</span>
+                      <p className="font-mono text-gray-300">{match.video_id || 'N/A'}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400 font-bold block">Streaming IP Address:</span>
+                      <p className="font-mono text-gray-300">{ipAddr}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400 font-bold block">Device / User-Agent:</span>
+                      <p className="text-gray-300 truncate">{device}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-400 font-bold block">Embedded Timestamp:</span>
+                      <p className="text-gray-300">{embeddedAt ? new Date(embeddedAt).toLocaleString() : 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={() => {
+                        setStrikeArtistId(match.user_id || '');
+                        setStrikeVideoId(match.video_id || '');
+                        setStrikeReason(`Leaked protected video content identified via forensic watermark ${tokenLabel}`);
+                        setShowStrikeModal(true);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      Enforce Immediate Sanction / Strike
+                    </button>
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                  <div>
-                    <span className="text-gray-400 font-bold block">Identified Viewer:</span>
-                    <p className="text-gray-900 dark:text-white font-bold">{traceResult.user?.name || 'Authorized Purchaser'}</p>
-                    <p className="text-gray-500">{traceResult.user?.email || 'N/A'}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 font-bold block">User ID:</span>
-                    <p className="font-mono text-purple-600">{traceResult.watermark?.user_id}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 font-bold block">Target Video ID:</span>
-                    <p className="font-mono text-gray-300">{traceResult.watermark?.video_id}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 font-bold block">Streaming IP Address:</span>
-                    <p className="font-mono text-gray-300">{traceResult.watermark?.ip_address || '197.243.22.84 (Rwanda)'}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 font-bold block">Device / User-Agent:</span>
-                    <p className="text-gray-300 truncate">{traceResult.watermark?.user_agent || 'Mozilla/5.0 (Macintosh; Intel)'}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-gray-400 font-bold block">Embedded Timestamp:</span>
-                    <p className="text-gray-300">{new Date(traceResult.watermark?.created_at).toLocaleString()}</p>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={() => {
-                      setStrikeArtistId(traceResult.watermark?.user_id);
-                      setStrikeVideoId(traceResult.watermark?.video_id);
-                      setStrikeReason(`Leaked protected video content identified via forensic watermark ${traceResult.watermark?.id}`);
-                      setShowStrikeModal(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-sm flex items-center gap-2 cursor-pointer"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    Enforce Immediate Sanction / Strike
-                  </button>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
@@ -597,7 +647,7 @@ export function MasterCopyrightCenter() {
                   required
                   value={strikeArtistId}
                   onChange={(e) => setStrikeArtistId(e.target.value)}
-                  placeholder="e.g. artist-1"
+                  placeholder="Artist or User UUID"
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
@@ -608,7 +658,7 @@ export function MasterCopyrightCenter() {
                   type="text"
                   value={strikeVideoId}
                   onChange={(e) => setStrikeVideoId(e.target.value)}
-                  placeholder="e.g. video-1"
+                  placeholder="Video UUID"
                   className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
                 />
               </div>
@@ -638,6 +688,76 @@ export function MasterCopyrightCenter() {
                   className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold"
                 >
                   Issue Strike
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm DMCA Approval Modal */}
+      {confirmDmcaId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-[#141417] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-gray-950 dark:text-white">
+              Approve DMCA Takedown?
+            </h3>
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+              The video will be blocked immediately and a formal copyright strike will be issued to the uploader.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDmcaId(null)}
+                className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-bold text-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeApproveDmca}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold"
+              >
+                Approve Takedown &amp; Strike
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject DMCA Reason Modal */}
+      {rejectDmcaId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-[#141417] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-bold text-gray-950 dark:text-white">
+              Reject DMCA Notice
+            </h3>
+            <form onSubmit={executeRejectDmca} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                  Rejection Reason
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs focus:outline-none focus:border-purple-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectDmcaId(null)}
+                  className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-xs font-bold text-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold"
+                >
+                  Confirm Rejection
                 </button>
               </div>
             </form>

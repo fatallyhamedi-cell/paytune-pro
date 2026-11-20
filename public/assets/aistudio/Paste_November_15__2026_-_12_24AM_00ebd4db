@@ -1,0 +1,1053 @@
+# PAYTUNE — COMPLETE DATABASE WORKFLOW VERIFICATION AND IMPLEMENTATION PROMPT
+
+## PRIMARY OBJECTIVE
+
+Complete, audit, and verify the entire PAYTUNE PostgreSQL/Supabase database so that every major platform feature has real, secure, production-ready database functionality.
+
+The goal is not to create a demonstration database, a mock backend, a partial schema, or an artist-only database.
+
+PAYTUNE is a complete entertainment, music, video, short-video, livestreaming, social, advertising, creator monetization, subscription, and financial platform.
+
+Your task is to inspect the existing PAYTUNE application, inspect the actual connected Supabase/PostgreSQL database, identify every missing or incomplete workflow, and produce one comprehensive, compatible, production-ready `init.sql` that implements the missing database functionality while preserving all existing working functionality.
+
+**Do not assume a feature is complete because its frontend page, controller, API endpoint, or dashboard already exists. Verify the actual database operations, relationships, constraints, authorization, transaction handling, and persistence behind each feature.**
+
+---
+
+# 1. NON-NEGOTIABLE RULES
+
+### 1.1 Inspect before modifying
+
+Before writing SQL:
+
+- Inspect the actual PostgreSQL database schema.
+- Inspect all existing tables, columns, types, enums, indexes, constraints, foreign keys, views, materialized views, triggers, functions, procedures, extensions, grants, RLS policies, and storage policies.
+- Inspect existing Supabase authentication and authorization relationships.
+- Inspect existing application queries, controllers, services, API routes, and Supabase integrations.
+- Identify which existing database objects are already working.
+- Identify incomplete, missing, duplicated, conflicting, or incorrectly implemented objects.
+- Compare application requirements with the actual database structure.
+
+Never invent existing tables or columns.
+
+Never assume a table has a particular column without inspecting it.
+
+Never create duplicate tables, enums, functions, triggers, indexes, or policies.
+
+Never delete working production data or replace working objects without a justified, migration-safe reason.
+
+### 1.2 Preserve existing PAYTUNE functionality
+
+The existing project already has application-side functionality that must be preserved and correctly connected to the database.
+
+Existing implementation areas include:
+
+- Supabase client and administrator client configuration.
+- Storage bucket verification and provisioning.
+- Video, category, and music controllers.
+- Video metadata and content-type normalization.
+- Music and video caching.
+- Cache invalidation.
+- API health and diagnostics.
+- Real request latency and error monitoring.
+- Video player.
+- Shorts player.
+- Livestream viewing interface.
+- Dynamic Up Next sidebar.
+- Existing artist management and verification functionality.
+- Existing user, admin, and Master Admin foundations.
+
+Do not rebuild these features unnecessarily.
+
+Inspect their actual database dependencies and ensure the SQL supports their existing application contracts.
+
+Preserve existing API response compatibility unless a necessary change is documented and coordinated with the application.
+
+### 1.3 No fake functionality
+
+Absolutely prohibit:
+
+- Mock stream records.
+- Fake video views.
+- Fake likes or comments.
+- Fake livestream sessions.
+- Fake advertising impressions.
+- Fake revenue.
+- Fake royalties.
+- Fake wallet balances.
+- Fake payment confirmations.
+- Fake withdrawals.
+- Fake subscriptions.
+- Simulated analytics presented as actual production metrics.
+- Placeholder database functions that return success without performing real operations.
+- Hardcoded financial balances.
+- Artificial transaction success.
+- Test records inserted into production tables.
+
+Use real database persistence and verified provider integrations.
+
+If an external provider is not connected or credentials are unavailable, implement the appropriate secure integration boundary and report the missing external configuration. Do not pretend that the provider is operational.
+
+If a feature cannot be completed because required information or infrastructure is unavailable, explicitly report it as blocked or incomplete.
+
+### 1.4 Production security
+
+All sensitive operations must be protected by database-level authorization.
+
+Never trust:
+
+- Client-supplied user IDs.
+- Client-supplied artist IDs.
+- Client-supplied account roles.
+- Client-supplied wallet balances.
+- Client-supplied payment statuses.
+- Client-supplied royalty amounts.
+- Client-supplied ownership claims.
+- Client-supplied administrator permissions.
+
+Use the authenticated identity and verified database relationships.
+
+Use secure transaction boundaries, appropriate constraints, and server-side validation.
+
+Do not expose service-role credentials or secret provider credentials to frontend users.
+
+---
+
+# 2. REQUIRED DATABASE WORKFLOWS
+
+Audit and implement every workflow below.
+
+## MODULE 1 — MUSIC PLAYBACK AND QUALIFIED STREAMING
+
+Implement a complete music playback tracking system.
+
+Verify and implement:
+
+- Music catalog relationships.
+- Track ownership and creator attribution.
+- Playback session creation.
+- Playback start records.
+- Playback progress tracking.
+- Playback completion records.
+- Qualified stream eligibility.
+- Duplicate event prevention.
+- Invalid stream detection.
+- Suspicious playback detection.
+- Repeated playback handling.
+- Device and session attribution where appropriate.
+- Country and platform attribution where lawful and necessary.
+- Stream source attribution.
+- Royalty-eligible stream records.
+- Stream aggregation.
+- Artist and track listening analytics.
+- Daily, weekly, monthly, and lifetime statistics.
+
+A stream must not automatically become a qualified stream simply because a playback endpoint was called.
+
+Define explicit, configurable qualification rules.
+
+Prevent clients from directly creating qualified streams or manipulating royalty-eligible counts.
+
+Use trusted server-side processing to validate playback events.
+
+Provide auditable records connecting raw playback activity to qualified stream calculations.
+
+## MODULE 2 — VIDEO PLAYBACK AND QUALIFIED VIEW TRACKING
+
+Implement complete video-view tracking.
+
+Support:
+
+- Video playback sessions.
+- View-start events.
+- Playback progress.
+- Completion tracking.
+- Qualified view rules.
+- Unique and repeat viewer calculations.
+- Duplicate view prevention.
+- Invalid traffic detection.
+- Suspicious view detection.
+- Watch-time aggregation.
+- Video engagement statistics.
+- Creator attribution.
+- Country and device analytics where appropriate.
+- Monetization eligibility.
+- Ad-supported view attribution.
+- Revenue-eligible view records.
+
+Do not count every API request or page opening as a qualified view.
+
+Define server-controlled qualification rules and maintain an auditable relationship between playback events and qualified views.
+
+## MODULE 3 — SHORT-VIDEO ENGAGEMENT AND MONETIZATION
+
+Support the complete short-video database workflow.
+
+Include:
+
+- Short-video records and creator ownership.
+- Video playback sessions.
+- Qualified short views.
+- Likes and unlike operations.
+- Comments and replies.
+- Shares.
+- Saves and bookmarks.
+- Follows and creator attribution.
+- Sound and music attachment.
+- Original audio attribution.
+- Hashtags and discovery metadata.
+- Reports and moderation.
+- Engagement aggregation.
+- Creator monetization eligibility.
+- Qualified monetization events.
+- Revenue allocation.
+- Fraud and invalid engagement detection.
+
+Ensure shorts engagement does not create duplicate records when users repeatedly submit the same action.
+
+Protect creator ownership and prevent unauthorized changes to published content.
+
+## MODULE 4 — LIVESTREAMING, CHAT, AND GIFTS
+
+Implement real database workflows for livestreaming.
+
+Support:
+
+- Stream creation.
+- Stream scheduling.
+- Stream publishing.
+- Stream lifecycle states.
+- Stream start and end timestamps.
+- Secure stream-key metadata.
+- Stream ownership.
+- Live viewer sessions.
+- Concurrent viewer tracking.
+- Live chat messages.
+- Chat moderation.
+- Message deletion and restrictions.
+- User blocking and muting.
+- Livestream gifts.
+- Gift catalog and pricing references.
+- Gift transaction records.
+- Gift sender and recipient attribution.
+- Creator gift earnings.
+- Platform commissions.
+- Stream recordings.
+- Replay metadata.
+- Livestream analytics.
+- Stream interruption and failure records.
+
+Stream keys and other secrets must never be publicly readable.
+
+Gift transactions must use secure, atomic financial operations.
+
+Never create creator earnings from an unconfirmed gift payment.
+
+Ensure a gift cannot be charged or credited twice.
+
+## MODULE 5 — ADVERTISING CAMPAIGNS AND REVENUE ALLOCATION
+
+Implement the advertising database.
+
+Support:
+
+- Advertiser accounts.
+- Advertiser ownership and permissions.
+- Campaign creation.
+- Campaign approval and rejection.
+- Campaign budgets.
+- Campaign schedules.
+- Campaign status.
+- Ad creatives.
+- Ad placements.
+- Targeting configurations.
+- Impression tracking.
+- Click tracking.
+- Frequency caps.
+- Campaign spending.
+- Invalid traffic detection.
+- Duplicate impression prevention.
+- Billing records.
+- Advertiser payment records.
+- Creator revenue attribution.
+- Platform revenue allocation.
+- Advertising reconciliation.
+- Campaign performance reporting.
+
+Ensure impressions and clicks cannot directly manipulate advertiser balances or creator earnings.
+
+Use server-verified events and transaction-safe financial accounting.
+
+## MODULE 6 — CREATOR MONETIZATION AND ROYALTIES
+
+Implement a complete monetization engine.
+
+Support monetization from:
+
+- Music streaming.
+- Video playback.
+- Short videos.
+- Livestream gifts.
+- Advertising.
+- Subscriptions.
+- Paid memberships.
+- Premium content.
+- Other supported revenue programs.
+
+Include:
+
+- Creator monetization eligibility.
+- Monetization applications.
+- Approval and suspension.
+- Revenue-source attribution.
+- Configurable royalty rules.
+- Revenue-sharing percentages.
+- Platform commissions.
+- Creator revenue allocations.
+- Royalty calculation periods.
+- Royalty calculation records.
+- Calculation versioning.
+- Adjustments.
+- Holds.
+- Reversals.
+- Disputes.
+- Statements.
+- Earnings history.
+- Payout eligibility.
+
+Royalty rules must be configurable and auditable.
+
+Do not hardcode arbitrary royalty rates.
+
+Do not calculate creator earnings from unqualified or unverified activity.
+
+Prevent duplicate royalty calculations and duplicate allocations.
+
+Preserve historical calculation details even when royalty rules change.
+
+## MODULE 7 — FINANCIAL LEDGER AND BALANCE INTEGRITY
+
+Build a reliable financial accounting foundation.
+
+Implement:
+
+- Wallet or account records.
+- Immutable ledger entries.
+- Debit and credit transactions.
+- Transaction references.
+- Transaction categories.
+- Pending balances.
+- Available balances.
+- Reserved balances.
+- Creator earnings.
+- Platform revenue.
+- Advertiser balances.
+- Refunds.
+- Reversals.
+- Adjustments.
+- Financial holds.
+- Reconciliation records.
+- Audit history.
+
+Use double-entry accounting or an equally rigorous balanced accounting model.
+
+Enforce the following:
+
+- Every financial transaction must be atomic.
+- Every transaction must have a unique reference or idempotency key.
+- Debits and credits must balance.
+- Financial records must not be silently overwritten.
+- Completed financial transactions must not be deleted.
+- Corrections must use explicit reversal or adjustment entries.
+- Balance updates must be transaction-safe.
+- Concurrent requests must not create duplicate or inconsistent balances.
+- Users must never modify their own financial ledger entries.
+
+Use appropriate numeric precision for monetary values.
+
+Use currency-aware accounting. Never mix different currencies without an explicit conversion record and exchange-rate source.
+
+Provide database-level integrity checks and reconciliation capabilities.
+
+## MODULE 8 — REAL PAYMENT-PROVIDER INTEGRATION
+
+Prepare secure database support for actual payment providers.
+
+Support the provider integration architecture required by the application.
+
+Include:
+
+- Payment initiation records.
+- Provider references.
+- Payment intents or equivalent provider transaction records.
+- Payment status lifecycle.
+- Provider webhook event records.
+- Webhook signature verification results.
+- Idempotency protection.
+- Duplicate webhook prevention.
+- Payment confirmation.
+- Failed payment handling.
+- Expired payment handling.
+- Refund processing.
+- Reversal processing.
+- Provider reconciliation.
+- Payment audit logs.
+
+Never mark a payment successful merely because the frontend reports success.
+
+Payment success must be established by trusted server-side provider verification.
+
+Do not store raw card details, payment passwords, PINs, or other prohibited sensitive payment credentials.
+
+Store provider references and safe metadata only.
+
+Clearly distinguish database readiness from actual external provider activation.
+
+## MODULE 9 — WITHDRAWAL EXECUTION AND RECONCILIATION
+
+Implement a complete creator withdrawal workflow.
+
+Support:
+
+- Withdrawal requests.
+- Available balance validation.
+- Minimum and maximum withdrawal rules.
+- Country-specific payout requirements.
+- Supported currencies.
+- Payout destinations.
+- Bank transfer.
+- Mobile money.
+- Supported digital wallets.
+- Withdrawal approval.
+- Risk review.
+- Withdrawal holds.
+- Payout submission.
+- Provider reference.
+- Processing status.
+- Successful payout.
+- Failed payout.
+- Cancelled payout.
+- Reversal.
+- Retry management.
+- Reconciliation.
+- Withdrawal history.
+- Administrative review.
+- Audit logs.
+
+Use atomic balance reservation and release operations.
+
+A withdrawal must never exceed the user's eligible available balance.
+
+Prevent duplicate payout submissions.
+
+Never mark a payout successful without trusted provider confirmation.
+
+Ensure failed or reversed withdrawals restore the correct balances exactly once.
+
+## MODULE 10 — SUBSCRIPTION BILLING
+
+Implement subscription functionality for users and creators.
+
+Support:
+
+- Subscription plans.
+- Plan pricing.
+- Currency support.
+- Billing periods.
+- Free trials where supported.
+- User subscriptions.
+- Creator memberships.
+- Subscription status.
+- Renewal dates.
+- Payment references.
+- Renewal attempts.
+- Failed renewals.
+- Cancellation.
+- Expiration.
+- Refunds.
+- Grace periods.
+- Access entitlements.
+- Subscription history.
+- Creator membership revenue allocation.
+
+Use server-side payment confirmation.
+
+Never grant paid access solely because a client submits an active subscription status.
+
+Prevent duplicate billing and duplicate entitlement grants.
+
+Keep payment records and entitlement records correctly related but logically distinct.
+
+## MODULE 11 — ADMIN AND MASTER ADMIN DATABASE PERMISSIONS
+
+Audit the entire administrative authorization architecture.
+
+Support:
+
+- Ordinary users.
+- Creators and artists.
+- Artist team members.
+- Support agents.
+- Moderators.
+- Administrators.
+- Master Administrators.
+
+Verify existing role and permission tables before creating or changing anything.
+
+Implement:
+
+- Role assignments.
+- Permission assignments.
+- Role-permission relationships.
+- Scoped administrative access.
+- Administrative audit logs.
+- Permission changes.
+- Account restrictions.
+- Content moderation.
+- Financial review permissions.
+- Payout approval permissions.
+- Platform settings permissions.
+- Sensitive operation logging.
+
+Master Admin must have the intended platform-level authority.
+
+However, Master Admin status must not automatically grant access to private artist dashboards or private creator records unless an explicitly authorized, audited administrative workflow allows that access.
+
+Every sensitive administrative operation must be authorized server-side and recorded.
+
+Do not rely on frontend route protection as database security.
+
+## MODULE 12 — COMPLETE ROW LEVEL SECURITY ISOLATION
+
+Audit every sensitive table.
+
+Implement and verify appropriate RLS policies.
+
+Core privacy requirements:
+
+- Ordinary users may access only their own private records.
+- Artists may access only their own private artist dashboard and records.
+- Artist team members may access only the artist accounts to which they have explicit, active membership and appropriate permissions.
+- No artist may access another artist's private dashboard.
+- No user may impersonate another user by supplying a different ID.
+- Public content may be readable according to its publication and moderation status.
+- Private content must remain private.
+- Financial records must be protected.
+- Payment records must be protected.
+- Withdrawal records must be protected.
+- Administrative records must be protected.
+- Internal monitoring and security records must be protected.
+
+Authorization must derive from authenticated identity and verified database relationships.
+
+Do not trust client-supplied IDs, roles, ownership, or membership claims.
+
+Use `auth.uid()` and verified ownership or membership relationships where appropriate.
+
+Review `SECURITY DEFINER` functions carefully.
+
+Use safe `search_path` settings, appropriate ownership, minimal grants, and explicit authorization checks.
+
+Review every table for:
+
+- RLS enabled.
+- FORCE ROW LEVEL SECURITY where appropriate.
+- Correct SELECT policies.
+- Correct INSERT policies.
+- Correct UPDATE policies.
+- Correct DELETE policies.
+- Correct grants.
+- No unintended public access.
+- No accidental access through views or functions.
+
+Test both authorized and unauthorized access.
+
+## MODULE 13 — NOTIFICATIONS AND MODERATION WORKFLOWS
+
+Implement persistent notification and moderation systems.
+
+Notifications must support:
+
+- User notifications.
+- Creator notifications.
+- Payment notifications.
+- Withdrawal notifications.
+- Subscription notifications.
+- Livestream notifications.
+- Social engagement notifications.
+- Moderation notifications.
+- Administrative notifications.
+- Read and unread status.
+- Notification preferences.
+- Delivery attempts.
+- Delivery status.
+- Retry handling.
+
+Moderation must support:
+
+- Content reports.
+- User reports.
+- Comments reports.
+- Livestream reports.
+- Copyright complaints.
+- Review queues.
+- Moderation assignments.
+- Review decisions.
+- Rejection reasons.
+- Content restrictions.
+- Content removal.
+- Account restrictions.
+- Appeals.
+- Moderation audit history.
+
+Protect moderation actions from unauthorized users.
+
+Preserve an audit trail of decisions and status changes.
+
+## MODULE 14 — ANALYTICS AND OPERATIONAL MONITORING PERSISTENCE
+
+Implement persistent, trustworthy analytics and operational monitoring.
+
+Support:
+
+- Music analytics.
+- Video analytics.
+- Shorts analytics.
+- Livestream analytics.
+- Creator analytics.
+- Audience analytics.
+- Advertising analytics.
+- Financial analytics.
+- Subscription analytics.
+- Platform usage analytics.
+- API performance metrics.
+- Database health metrics.
+- Error events.
+- Background job status.
+- Failed task records.
+- Operational alerts.
+- Security events.
+- Audit events.
+
+Track meaningful measurements such as:
+
+- Request count.
+- Request latency.
+- Error rate.
+- Endpoint performance.
+- Database operation performance.
+- Playback failures.
+- Upload failures.
+- Transcoding failures.
+- Payment failures.
+- Payout failures.
+- Job retries.
+- Storage usage.
+- Platform activity.
+
+Separate actual production measurements from synthetic test measurements.
+
+Do not generate fake analytics to make dashboards look active.
+
+Use appropriate retention policies, aggregation tables, indexes, and partitioning where justified by actual workload.
+
+Ensure monitoring data cannot expose secrets, private user information, or payment credentials.
+
+---
+
+# 3. CROSS-MODULE INTEGRITY REQUIREMENTS
+
+All modules must work together.
+
+Verify the full relationship between:
+
+1. Authenticated users.
+2. Profiles.
+3. Artist and creator profiles.
+4. Artist memberships.
+5. Music catalog.
+6. Video catalog.
+7. Short-video catalog.
+8. Playback events.
+9. Qualified engagement.
+10. Advertising events.
+11. Monetization eligibility.
+12. Royalty calculations.
+13. Financial ledger.
+14. Payment transactions.
+15. Withdrawal requests.
+16. Subscription entitlements.
+17. Notifications.
+18. Moderation.
+19. Analytics.
+20. Administrative audit records.
+
+Use appropriate foreign keys and referential integrity.
+
+Use unique constraints to prevent duplicate business operations.
+
+Use transactions for workflows that update multiple related records.
+
+Use idempotency keys for externally retried requests.
+
+Use explicit status transitions and prevent invalid state changes.
+
+Ensure historical financial and royalty calculations remain auditable.
+
+Avoid unnecessary cross-module coupling.
+
+Do not create a large collection of unrelated tables without functional relationships.
+
+---
+
+# 4. DATABASE PERFORMANCE AND SCALABILITY
+
+Design for a growing entertainment platform.
+
+Review and optimize:
+
+- Foreign-key indexes.
+- Frequently filtered columns.
+- Frequently joined columns.
+- Time-series event tables.
+- Playback event queries.
+- Qualified stream queries.
+- Qualified view queries.
+- Creator dashboard queries.
+- Financial ledger queries.
+- Subscription entitlement checks.
+- Moderation queues.
+- Notification retrieval.
+- Administrative reporting.
+
+Use composite indexes based on actual query patterns.
+
+Consider partitioning large event and analytics tables where justified.
+
+Avoid unnecessary indexes that create excessive write overhead.
+
+Avoid N+1 query patterns where database-side solutions are appropriate.
+
+Use materialized views or aggregate tables only when they have a reliable refresh or update strategy.
+
+Document index purpose and query support.
+
+---
+
+# 5. STORAGE AND MEDIA INTEGRATION
+
+The application already reports these storage buckets:
+
+- `videos`
+- `audio`
+- `thumbnails`
+- `avatars`
+- `banners`
+- `previews`
+- `media_assets`
+- `artist-avatars`
+
+Inspect the actual Supabase Storage configuration before changing anything.
+
+Do not blindly recreate buckets.
+
+Verify:
+
+- Bucket existence.
+- Public/private settings.
+- Storage object access.
+- Upload permissions.
+- Download permissions.
+- Update and delete permissions.
+- User ownership.
+- Creator ownership.
+- Artist membership access.
+- Administrative access.
+- Media metadata relationships.
+- File ownership and attribution.
+
+Storage policies must align with database authorization.
+
+A public media file must not make private database metadata publicly readable.
+
+Do not expose private media through an insecure storage policy.
+
+---
+
+# 6. DATABASE FUNCTION, TRIGGER, AND TRANSACTION REQUIREMENTS
+
+Create or update database functions only when necessary.
+
+Each function must:
+
+- Have a clear purpose.
+- Validate inputs.
+- Verify authorization.
+- Use safe SQL.
+- Use correct transaction behavior.
+- Prevent duplicate operations.
+- Handle expected failures.
+- Avoid leaking private information.
+- Use a secure `search_path` when applicable.
+- Have minimum necessary execution privileges.
+
+Triggers must enforce actual integrity requirements, not hide important business logic.
+
+Avoid recursive triggers.
+
+Avoid triggers that silently overwrite financial or ownership information.
+
+For financial operations, use carefully designed transaction functions with concurrency protection and idempotency.
+
+Document which application service is expected to call each function.
+
+---
+
+# 7. EXISTING DATABASE FOUNDATIONS TO PRESERVE
+
+The following existing objects have previously been identified and must be inspected before any modifications:
+
+- `auth.users`
+- `public.profiles`
+- `public.artist_profiles`
+- `public.artist_members`
+- `public.artist_verification_requests`
+- `public.artist_phone_verification_events`
+- `public.user_role_assignments`
+- `public.admin_permissions`
+- `public.admin_role_permissions`
+- `public.admin_action_audit_logs`
+- `public.countries`
+- `public.country_currencies`
+- `public.country_payout_settings`
+- `public.currencies`
+
+Previously identified enum types include:
+
+- `paytune_artist_type`
+- `paytune_moderation_status`
+- `paytune_payout_attempt_status`
+- `paytune_payout_method_type`
+- `paytune_record_status`
+- `paytune_verification_status`
+- `paytune_user_role`
+- `paytune_artist_member_role`
+
+Previously identified authorization functions include:
+
+- `app_private.has_active_role(...)`
+- `app_private.is_master_admin()`
+- `app_private.has_artist_access(uuid)`
+- `app_private.is_artist_member(uuid)`
+
+Previously identified artist functions include:
+
+- `public.create_artist_profile(...)`
+- `public.submit_artist_verification(...)`
+- `public.get_artist_verification_status(...)`
+- `public.reject_artist_invitation(...)`
+- `public.update_artist_member_role(...)`
+
+These are known from earlier inspection, not permission to assume their current definitions or privileges.
+
+Inspect their actual current definitions and dependencies before changing them.
+
+Preserve their existing behavior unless a verified defect or required integration change is found.
+
+---
+
+# 8. INIT.SQL IMPLEMENTATION REQUIREMENTS
+
+Deliver one complete SQL file named:
+
+`init.sql`
+
+It must:
+
+- Inspect and account for the existing database.
+- Preserve existing working objects.
+- Create only genuinely missing objects.
+- Safely update incomplete objects.
+- Avoid duplicate definitions.
+- Avoid destructive operations.
+- Include required tables.
+- Include required columns.
+- Include appropriate enum types.
+- Include foreign keys.
+- Include unique constraints.
+- Include check constraints.
+- Include indexes.
+- Include functions.
+- Include triggers.
+- Include views where justified.
+- Include RLS policies.
+- Include grants and revokes.
+- Include safe authorization logic.
+- Include storage policies only after inspecting actual storage configuration.
+- Include comments explaining important objects.
+- Include migration-safe SQL.
+- Include validation queries.
+
+The SQL must be ordered correctly according to dependencies.
+
+It must be suitable for the actual existing PAYTUNE Supabase project.
+
+Do not use an unconditional `DROP TABLE`, `DROP TYPE`, or `DROP FUNCTION` to make the script execute.
+
+Do not delete existing data.
+
+Do not disable RLS as a shortcut.
+
+Do not grant broad privileges to `anon` or `authenticated` to make application queries work.
+
+Use least-privilege access.
+
+If a migration cannot safely be applied automatically, explain the required manual migration and why.
+
+Do not hide unresolved conflicts.
+
+---
+
+# 9. TESTING AND VERIFICATION
+
+Do not declare a workflow complete just because its tables exist.
+
+Test real database behavior.
+
+For every module, verify:
+
+- Successful authorized operation.
+- Rejected unauthorized operation.
+- Required validation.
+- Invalid state transition rejection.
+- Duplicate request protection.
+- Transaction rollback behavior.
+- Concurrent operation safety where relevant.
+- Data persistence.
+- Foreign-key integrity.
+- Correct RLS behavior.
+- Correct grants.
+- Correct function execution permissions.
+
+For financial modules, additionally verify:
+
+- Balanced ledger entries.
+- Correct balance updates.
+- No negative available balance where prohibited.
+- Duplicate payment protection.
+- Duplicate payout protection.
+- Refund and reversal integrity.
+- Reconciliation accuracy.
+
+For playback and monetization, additionally verify:
+
+- Unqualified playback does not generate qualified revenue.
+- Duplicate events do not inflate metrics.
+- Invalid traffic is excluded.
+- Creator attribution is correct.
+- Royalty calculations are reproducible and auditable.
+
+Use isolated test data and transactions that are rolled back or a separate test environment.
+
+Never use fake production data.
+
+Do not claim tests passed unless they were actually executed.
+
+If direct database access or test credentials are unavailable, clearly state which tests could not be run.
+
+---
+
+# 10. REQUIRED DELIVERABLES
+
+Produce these files:
+
+### A. `init.sql`
+
+One comprehensive, ordered, migration-safe SQL implementation for the complete PAYTUNE database.
+
+### B. `DATABASE_OBJECT_INVENTORY.md`
+
+List actual inspected objects, including:
+
+- Tables.
+- Columns.
+- Types and enums.
+- Constraints.
+- Indexes.
+- Functions.
+- Triggers.
+- Views.
+- RLS policies.
+- Grants.
+- Storage buckets and policies.
+
+Distinguish existing, modified, and newly created objects.
+
+### C. `DATABASE_VALIDATION_REPORT.md`
+
+For each of the 14 modules, report:
+
+- Existing implementation found.
+- Missing implementation found.
+- Changes made.
+- Security controls.
+- Tests actually executed.
+- Test results.
+- Remaining blockers.
+
+### D. `PAYTUNE_DATABASE_FEATURE_MAP.md`
+
+Map every major PAYTUNE feature to:
+
+- Its database tables.
+- Its functions.
+- Its triggers.
+- Its RLS policies.
+- Its application API/controller integration.
+- Its external provider dependencies, if any.
+
+### E. `DATABASE_MIGRATION_GUIDE.md`
+
+Explain:
+
+- Prerequisites.
+- Application order.
+- Required environment variables or provider configuration.
+- Backup requirements.
+- Migration execution.
+- Rollback or recovery procedures.
+- Post-migration verification.
+
+---
+
+# 11. FINAL ACCEPTANCE CRITERIA
+
+PAYTUNE database completion must not be declared until all 14 modules have been audited and classified.
+
+Use these exact statuses:
+
+- **VERIFIED COMPLETE** — implementation exists and required tests passed.
+- **IMPLEMENTED, NOT FULLY VERIFIED** — implementation exists but some required tests could not be executed.
+- **PARTIALLY IMPLEMENTED** — some required functionality is missing.
+- **NOT IMPLEMENTED** — required functionality does not exist.
+- **BLOCKED BY EXTERNAL DEPENDENCY** — database support exists, but a required provider, credential, or external service is unavailable.
+
+Do not classify a module as complete merely because its tables, pages, or API endpoints exist.
+
+Do not report external payment processing as operational without real provider verification.
+
+Do not report complete RLS isolation without testing unauthorized access.
+
+Do not report complete financial integrity without transaction and reconciliation tests.
+
+Do not report complete monetization without verifying qualified events, calculations, and ledger allocation.
+
+## FINAL INSTRUCTION
+
+Work on the complete PAYTUNE platform, not only artist management.
+
+Inspect first. Compare second. Design third. Implement fourth. Test fifth. Document last.
+
+The final result must be one coherent, production-oriented PAYTUNE database that supports real users, creators, music, videos, shorts, livestreaming, social engagement, advertising, monetization, payments, withdrawals, subscriptions, administration, moderation, analytics, and operational monitoring.
+
+**No mock functionality. No invented existing schema. No duplicated objects. No broken application integrations. No insecure shortcuts. No missing modules silently ignored. No false completion claims.**

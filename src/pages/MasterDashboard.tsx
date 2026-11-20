@@ -226,11 +226,6 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
       const artistData = { id: artist.id, name: artist.name, email: artist.email };
       localStorage.setItem("impersonate_artist_data", JSON.stringify(artistData));
       setImpersonatingArtist(artistData);
-
-      // Ask if user wants to open the artist studio directly
-      if (window.confirm(`Impersonation active for ${artist.name}. Do you want to open the Artist Studio dashboard now?`)) {
-        window.open("/artist/dashboard", "_blank");
-      }
     } catch (e) {
       console.error("Failed to impersonate:", e);
     }

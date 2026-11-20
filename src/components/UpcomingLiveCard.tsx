@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Bell, BellRing, Calendar, Clock, Radio, CheckCircle, Ticket, Loader2 } from "lucide-react";
-import axios from "axios";
+import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 
 export interface UpcomingLiveStream {
@@ -77,7 +77,7 @@ export default function UpcomingLiveCard({ stream, onReminderChange }: UpcomingL
     setIsSubmitting(true);
 
     try {
-      const res = await axios.post(`/api/live/${stream.id}/remind`);
+      const res = await api.post(`/api/live/${stream.id}/remind`);
       const newState = res.data?.isReminded ?? !isReminded;
       setIsReminded(newState);
       if (onReminderChange) {

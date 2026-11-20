@@ -1,801 +1,871 @@
 import { Request, Response } from 'express';
-import { supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
-import { getDbStore } from '../config/supabase_mock';
+import { randomUUID } from 'crypto';
+import { rawSupabaseAdmin, supabaseAdmin } from '../config/supabase';
+import { cacheService } from '../services/cacheService';
 
 const sanitizeMediaUrl = (url?: string): string => {
-  if (!url) return "";
+  if (!url) return '';
   return url;
 };
 
 /**
- * Normalizes video record ensuring all fields requested in specification are present:
- * id, title, artist_name, artist_id, thumbnail_url, preview_url, price_rwf, price_usd, is_free, views, rating_avg, uploaded_at
+ * Infers content type ('series' | 'music' | 'course' | 'movie' | 'short') for dynamic sidebar rendering
+ */
+function inferContentType(v: any, meta: any): 'series' | 'music' | 'course' | 'movie' | 'short' {
+  const explicit = String(v.content_type || meta?.content_type || v.video_type || '').toLowerCase();
+  if (['series', 'music', 'course', 'movie', 'short'].includes(explicit)) {
+    return explicit as any;
+  }
+  if (explicit.includes('episode') || explicit.includes('drama') || v.series_id || meta?.series_id) {
+    return 'series';
+  }
+  if (v.is_short || ['shorts', 'reels', 'reel', 'reels video'].includes(String(v.category || '').toLowerCase())) {
+    return 'short';
+  }
+  const cat = String(v.category || meta?.category || '').toLowerCase();
+  if (cat.includes('course') || cat.includes('lesson') || cat.includes('tutorial') || cat.includes('education')) {
+    return 'course';
+  }
+  if (cat.includes('movie') || cat.includes('film') || cat.includes('cinema')) {
+    return 'movie';
+  }
+  if (cat.includes('series') || cat.includes('drama') || cat.includes('podcast') || cat.includes('show')) {
+    return 'series';
+  }
+  return 'music';
+}
+
+/**
+ * Normalizes video record strictly from live PostgreSQL `videos` table + joined/looked-up creator profile.
+ * Zero fake defaults or fabricated counts.
  */
 function normalizeVideo(v: any, artistsMap?: Record<string, any>) {
-  const isShort = v.is_short || 
-    v.category === 'Shorts' || 
-    v.category === 'Reels' || 
-    v.category === 'Reel' || 
-    v.category === 'Reels video';
+  const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
+  const artistId = String(v.artist_profile_id || v.creator_channel_id || v.artist_id || meta.artist_id || '');
 
-    const artist = v.artists || (artistsMap && artistsMap[v.artist_id]) || {
-    id: v.artist_id || "artist-1",
-    full_name: v.artist_name || "PAYTUNE Artist",
-    profile_image: "",
-    is_verified: true,
-    subscribers_count: 0
-  };
+  const isShort =
+    Boolean(v.is_short) ||
+    meta.is_short === true ||
+    v.video_type === 'short' ||
+    ['shorts', 'reels', 'reel', 'reels video'].includes(String(v.category || meta.category || '').toLowerCase());
 
-  const isFree = isShort ? true : (v.is_free === true || !v.price_rwf);
-  const priceRwf = isShort ? 0 : (isFree ? 0 : (v.price_rwf || 500));
-  const priceUsd = isShort ? 0 : (isFree ? 0 : (v.price_usd || 0.50));
+  const artist =
+    v.artists ||
+    (artistId && artistsMap ? artistsMap[artistId] : null) || {
+      id: artistId || null,
+      full_name: v.artist_name || meta.artist_name || 'Creator',
+      profile_image: meta.artist_avatar || '',
+      is_verified: false,
+      subscribers_count: 0,
+    };
 
-  const tags = Array.isArray(v.tags) 
-    ? v.tags 
-    : (typeof v.tags === 'string' ? v.tags.split(',').map((t: string) => t.trim()) : [v.category || "Afrobeat", "PAYTUNE"]);
+  const priceRwfRaw = Number(v.price_minor ?? v.price_rwf ?? meta.price_rwf ?? 0);
+  const isFree = isShort ? true : v.is_free === true || (!v.is_paywalled && priceRwfRaw <= 0);
+  const priceRwf = isShort || isFree ? 0 : priceRwfRaw;
+  const priceUsd = isShort || isFree ? 0 : Number(v.price_usd ?? meta.price_usd ?? (priceRwf > 0 ? Number((priceRwf / 1300).toFixed(2)) : 0));
+
+  const rawCategory = v.category || meta.category || '';
+  const tagsSource = v.tags ?? meta.tags;
+  const tags = Array.isArray(tagsSource)
+    ? tagsSource
+    : typeof tagsSource === 'string'
+      ? tagsSource.split(',').map((t: string) => t.trim()).filter(Boolean)
+      : [];
+
+  const uploadedAt = v.published_at || v.uploaded_at || v.created_at || new Date().toISOString();
+  const ageMs = Date.now() - new Date(uploadedAt).getTime();
+  const isNew = typeof v.is_new === 'boolean' ? v.is_new : (Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 7 * 24 * 60 * 60 * 1000);
+
+  const rawVideoUrl = v.video_url || v.playback_url || meta.video_url || '';
+  const rawPreviewUrl = v.preview_url || meta.preview_url || rawVideoUrl;
+  const contentType = inferContentType(v, meta);
 
   return {
     id: String(v.id),
-    title: v.title || "Untitled Music Video",
-    artist_name: artist.full_name || v.artist_name || "PAYTUNE Artist",
-    artist_id: String(v.artist_id || artist.id || "artist-1"),
-    thumbnail_url: v.thumbnail_url || "",
-    preview_url: sanitizeMediaUrl(v.preview_url || v.video_url),
-    video_url: sanitizeMediaUrl(v.video_url || v.preview_url),
+    title: v.title || '',
+    artist_name: artist.full_name || artist.artist_name || v.artist_name || meta.artist_name || 'Creator',
+    artist_id: artistId,
+    thumbnail_url: v.thumbnail_path || v.thumbnail_url || meta.thumbnail_url || '',
+    preview_url: sanitizeMediaUrl(rawPreviewUrl),
+    video_url: sanitizeMediaUrl(rawVideoUrl),
     price_rwf: priceRwf,
     price_usd: priceUsd,
     is_free: isFree,
-    views: Number(v.views || 0),
-    likes: Number(v.likes || 0),
-    rating_avg: Number(v.rating_avg || 4.8),
-    rating_count: Number(v.rating_count || 128),
-    uploaded_at: v.uploaded_at || v.created_at || new Date().toISOString(),
-    upload_date: v.uploaded_at || v.created_at || new Date().toISOString(),
-    created_at: v.created_at || v.uploaded_at || new Date().toISOString(),
-    duration: Number(v.duration || 210),
-    category: v.category || "Afrobeat",
-    description: v.description || "Experience the vibrant sounds of Kigali. Official high-definition music video exclusively on PAYTUNE.",
+    views: Number(v.view_count ?? v.views ?? meta.view_count ?? meta.views ?? 0),
+    likes: Number(v.like_count ?? v.likes ?? meta.like_count ?? meta.likes ?? 0),
+    rating_avg: Number(v.rating_avg ?? meta.rating_avg ?? 0),
+    rating_count: Number(v.rating_count ?? meta.rating_count ?? 0),
+    uploaded_at: uploadedAt,
+    upload_date: uploadedAt,
+    created_at: v.created_at || uploadedAt,
+    duration: Number(v.duration_seconds ?? v.duration ?? meta.duration ?? 0),
+    category: rawCategory,
+    content_type: contentType,
+    series_id: v.series_id || meta.series_id || null,
+    series_title: v.series_title || meta.series_title || null,
+    episode_number: v.episode_number ?? meta.episode_number ?? null,
+    is_new: isNew,
+    description: v.description || meta.description || '',
     is_short: isShort,
-    visibility: v.visibility || "public",
-    tags: tags,
+    visibility: v.visibility || 'public',
+    tags,
     artists: {
-      id: String(artist.id || v.artist_id),
-      full_name: artist.full_name || v.artist_name || "PAYTUNE Artist",
-      profile_image: artist.profile_image || "",
-      is_verified: artist.is_verified !== false,
-      subscribers_count: Number(artist.subscribers_count || 14200)
-    }
+      id: artist.id ? String(artist.id) : artistId,
+      full_name: artist.full_name || artist.artist_name || v.artist_name || meta.artist_name || 'Creator',
+      profile_image: artist.profile_image || artist.avatar_path || '',
+      is_verified: Boolean(artist.is_verified),
+      subscribers_count: Number(artist.subscribers_count || 0),
+    },
   };
 }
 
 /**
- * Helper to fetch fallback artists dictionary from mock DB
+ * Loads creator dictionary from live `artist_profiles`, `creator_channels`, and follow counts.
  */
-function getArtistsDictionary(): Record<string, any> {
-  const store = getDbStore();
+async function getArtistsDictionary(): Promise<Record<string, any>> {
   const map: Record<string, any> = {};
-  if (store && Array.isArray(store.artists)) {
-    store.artists.forEach((a: any) => {
-      map[a.id] = a;
-    });
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  if (!client) return map;
+
+  try {
+    const [{ data: artists }, { data: channels }, { data: follows }] = await Promise.all([
+      client
+        .from('artist_profiles')
+        .select('id, artist_name, avatar_path, verification_status, approval_status')
+        .limit(200),
+      client
+        .from('creator_channels')
+        .select('id, channel_name, avatar_path, verification_status, approval_status')
+        .limit(200),
+      client
+        .from('artist_follows')
+        .select('artist_id')
+        .limit(5000),
+    ]);
+
+    const followCounts = new Map<string, number>();
+    if (Array.isArray(follows)) {
+      follows.forEach((f: any) => {
+        if (f.artist_id) {
+          const k = String(f.artist_id);
+          followCounts.set(k, (followCounts.get(k) || 0) + 1);
+        }
+      });
+    }
+
+    if (Array.isArray(artists)) {
+      artists.forEach((ap: any) => {
+        const key = String(ap.id);
+        map[key] = {
+          id: key,
+          full_name: ap.artist_name || 'Creator',
+          profile_image: ap.avatar_path || '',
+          is_verified: ap.verification_status === 'verified' || ap.approval_status === 'approved',
+          subscribers_count: followCounts.get(key) || 0,
+        };
+      });
+    }
+
+    if (Array.isArray(channels)) {
+      channels.forEach((ch: any) => {
+        const key = String(ch.id);
+        if (!map[key]) {
+          map[key] = {
+            id: key,
+            full_name: ch.channel_name || 'Creator',
+            profile_image: ch.avatar_path || '',
+            is_verified: ch.verification_status === 'verified' || ch.approval_status === 'approved',
+            subscribers_count: followCounts.get(key) || 0,
+          };
+        }
+      });
+    }
+  } catch (err: any) {
+    console.warn('[videoController] Artist dictionary load notice:', err?.message || err);
   }
+
   return map;
 }
 
 /**
+ * Schema-safe live PostgreSQL video loader from `videos` table.
+ */
+async function loadActiveVideos(limit = 100): Promise<any[]> {
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  if (!client) return [];
+
+  const [artistsMap, { data, error }] = await Promise.all([
+    getArtistsDictionary(),
+    client
+      .from('videos')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  ]);
+
+  if (error) {
+    throw error;
+  }
+
+  const activeRemote = (data || []).filter(
+    (v: any) =>
+      v.record_status !== 'deleted' &&
+      v.moderation_status !== 'rejected' &&
+      v.moderation_status !== 'blocked' &&
+      (!v.visibility || v.visibility === 'public')
+  );
+
+  return activeRemote.map((v: any) => normalizeVideo(v, artistsMap));
+}
+
+async function invalidateVideoCaches(videoId?: string) {
+  await Promise.all([
+    cacheService.del('paytune:videos:trending'),
+    cacheService.del('paytune:videos:new'),
+    cacheService.del('paytune:videos:catalog:all'),
+    videoId ? cacheService.del(`paytune:videos:related:${videoId}`) : Promise.resolve(),
+  ]);
+}
+
+/**
  * GET /api/videos
- * Query filters: category, sort (newest, most_purchased, price_low_high, rating), pagination (limit, offset), q (search), type (free, paid)
  */
 export const listVideos = async (req: Request, res: Response) => {
-  const { 
-    category, 
-    type, 
-    sort = 'newest', 
+  const {
+    category,
+    type,
+    sort = 'newest',
     q,
     limit = '20',
-    offset = '0'
+    offset = '0',
   } = req.query;
 
   const numLimit = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 20));
   const numOffset = Math.max(0, parseInt(String(offset), 10) || 0);
 
   try {
-    // Query via Supabase / unified data store
-    const artistsMap = getArtistsDictionary();
-    let query = supabaseAdmin
-      .from('videos')
-      .select('*, artists(id, full_name, profile_image)')
-      .eq('is_active', true);
+    let catalog = await cacheService.get<any[]>('paytune:videos:catalog:all');
+    if (!catalog) {
+      catalog = await loadActiveVideos(200);
+      await cacheService.set('paytune:videos:catalog:all', catalog, 45);
+    }
+
+    let list = [...catalog];
 
     if (category && category !== 'All') {
-      if (category === 'Shorts' || category === 'Reels & Shorts') {
-        if (typeof (query as any).or === 'function') {
-          query = (query as any).or('category.eq.Shorts,category.ilike.%Short%');
-        } else {
-          query = query.eq('category', 'Shorts');
-        }
+      const catStr = String(category).toLowerCase();
+      if (catStr === 'shorts' || catStr === 'reels & shorts') {
+        list = list.filter((v) => v.is_short || (v.category || '').toLowerCase().includes('short'));
       } else {
-        query = query.eq('category', category);
+        list = list.filter((v) => (v.category || '').toLowerCase() === catStr);
       }
     }
 
     if (q) {
-      query = query.ilike('title', `%${q}%`);
+      const lowerQ = String(q).toLowerCase().trim();
+      list = list.filter(
+        (v) =>
+          (v.title && v.title.toLowerCase().includes(lowerQ)) ||
+          (v.artist_name && v.artist_name.toLowerCase().includes(lowerQ)) ||
+          (v.category && v.category.toLowerCase().includes(lowerQ))
+      );
     }
 
     if (type === 'free') {
-      query = query.eq('is_free', true);
+      list = list.filter((v) => v.is_free === true);
     } else if (type === 'paid') {
-      query = query.eq('is_free', false);
+      list = list.filter((v) => v.is_free === false);
     }
 
-    // Sort order
     switch (sort) {
       case 'most_purchased':
-        query = query.order('views', { ascending: false });
+        list.sort((a, b) => (b.views || 0) - (a.views || 0));
         break;
       case 'price_low_high':
-        query = query.order('price_rwf', { ascending: true });
+        list.sort((a, b) => (a.price_rwf || 0) - (b.price_rwf || 0));
         break;
       case 'rating':
-        query = query.order('rating_avg', { ascending: false });
+        list.sort((a, b) => (b.rating_avg || 0) - (a.rating_avg || 0));
         break;
       case 'newest':
       default:
-        query = query.order('uploaded_at', { ascending: false });
+        list.sort(
+          (a, b) =>
+            new Date(b.uploaded_at || b.created_at || 0).getTime() -
+            new Date(a.uploaded_at || a.created_at || 0).getTime()
+        );
         break;
     }
 
-    query = query.range(numOffset, numOffset + numLimit - 1);
-
-    let list: any[] = [];
-    const { data, error } = await query;
-    if (error) {
-      console.warn("Supabase listVideos warning, using fallback store:", error.message || error);
-      const allStore = getDbStore()?.videos || [];
-      list = allStore
-        .filter((v: any) => v.is_active !== false)
-        .slice(numOffset, numOffset + numLimit)
-        .map((item: any) => normalizeVideo(item, artistsMap));
-    } else {
-      list = (data || []).map((item: any) => normalizeVideo(item, artistsMap));
-    }
-
-    // Secondary client-side search in case full text ilike didn't match artist name
-    if (q && list.length === 0) {
-      const allStore = getDbStore()?.videos || [];
-      const lowerQ = String(q).toLowerCase();
-      list = allStore
-        .filter((v: any) => 
-          (v.title && v.title.toLowerCase().includes(lowerQ)) ||
-          (artistsMap[v.artist_id]?.full_name && artistsMap[v.artist_id].full_name.toLowerCase().includes(lowerQ))
-        )
-        .slice(numOffset, numOffset + numLimit)
-        .map((item: any) => normalizeVideo(item, artistsMap));
-    }
-
-    res.json(list);
+    res.json(list.slice(numOffset, numOffset + numLimit));
   } catch (error: any) {
-    console.error("listVideos unexpected error:", error);
-    try {
-      const artistsMap = getArtistsDictionary();
-      const allStore = getDbStore()?.videos || [];
-      const list = allStore
-        .filter((v: any) => v.is_active !== false)
-        .slice(numOffset, numOffset + numLimit)
-        .map((item: any) => normalizeVideo(item, artistsMap));
-      res.json(list);
-    } catch {
-      res.status(500).json({ error: "Failed to fetch videos" });
-    }
+    console.error('listVideos error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch videos' });
   }
 };
 
 /**
  * GET /api/videos/trending
- * Top purchased / highest viewed videos in the last 7 days (limit 10)
  */
-export const getTrendingVideos = async (req: Request, res: Response) => {
+export const getTrendingVideos = async (_req: Request, res: Response) => {
   try {
-    const artistsMap = getArtistsDictionary();
-    let videos: any[] = [];
-
-    try {
-      // Query videos ordered by views/popularity
-      const { data, error } = await supabaseAdmin
-        .from('videos')
-        .select('*, artists(id, full_name, profile_image)')
-        .eq('is_active', true)
-        .order('views', { ascending: false })
-        .limit(10);
-
-      if (!error && Array.isArray(data) && data.length > 0) {
-        videos = data.map((v: any) => normalizeVideo(v, artistsMap));
-      } else if (error) {
-        console.warn("getTrendingVideos remote query fallback:", error?.message || error);
-      }
-    } catch (queryErr: any) {
-      console.warn("getTrendingVideos query exception:", queryErr?.message || queryErr);
+    const cached = await cacheService.get<any[]>('paytune:videos:trending');
+    if (cached) {
+      return res.json(cached);
     }
 
-    // Resilient fallback: If remote returned empty or error, use high-fidelity database store
-    if (!videos || videos.length === 0) {
-      const allStore = getDbStore()?.videos || [];
-      videos = [...allStore]
-        .filter((v: any) => v.is_active !== false)
-        .sort((a: any, b: any) => (b.views || 0) - (a.views || 0))
-        .slice(0, 10)
-        .map((v: any) => normalizeVideo(v, artistsMap));
-    }
+    const videos = await loadActiveVideos(100);
+    const trending = [...videos]
+      .sort((a, b) => (b.views || 0) - (a.views || 0))
+      .slice(0, 10);
 
-    // Sort by highest views
-    videos.sort((a: any, b: any) => (b.views || 0) - (a.views || 0));
-
-    res.json(videos.slice(0, 10));
+    await cacheService.set('paytune:videos:trending', trending, 60);
+    res.json(trending);
   } catch (error: any) {
-    console.error("getTrendingVideos unexpected error:", error);
-    try {
-      const artistsMap = getArtistsDictionary();
-      const allStore = getDbStore()?.videos || [];
-      const fallback = [...allStore]
-        .filter((v: any) => v.is_active !== false)
-        .sort((a: any, b: any) => (b.views || 0) - (a.views || 0))
-        .slice(0, 10)
-        .map((v: any) => normalizeVideo(v, artistsMap));
-      res.json(fallback);
-    } catch {
-      res.status(500).json({ error: "Failed to fetch trending videos" });
-    }
+    console.error('getTrendingVideos error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch trending videos' });
   }
 };
 
 /**
  * GET /api/videos/new
- * Uploaded in the last 3 days, newest first (limit 10)
  */
-export const getNewVideos = async (req: Request, res: Response) => {
+export const getNewVideos = async (_req: Request, res: Response) => {
   try {
-    const artistsMap = getArtistsDictionary();
-    const now = new Date();
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
-
-    let videos: any[] = [];
-
-    try {
-      // Try finding videos uploaded in last 3 days
-      let { data, error } = await supabaseAdmin
-        .from('videos')
-        .select('*, artists(id, full_name, profile_image)')
-        .eq('is_active', true)
-        .gte('uploaded_at', threeDaysAgo)
-        .order('uploaded_at', { ascending: false })
-        .limit(10);
-
-      // If fewer than 10 are in the last 3 days, grab the 10 newest videos on the platform
-      if (!data || data.length < 5) {
-        const fallback = await supabaseAdmin
-          .from('videos')
-          .select('*, artists(id, full_name, profile_image)')
-          .eq('is_active', true)
-          .order('uploaded_at', { ascending: false })
-          .limit(10);
-        data = fallback.data || [];
-      }
-
-      if (Array.isArray(data) && data.length > 0) {
-        videos = data.map((v: any) => normalizeVideo(v, artistsMap));
-      }
-    } catch (e: any) {
-      console.warn("getNewVideos remote query error:", e);
+    const cached = await cacheService.get<any[]>('paytune:videos:new');
+    if (cached) {
+      return res.json(cached);
     }
 
-    if (!videos || videos.length === 0) {
-      const allStore = getDbStore()?.videos || [];
-      videos = [...allStore]
-        .filter((v: any) => v.is_active !== false)
-        .sort((a: any, b: any) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime())
-        .slice(0, 10)
-        .map((v: any) => normalizeVideo(v, artistsMap));
-    }
+    const videos = await loadActiveVideos(100);
+    const newest = [...videos]
+      .sort(
+        (a, b) =>
+          new Date(b.uploaded_at || b.created_at || 0).getTime() -
+          new Date(a.uploaded_at || a.created_at || 0).getTime()
+      )
+      .slice(0, 10);
 
-    res.json(videos.slice(0, 10));
+    await cacheService.set('paytune:videos:new', newest, 60);
+    res.json(newest);
   } catch (error: any) {
-    console.error("getNewVideos unexpected error:", error);
-    try {
-      const artistsMap = getArtistsDictionary();
-      const allStore = getDbStore()?.videos || [];
-      const fallback = [...allStore]
-        .filter((v: any) => v.is_active !== false)
-        .sort((a: any, b: any) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime())
-        .slice(0, 10)
-        .map((v: any) => normalizeVideo(v, artistsMap));
-      res.json(fallback);
-    } catch {
-      res.status(500).json({ error: "Failed to fetch new releases" });
-    }
+    console.error('getNewVideos error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch new releases' });
   }
 };
 
 /**
  * GET /api/videos/recommended
- * Based on user's purchase history (collaborative filtering). If not logged in or no purchases, returns most popular videos.
  */
 export const getRecommendedVideos = async (req: Request, res: Response) => {
   try {
-    const artistsMap = getArtistsDictionary();
     const user = (req as any).user;
     const userId = user?.id;
+    const client = rawSupabaseAdmin || supabaseAdmin;
+    const purchasedVideoIds = new Set<string>();
 
-    let preferredCategories: string[] = [];
-    let preferredArtists: string[] = [];
-    let purchasedVideoIds = new Set<string>();
-
-    if (userId) {
-      // Fetch user purchases
-      const { data: userPurchases } = await supabaseAdmin
-        .from('purchases')
-        .select('video_id, videos(category, artist_id)')
-        .eq('user_id', userId);
-
-      if (userPurchases && userPurchases.length > 0) {
-        userPurchases.forEach((p: any) => {
-          purchasedVideoIds.add(String(p.video_id));
-          if (p.videos?.category) preferredCategories.push(p.videos.category);
-          if (p.videos?.artist_id) preferredArtists.push(String(p.videos.artist_id));
+    if (userId && client) {
+      try {
+        const { data: grants } = await client
+          .from('premium_content_access_grants')
+          .select('content_id')
+          .eq('user_id', userId)
+          .eq('content_type', 'video')
+          .is('revoked_at', null);
+        (grants || []).forEach((g: any) => {
+          if (g.content_id) purchasedVideoIds.add(String(g.content_id));
         });
+      } catch {
+        // Non-fatal
       }
     }
 
-    // Fetch all active videos
-    let allVideos: any[] = [];
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('videos')
-        .select('*, artists(id, full_name, profile_image)')
-        .eq('is_active', true);
-      if (!error && Array.isArray(data) && data.length > 0) {
-        allVideos = data;
-      }
-    } catch (e) {}
+    const candidates = await loadActiveVideos(100);
+    const ordered = [...candidates]
+      .filter((v) => !purchasedVideoIds.has(v.id))
+      .sort((a, b) => {
+        const scoreA = (a.rating_avg || 0) * 1000 + (a.views || 0);
+        const scoreB = (b.rating_avg || 0) * 1000 + (b.views || 0);
+        return scoreB - scoreA;
+      });
 
-    if (!allVideos || allVideos.length === 0) {
-      allVideos = (getDbStore()?.videos || []).filter((v: any) => v.is_active !== false);
-    }
-
-    const candidates = (allVideos || []).map((v: any) => normalizeVideo(v, artistsMap));
-
-    if (preferredCategories.length > 0 || preferredArtists.length > 0) {
-      // Score videos based on collaborative match
-      const scored = candidates
-        .filter((v: any) => !purchasedVideoIds.has(v.id))
-        .map((v: any) => {
-          let score = 0;
-          if (preferredCategories.includes(v.category)) score += 5;
-          if (preferredArtists.includes(v.artist_id)) score += 4;
-          score += (v.rating_avg || 4.5);
-          score += Math.log10(Math.max(1, v.views || 10));
-          return { video: v, score };
-        });
-
-      scored.sort((a, b) => b.score - a.score);
-      const recommended = scored.slice(0, 10).map((s) => s.video);
-
-      if (recommended.length >= 5) {
-        return res.json(recommended);
-      }
-    }
-
-    // Fallback: Return top-rated and most popular videos
-    const fallback = [...candidates].sort((a, b) => {
-      const scoreA = (a.rating_avg || 4.5) * 1000 + (a.views || 0);
-      const scoreB = (b.rating_avg || 4.5) * 1000 + (b.views || 0);
-      return scoreB - scoreA;
-    });
-
-    res.json(fallback.slice(0, 10));
+    res.json(ordered.slice(0, 10));
   } catch (error: any) {
-    console.error("getRecommendedVideos unexpected error:", error);
-    try {
-      const artistsMap = getArtistsDictionary();
-      const allStore = getDbStore()?.videos || [];
-      const fallback = [...allStore]
-        .filter((v: any) => v.is_active !== false)
-        .slice(0, 10)
-        .map((v: any) => normalizeVideo(v, artistsMap));
-      return res.json(fallback);
-    } catch {
-      res.status(500).json({ error: "Failed to fetch recommended videos" });
-    }
+    console.error('getRecommendedVideos error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch recommended videos' });
   }
 };
 
 /**
  * GET /api/videos/:id
- * Video details
  */
 export const getVideoDetails = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   const userId = user?.id;
+  const client = rawSupabaseAdmin || supabaseAdmin;
 
   try {
-    const artistsMap = getArtistsDictionary();
-    let video: any = null;
+    const [artistsMap, { data: video, error }] = await Promise.all([
+      getArtistsDictionary(),
+      client.from('videos').select('*').eq('id', id).maybeSingle(),
+    ]);
 
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('videos')
-        .select('*, artists(*)')
-        .eq('id', id)
-        .maybeSingle();
-
-      if (!error && data) {
-        video = data;
-      }
-    } catch (err) {}
-
+    if (error) throw error;
     if (!video) {
-      const allStore = getDbStore()?.videos || [];
-      video = allStore.find((v: any) => String(v.id) === String(id));
+      return res.status(404).json({ message: 'Video not found' });
     }
-
-    if (!video) {
-      return res.status(404).json({ message: "Video not found" });
-    }
-
-    let userOwns = false;
-    let isMember = false;
-    let minTier = null;
 
     const normalized = normalizeVideo(video, artistsMap);
-
-    if (normalized.is_short || normalized.is_free) {
-      userOwns = true;
-    }
-
-    if (video.min_membership_tier_id) {
-      const { data: tierObj } = await supabaseAdmin
-        .from('membership_tiers')
-        .select('*')
-        .eq('id', video.min_membership_tier_id)
-        .maybeSingle();
-      minTier = tierObj;
-    }
-
+    let userOwns = Boolean(normalized.is_short || normalized.is_free);
+    let isMember = false;
+    let minTier: any = null;
     let userLiked = false;
     let userSubscribed = false;
+    let userRating = 0;
     let purchaseCount = 0;
 
-    // Fetch purchase count for this video
     try {
-      const { data: purchases } = await supabaseAdmin
-        .from('purchases')
-        .select('id')
-        .eq('video_id', id);
-      purchaseCount = (purchases || []).length;
-    } catch (e) {
-      purchaseCount = 18;
+      const [{ count }, { data: allRatings }] = await Promise.all([
+        client
+          .from('premium_content_access_grants')
+          .select('id', { count: 'exact', head: true })
+          .eq('content_type', 'video')
+          .eq('content_id', id),
+        client
+          .from('content_ratings')
+          .select('user_id, rating')
+          .eq('content_type', 'video')
+          .eq('content_id', id),
+      ]);
+      purchaseCount = count || 0;
+      if (Array.isArray(allRatings) && allRatings.length > 0) {
+        const sum = allRatings.reduce((acc: number, r: any) => acc + Number(r.rating || 0), 0);
+        normalized.rating_count = allRatings.length;
+        normalized.rating_avg = Number((sum / allRatings.length).toFixed(2));
+        if (userId) {
+          const mine = allRatings.find((r: any) => String(r.user_id) === String(userId));
+          if (mine) userRating = Number(mine.rating || 0);
+        }
+      }
+    } catch {
+      purchaseCount = 0;
     }
 
     if (userId) {
-      // Check like
       try {
-        const { data: likeRecord } = await supabaseAdmin
-          .from('user_likes')
+        const { data: reaction } = await client
+          .from('content_reactions')
           .select('id')
           .eq('user_id', userId)
-          .eq('video_id', id)
+          .eq('content_type', 'video')
+          .eq('content_id', id)
+          .eq('reaction_type', 'like')
           .maybeSingle();
-        userLiked = !!likeRecord;
-      } catch (e) {}
+        userLiked = Boolean(reaction);
+      } catch {}
 
-      // Check subscription
-      try {
-        const { data: subRecord } = await supabaseAdmin
-          .from('subscriptions')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('artist_id', normalized.artist_id)
-          .maybeSingle();
-        userSubscribed = !!subRecord;
-      } catch (e) {}
+      if (normalized.artist_id) {
+        try {
+          const { data: followRec } = await client
+            .from('artist_follows')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('artist_id', normalized.artist_id)
+            .maybeSingle();
+          userSubscribed = Boolean(followRec);
+        } catch {}
 
-      // Check if user is the artist of the video
-      const { data: artistRecord } = await supabaseAdmin
-        .from('artists')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
+        try {
+          const { data: artistRec } = await client
+            .from('artist_profiles')
+            .select('id')
+            .eq('id', normalized.artist_id)
+            .or(`created_by_user_id.eq.${userId},primary_contact_user_id.eq.${userId}`)
+            .maybeSingle();
+          if (artistRec) userOwns = true;
+        } catch {}
+      }
 
-      if (artistRecord && (video.artist_id === artistRecord.id || normalized.artist_id === artistRecord.id)) {
-        userOwns = true;
-      } else {
-        // Check for specific video purchase
-        const { data: purchase } = await supabaseAdmin
-          .from('purchases')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('video_id', id)
-          .maybeSingle();
-        
-        if (purchase) {
+      if (!userOwns) {
+        if (user?.role === 'MASTER_ADMIN' || user?.role === 'master' || user?.role === 'admin') {
           userOwns = true;
         } else {
-          // Check in-memory store for instant offline/simulation updates
           try {
-            const storePurchases = getDbStore()?.purchases || [];
-            const foundInStore = storePurchases.find(
-              (p: any) => (String(p.user_id) === String(userId) || (user?.phone && String(p.payment_phone) === String(user.phone))) && String(p.video_id) === String(id)
-            );
-            if (foundInStore) {
-              userOwns = true;
-            }
+            const { data: grant } = await client
+              .from('premium_content_access_grants')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('content_type', 'video')
+              .eq('content_id', id)
+              .is('revoked_at', null)
+              .maybeSingle();
+            if (grant) userOwns = true;
           } catch {}
         }
-
-        // Check if user has master privileges
-        if (user?.role === 'MASTER_ADMIN' || user?.role === 'master' || user?.email === 'master@paytune.com') {
-          userOwns = true;
-        }
-
-        // Check if user is an active channel member
-        if (video.min_membership_tier_id) {
-          const { data: userSub } = await supabaseAdmin
-            .from('memberships')
-            .select('*, membership_tiers(*)')
-            .eq('user_id', userId)
-            .eq('artist_id', video.artist_id)
-            .eq('status', 'active')
-            .maybeSingle();
-
-          if (userSub) {
-            const subTier = userSub.membership_tiers || userSub.tier;
-            if (subTier && minTier && subTier.price_rwf >= minTier.price_rwf) {
-              isMember = true;
-              userOwns = true;
-            }
-          }
-        }
       }
     }
 
-    // Check Phone Access Request & Phone-based Entitlements (both authenticated and guest viewers)
-    const viewerPhone = (req.headers['x-viewer-phone'] as string) || (req.query.viewer_phone as string) || user?.phone || null;
-    const cleanPhone = viewerPhone ? String(viewerPhone).trim().replace(/\s+/g, '') : null;
-    const store = getDbStore();
-
-    if (cleanPhone) {
-      const hasApprovedPhoneRequest = (store?.access_requests || []).some(
-        (r: any) => r.phone === cleanPhone && String(r.video_id) === String(id) && r.status === 'approved'
-      );
-      const hasPhonePurchase = (store?.purchases || []).some(
-        (p: any) => p.payment_phone === cleanPhone && String(p.video_id) === String(id)
-      );
-      if (hasApprovedPhoneRequest || hasPhonePurchase) {
-        userOwns = true;
-      }
-    }
-
-    if (userId) {
-      const hasApprovedUserRequest = (store?.access_requests || []).some(
-        (r: any) => (r.user_id === userId || (user?.phone && r.phone === user.phone)) && String(r.video_id) === String(id) && r.status === 'approved'
-      );
-      if (hasApprovedUserRequest) {
-        userOwns = true;
-      }
-    }
-
-    // Ensure 30-second free preview is accessible for unpurchased paid videos
     if (!userOwns && !normalized.is_free) {
-      if (!normalized.preview_url && normalized.video_url) {
-        normalized.preview_url = normalized.video_url;
-      }
-      normalized.video_url = normalized.preview_url || "";
+      normalized.video_url = normalized.preview_url || '';
     }
 
-    res.json({ 
-      ...normalized, 
-      userOwns, 
-      isMember, 
-      minTier, 
-      userLiked, 
-      userSubscribed, 
-      purchaseCount: Math.max(purchaseCount, normalized.is_free ? 0 : 34) 
+    res.json({
+      ...normalized,
+      userOwns,
+      isMember,
+      minTier,
+      userLiked,
+      userSubscribed,
+      userRating,
+      purchaseCount,
     });
   } catch (error: any) {
-    console.error("getVideoDetails unexpected error:", error);
-    res.status(500).json({ error: "Failed to fetch video details" });
+    console.error('getVideoDetails error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch video details' });
   }
 };
 
 /**
  * GET /api/videos/:id/related
- * Returns related videos (same artist or same category, excluding current video)
  */
 export const getRelatedVideos = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const artistsMap = getArtistsDictionary();
-    const { data: currentVideo } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    const cacheKey = `paytune:videos:related:${id}`;
+    const cached = await cacheService.get<any[]>(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
-    const { data: allVideos } = await supabaseAdmin
-      .from('videos')
-      .select('*, artists(*)')
-      .eq('is_active', true);
+    const pool = await loadActiveVideos(100);
+    const currentVideo = pool.find((v) => String(v.id) === String(id)) || null;
+    const filtered = pool.filter((v) => String(v.id) !== String(id));
 
-    const pool = (allVideos || []).map(v => normalizeVideo(v, artistsMap));
-    
-    // Exclude current video
-    const filtered = pool.filter(v => String(v.id) !== String(id));
-
-    // Sort priority: 1) same artist, 2) same category, 3) highest views
     filtered.sort((a, b) => {
       let scoreA = 0;
       let scoreB = 0;
       if (currentVideo) {
-        if (a.artist_id === currentVideo.artist_id) scoreA += 10;
-        if (b.artist_id === currentVideo.artist_id) scoreB += 10;
-        if (a.category === currentVideo.category) scoreA += 5;
-        if (b.category === currentVideo.category) scoreB += 5;
+        if (currentVideo.series_id && a.series_id === currentVideo.series_id) scoreA += 250000;
+        if (currentVideo.series_id && b.series_id === currentVideo.series_id) scoreB += 250000;
+        if (a.artist_id && a.artist_id === currentVideo.artist_id) scoreA += 100000;
+        if (b.artist_id && b.artist_id === currentVideo.artist_id) scoreB += 100000;
+        if (a.category && a.category === currentVideo.category) scoreA += 25000;
+        if (b.category && b.category === currentVideo.category) scoreB += 25000;
       }
-      scoreA += (a.views || 0);
-      scoreB += (b.views || 0);
+      scoreA += a.views || 0;
+      scoreB += b.views || 0;
       return scoreB - scoreA;
     });
 
-    res.json(filtered.slice(0, 12));
+    const result = filtered.slice(0, 12);
+    await cacheService.set(cacheKey, result, 60);
+    res.json(result);
   } catch (error: any) {
-    console.error("getRelatedVideos error:", error);
-    res.status(500).json({ error: "Failed to fetch related videos" });
+    console.error('getRelatedVideos error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch related videos' });
   }
 };
 
 /**
  * POST /api/videos/:id/like
- * Toggles like on video (requires auth and purchase if paid)
  */
 export const toggleVideoLike = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
   if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
+  const client = rawSupabaseAdmin || supabaseAdmin;
   try {
-    const { data: video } = await supabaseAdmin
+    const { data: video, error: vidErr } = await client
       .from('videos')
-      .select('id, is_free, price_rwf, likes, artist_id')
+      .select('id, metadata')
       .eq('id', id)
       .maybeSingle();
 
+    if (vidErr) throw vidErr;
     if (!video) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({ error: 'Video not found' });
     }
 
-    // If paid, verify ownership
-    const isFree = video.is_free || !video.price_rwf;
-    if (!isFree) {
-      const { data: purchase } = await supabaseAdmin
-        .from('purchases')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('video_id', id)
-        .maybeSingle();
-
-      const { data: artistRecord } = await supabaseAdmin
-        .from('artists')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      const isArtist = artistRecord && artistRecord.id === video.artist_id;
-
-      if (!purchase && !isArtist) {
-        return res.status(403).json({ error: "You must purchase this video to like it." });
-      }
-    }
-
-    // Check existing like
-    const { data: existingLike } = await supabaseAdmin
-      .from('user_likes')
+    const { data: existingLike } = await client
+      .from('content_reactions')
       .select('id')
-      .eq('video_id', id)
+      .eq('content_type', 'video')
+      .eq('content_id', id)
+      .eq('user_id', user.id)
+      .eq('reaction_type', 'like')
+      .maybeSingle();
+
+    const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
+
+    if (existingLike) {
+      await client.from('content_reactions').delete().eq('id', existingLike.id);
+    } else {
+      await client.from('content_reactions').insert({
+        content_type: 'video',
+        content_id: id,
+        user_id: user.id,
+        reaction_type: 'like',
+      });
+    }
+
+    const { count } = await client
+      .from('content_reactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('content_type', 'video')
+      .eq('content_id', id)
+      .eq('reaction_type', 'like');
+
+    const currentLikes = count ?? Math.max(0, Number(meta.like_count ?? meta.likes ?? 0) + (existingLike ? -1 : 1));
+    await client
+      .from('videos')
+      .update({ metadata: { ...meta, like_count: currentLikes, likes: currentLikes }, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    await invalidateVideoCaches(id);
+    return res.json({ liked: !existingLike, likes: currentLikes });
+  } catch (error: any) {
+    console.error('toggleVideoLike error:', error);
+    res.status(500).json({ error: error.message || 'Failed to toggle like' });
+  }
+};
+
+/**
+ * POST /api/videos/:id/rate
+ */
+export const rateVideo = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const stars = Math.round(Number(req.body?.rating));
+  if (!Number.isFinite(stars) || stars < 1 || stars > 5) {
+    return res.status(400).json({ error: 'Rating must be an integer between 1 and 5' });
+  }
+
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  try {
+    const { data: video, error: vidErr } = await client
+      .from('videos')
+      .select('id, metadata')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (vidErr) throw vidErr;
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    const now = new Date().toISOString();
+    const { data: existing } = await client
+      .from('content_ratings')
+      .select('id')
+      .eq('content_type', 'video')
+      .eq('content_id', id)
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let currentLikes = video.likes || 0;
-
-    if (existingLike) {
-      await supabaseAdmin.from('user_likes').delete().eq('id', existingLike.id);
-      currentLikes = Math.max(0, currentLikes - 1);
-      await supabaseAdmin.from('videos').update({ likes: currentLikes }).eq('id', id);
-      return res.json({ liked: false, likes: currentLikes });
+    if (existing?.id) {
+      const { error: updErr } = await client
+        .from('content_ratings')
+        .update({
+          rating: stars,
+          review_text: req.body?.review_text ?? null,
+          is_edited: true,
+          updated_at: now,
+        })
+        .eq('id', existing.id);
+      if (updErr) throw updErr;
     } else {
-      await supabaseAdmin.from('user_likes').insert({ video_id: id, user_id: user.id });
-      currentLikes = currentLikes + 1;
-      await supabaseAdmin.from('videos').update({ likes: currentLikes }).eq('id', id);
-      return res.json({ liked: true, likes: currentLikes });
+      const { error: insErr } = await client
+        .from('content_ratings')
+        .insert({
+          id: randomUUID(),
+          content_type: 'video',
+          content_id: id,
+          user_id: user.id,
+          rating: stars,
+          review_text: req.body?.review_text ?? null,
+          moderation_status: 'approved',
+          is_edited: false,
+          created_at: now,
+          updated_at: now,
+        });
+      if (insErr) throw insErr;
     }
+
+    const { data: ratingsRows } = await client
+      .from('content_ratings')
+      .select('rating')
+      .eq('content_type', 'video')
+      .eq('content_id', id);
+
+    const list = ratingsRows || [];
+    const ratingCount = list.length;
+    const ratingAvg =
+      ratingCount > 0
+        ? Number((list.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / ratingCount).toFixed(2))
+        : stars;
+
+    const prevMeta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
+    await client
+      .from('videos')
+      .update({
+        metadata: { ...prevMeta, rating_avg: ratingAvg, rating_count: ratingCount },
+        updated_at: now,
+      })
+      .eq('id', id);
+
+    await invalidateVideoCaches(id);
+    return res.json({
+      success: true,
+      userRating: stars,
+      rating_avg: ratingAvg,
+      rating_count: ratingCount,
+    });
   } catch (error: any) {
-    console.error("toggleVideoLike error:", error);
-    res.status(500).json({ error: error.message || "Failed to toggle like" });
+    console.error('rateVideo error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to save rating' });
+  }
+};
+
+/**
+ * POST /api/videos/:id/super-thanks
+ */
+export const sendVideoSuperThanks = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const amount = Number(req.body?.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: 'Valid positive amount is required' });
+  }
+
+  const providerRaw = String(req.body?.provider || req.body?.paymentMethod || 'MTN').toUpperCase();
+  const isStripe = providerRaw.includes('STRIPE') || providerRaw.includes('CARD');
+  const isAirtel = providerRaw.includes('AIRTEL');
+  const hasGateway = isStripe
+    ? Boolean(process.env.STRIPE_SECRET_KEY)
+    : isAirtel
+    ? Boolean(process.env.AIRTEL_CLIENT_ID && process.env.AIRTEL_CLIENT_SECRET)
+    : Boolean(process.env.MTN_SUBSCRIPTION_KEY && process.env.MTN_API_USER && process.env.MTN_API_KEY);
+
+  if (!hasGateway) {
+    return res.status(503).json({
+      provider_configured: false,
+      error: 'Payment provider credentials are not configured. Super Thanks requires live MTN MoMo, Airtel Money, or Stripe keys.',
+    });
+  }
+
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  try {
+    const { data: video, error: vidErr } = await client
+      .from('videos')
+      .select('id, creator_channel_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (vidErr) throw vidErr;
+    if (!video || !video.creator_channel_id) {
+      return res.status(404).json({ error: 'Video or creator channel not found' });
+    }
+
+    const now = new Date().toISOString();
+    const txId = `STX-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    const { data: donation, error: insErr } = await client
+      .from('super_thanks')
+      .insert({
+        id: randomUUID(),
+        creator_channel_id: video.creator_channel_id,
+        sender_user_id: user.id,
+        content_type: 'video',
+        content_id: id,
+        currency_code: String(req.body?.currency || 'RWF').toUpperCase(),
+        amount,
+        public_message: req.body?.message ? String(req.body.message).trim() : null,
+        is_message_public: req.body?.isPublic !== false,
+        event_status: 'pending',
+        payment_provider: isStripe ? 'stripe' : isAirtel ? 'airtel_money' : 'mtn_momo',
+        provider_payment_reference: txId,
+        created_at: now,
+        event_metadata: {
+          payment_phone: req.body?.payment_phone || null,
+          video_id: id,
+        },
+      })
+      .select()
+      .single();
+
+    if (insErr) throw insErr;
+
+    return res.status(201).json({
+      success: true,
+      status: 'pending',
+      transactionId: txId,
+      donation,
+    });
+  } catch (error: any) {
+    console.error('sendVideoSuperThanks error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to initiate Super Thanks' });
   }
 };
 
 /**
  * POST /api/videos/:id/view
- * Records a view (only if user has purchased or video is free)
  */
 export const recordVideoView = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
+  const client = rawSupabaseAdmin || supabaseAdmin;
 
   try {
-    const { data: video } = await supabaseAdmin
+    const { data: video, error } = await client
       .from('videos')
-      .select('id, is_free, price_rwf, views, artist_id')
+      .select('id, metadata')
       .eq('id', id)
       .maybeSingle();
 
+    if (error) throw error;
     if (!video) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({ error: 'Video not found' });
     }
 
-    const isFree = video.is_free || !video.price_rwf;
-    let hasAccess = isFree;
+    const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
+    const newViews = Number(meta.view_count ?? meta.views ?? 0) + 1;
+    await client
+      .from('videos')
+      .update({ metadata: { ...meta, view_count: newViews, views: newViews }, updated_at: new Date().toISOString() })
+      .eq('id', id);
 
-    if (!hasAccess && user) {
-      if (
-        user.role === 'MASTER_ADMIN' ||
-        user.role === 'master' ||
-        user.email === 'master@paytune.com' ||
-        user.id === video.artist_id
-      ) {
-        hasAccess = true;
-      } else {
-        const { data: purchase } = await supabaseAdmin
-          .from('purchases')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('video_id', id)
-          .maybeSingle();
+    try {
+      await client.from('video_view_events').insert({
+        video_id: id,
+        viewer_user_id: user?.id || null,
+        occurred_at: new Date().toISOString(),
+        validation_status: 'valid',
+      });
+    } catch {}
 
-        if (purchase) {
-          hasAccess = true;
-        } else {
-          try {
-            const storePurchases = getDbStore()?.purchases || [];
-            if (storePurchases.some((p: any) => String(p.user_id) === String(user.id) && String(p.video_id) === String(id))) {
-              hasAccess = true;
-            }
-          } catch {}
-        }
-      }
-    }
-
-    // Gracefully acknowledge preview view for unpurchased users without throwing 403 network error
-    if (!hasAccess) {
-      return res.json({ success: true, preview: true, views: video.views || 0 });
-    }
-
-    const newViews = (video.views || 0) + 1;
-    await supabaseAdmin.from('videos').update({ views: newViews }).eq('id', id);
-
+    await invalidateVideoCaches(id);
     res.json({ success: true, views: newViews });
   } catch (error: any) {
-    console.error("recordVideoView error:", error);
+    console.error('recordVideoView error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * POST /api/videos/:id/progress
- * Saves watch progress (body: { positionSeconds })
  */
 export const saveVideoProgress = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -803,53 +873,50 @@ export const saveVideoProgress = async (req: Request, res: Response) => {
   const rawPos = req.body.positionSeconds !== undefined ? req.body.positionSeconds : req.body.position_seconds;
 
   if (rawPos === undefined || isNaN(Number(rawPos))) {
-    return res.status(400).json({ error: "positionSeconds or position_seconds is required" });
+    return res.status(400).json({ error: 'positionSeconds or position_seconds is required' });
   }
 
   const pos = Math.max(0, Math.floor(Number(rawPos)));
-
   if (!user) {
-    // If not authenticated, return success acknowledging client state
     return res.json({ success: true, positionSeconds: pos, savedLocally: true });
   }
 
+  const client = rawSupabaseAdmin || supabaseAdmin;
   try {
-    const { data: existing } = await supabaseAdmin
-      .from('watch_progress')
+    const { data: existing } = await client
+      .from('video_watch_history')
       .select('id')
       .eq('user_id', user.id)
       .eq('video_id', id)
       .maybeSingle();
 
     if (existing) {
-      await supabaseAdmin
-        .from('watch_progress')
-        .update({ 
-          position_seconds: pos, 
-          updated_at: new Date().toISOString() 
+      await client
+        .from('video_watch_history')
+        .update({
+          last_position_seconds: pos,
+          last_watched_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id);
     } else {
-      await supabaseAdmin
-        .from('watch_progress')
-        .insert({
-          user_id: user.id,
-          video_id: id,
-          position_seconds: pos,
-          updated_at: new Date().toISOString()
-        });
+      await client.from('video_watch_history').insert({
+        user_id: user.id,
+        video_id: id,
+        last_position_seconds: pos,
+        last_watched_at: new Date().toISOString(),
+      });
     }
 
     res.json({ success: true, positionSeconds: pos });
   } catch (error: any) {
-    console.error("saveVideoProgress error:", error);
+    console.error('saveVideoProgress error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * GET /api/videos/:id/progress
- * Returns saved progress position
  */
 export const getVideoProgress = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -859,295 +926,217 @@ export const getVideoProgress = async (req: Request, res: Response) => {
     return res.json({ positionSeconds: 0 });
   }
 
+  const client = rawSupabaseAdmin || supabaseAdmin;
   try {
-    const { data: progress } = await supabaseAdmin
-      .from('watch_progress')
-      .select('position_seconds')
+    const { data: progress } = await client
+      .from('video_watch_history')
+      .select('last_position_seconds')
       .eq('user_id', user.id)
       .eq('video_id', id)
       .maybeSingle();
 
-    res.json({ positionSeconds: progress?.position_seconds || 0 });
+    res.json({ positionSeconds: progress?.last_position_seconds || 0 });
   } catch (error: any) {
-    console.error("getVideoProgress error:", error);
+    console.error('getVideoProgress error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * POST /api/videos/:id/subscribe
- * Toggles subscription to the artist of this video
  */
 export const toggleArtistSubscribe = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
 
   if (!user) {
-    return res.status(401).json({ error: "Authentication required to subscribe" });
+    return res.status(401).json({ error: 'Authentication required to follow creator' });
   }
 
+  const client = rawSupabaseAdmin || supabaseAdmin;
   try {
-    let artistId = id;
-    const { data: video } = await supabaseAdmin
+    const { data: vid } = await client
       .from('videos')
-      .select('artist_id')
+      .select('artist_profile_id')
       .eq('id', id)
       .maybeSingle();
 
-    if (video?.artist_id) {
-      artistId = video.artist_id;
-    }
+    const artistProfileId = vid?.artist_profile_id || id;
 
-    const { data: existing } = await supabaseAdmin
-      .from('subscriptions')
+    const { data: existing } = await client
+      .from('artist_follows')
       .select('id')
       .eq('user_id', user.id)
-      .eq('artist_id', artistId)
+      .eq('artist_id', artistProfileId)
       .maybeSingle();
 
     if (existing) {
-      await supabaseAdmin.from('subscriptions').delete().eq('id', existing.id);
-      return res.json({ subscribed: false, subscribers_count: 14199 });
+      await client.from('artist_follows').delete().eq('id', existing.id);
+      const { count } = await client
+        .from('artist_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('artist_id', artistProfileId);
+      return res.json({ subscribed: false, subscribers_count: count || 0 });
     } else {
-      await supabaseAdmin.from('subscriptions').insert({
+      await client.from('artist_follows').insert({
         user_id: user.id,
-        artist_id: artistId
+        artist_id: artistProfileId,
       });
-      return res.json({ subscribed: true, subscribers_count: 14201 });
+      const { count } = await client
+        .from('artist_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('artist_id', artistProfileId);
+      return res.json({ subscribed: true, subscribers_count: count || 0 });
     }
   } catch (error: any) {
-    console.error("toggleArtistSubscribe error:", error);
+    console.error('toggleArtistSubscribe error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * GET /api/videos/feed/personalized
- * Multi-signal personalized video discovery feed:
- * Considers user preferences, watch history, subscriptions, likes, freshness, and live streams
  */
 export const getPersonalizedFeed = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const userId = user?.id;
-    const store = getDbStore() || {};
-    const artistsMap = getArtistsDictionary();
+    const client = rawSupabaseAdmin || supabaseAdmin;
+    const artistsMap = await getArtistsDictionary();
 
-    // 1. Fetch user signals if authenticated
-    let userInterests: string[] = [];
-    let dismissedIds = new Set<string>();
-    let userSubscribedArtistIds = new Set<string>();
-    let userLikedVideoIds = new Set<string>();
-    let purchasedVideoIds = new Set<string>();
-    let watchProgressMap = new Map<string, any>();
+    const userSubscribedArtistIds = new Set<string>();
+    const purchasedVideoIds = new Set<string>();
+    const watchHistoryMap = new Map<string, any>();
 
-    if (userId) {
-      // User Preferences (Interests & Dismissed Videos)
-      const userPrefs = (store.user_preferences || []).find((p: any) => p.user_id === userId);
-      if (userPrefs) {
-        if (Array.isArray(userPrefs.interests)) {
-          userInterests = userPrefs.interests;
-        }
-        if (Array.isArray(userPrefs.dismissed_video_ids)) {
-          userPrefs.dismissed_video_ids.forEach((id: string) => dismissedIds.add(String(id)));
-        }
-      }
+    if (userId && client) {
+      const [{ data: follows }, { data: grants }, { data: history }] = await Promise.all([
+        client.from('artist_follows').select('artist_id').eq('user_id', userId),
+        client
+          .from('premium_content_access_grants')
+          .select('content_id')
+          .eq('user_id', userId)
+          .eq('content_type', 'video')
+          .is('revoked_at', null),
+        client
+          .from('video_watch_history')
+          .select('video_id, last_position_seconds, is_completed')
+          .eq('user_id', userId),
+      ]);
 
-      // Subscriptions (Followed Artists)
-      const subscriptions = (store.subscriptions || []).filter((s: any) => s.user_id === userId);
-      subscriptions.forEach((s: any) => {
-        if (s.artist_id) userSubscribedArtistIds.add(String(s.artist_id));
+      (follows || []).forEach((f: any) => {
+        if (f.artist_id) userSubscribedArtistIds.add(String(f.artist_id));
       });
-
-      // User Likes
-      const userLikes = (store.user_likes || []).filter((l: any) => l.user_id === userId);
-      userLikes.forEach((l: any) => {
-        if (l.video_id) userLikedVideoIds.add(String(l.video_id));
+      (grants || []).forEach((g: any) => {
+        if (g.content_id) purchasedVideoIds.add(String(g.content_id));
       });
-
-      // User Purchases
-      const purchases = (store.purchases || []).filter((p: any) => p.user_id === userId);
-      purchases.forEach((p: any) => {
-        if (p.video_id) purchasedVideoIds.add(String(p.video_id));
-      });
-
-      // Watch Progress & History
-      const progressList = (store.watch_progress || []).filter((wp: any) => wp.user_id === userId);
-      progressList.forEach((wp: any) => {
-        if (wp.video_id) watchProgressMap.set(String(wp.video_id), wp);
+      (history || []).forEach((h: any) => {
+        if (h.video_id) watchHistoryMap.set(String(h.video_id), h);
       });
     }
 
-    // 2. Fetch all active videos
-    let allVideosRaw: any[] = [];
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('videos')
-        .select('*, artists(id, full_name, profile_image)')
-        .eq('is_active', true);
-      if (!error && Array.isArray(data) && data.length > 0) {
-        allVideosRaw = data;
-      }
-    } catch {}
+    const activeVideos = await loadActiveVideos(200);
 
-    if (allVideosRaw.length === 0) {
-      allVideosRaw = (store.videos || []).filter((v: any) => v.is_active !== false);
-    }
-
-    // Filter out dismissed videos
-    const activeVideos = allVideosRaw
-      .filter((v: any) => !dismissedIds.has(String(v.id)))
-      .map((v: any) => normalizeVideo(v, artistsMap));
-
-    // 3. Continue Watching section
     const continueWatchingList: any[] = [];
-    if (userId && watchProgressMap.size > 0) {
+    if (userId && watchHistoryMap.size > 0) {
       activeVideos.forEach((v) => {
-        const prog = watchProgressMap.get(v.id);
-        if (prog && prog.position_seconds > 5 && !prog.completed) {
-          const duration = v.duration || 240;
-          if (prog.position_seconds < duration - 10) {
-            continueWatchingList.push({
-              ...v,
-              position_seconds: prog.position_seconds,
-              progress_percent: Math.min(100, Math.round((prog.position_seconds / duration) * 100))
-            });
-          }
+        const prog = watchHistoryMap.get(v.id);
+        if (prog && prog.last_position_seconds > 5 && !prog.is_completed) {
+          const duration = v.duration || 0;
+          continueWatchingList.push({
+            ...v,
+            position_seconds: prog.last_position_seconds,
+            progress_percent: duration > 0 ? Math.min(100, Math.round((prog.last_position_seconds / duration) * 100)) : 0,
+          });
         }
       });
     }
 
-    // 4. "For You" personalized scoring algorithm
     const now = Date.now();
     const scoredVideos = activeVideos.map((video) => {
-      let score = 0;
-
-      // Base popularity
-      score += Math.log(Math.max(1, video.views || 0)) * 5;
-      score += (video.likes || 0) * 3;
-
-      // Category / Interest Match (+50 points)
-      if (userInterests.length > 0) {
-        const catMatch = userInterests.some((int) => 
-          int.toLowerCase() === (video.category || '').toLowerCase()
-        );
-        if (catMatch) score += 50;
-      }
-
-      // Subscribed Channel Match (+40 points)
-      if (userSubscribedArtistIds.has(String(video.artist_id))) {
-        score += 40;
-      }
-
-      // Freshness boost (up to +30 points for last 7 days)
+      let score = Math.log(Math.max(1, video.views || 0)) * 5 + (video.likes || 0) * 3;
+      if (userSubscribedArtistIds.has(String(video.artist_id))) score += 40;
       const uploadTime = new Date(video.uploaded_at || video.created_at || 0).getTime();
       const ageHours = Math.max(0, (now - uploadTime) / (1000 * 60 * 60));
-      if (ageHours < 168) {
-        score += Math.max(0, 30 * (1 - ageHours / 168));
-      }
-
-      // Liked video boost (+20 points)
-      if (userLikedVideoIds.has(String(video.id))) {
-        score += 20;
-      }
-
+      if (ageHours < 168) score += Math.max(0, 30 * (1 - ageHours / 168));
       return { video, score };
     });
 
     scoredVideos.sort((a, b) => b.score - a.score);
     const forYouVideos = scoredVideos.map((sv) => sv.video).slice(0, 16);
 
-    // 5. From Your Channels (Followed artists' videos)
-    let fromYourChannels: any[] = [];
-    if (userSubscribedArtistIds.size > 0) {
-      fromYourChannels = activeVideos
-        .filter((v) => userSubscribedArtistIds.has(String(v.artist_id)))
-        .slice(0, 8);
-    }
-    if (fromYourChannels.length === 0) {
-      // Curated verified artists showcase
-      fromYourChannels = activeVideos
-        .filter((v) => v.artists?.is_verified)
-        .slice(0, 8);
-    }
+    const fromYourChannels =
+      userSubscribedArtistIds.size > 0
+        ? activeVideos.filter((v) => userSubscribedArtistIds.has(String(v.artist_id))).slice(0, 8)
+        : [];
 
-    // 6. Trending This Week (top views)
-    const trending = [...activeVideos]
-      .sort((a, b) => (b.views || 0) - (a.views || 0))
-      .slice(0, 10);
-
-    // 7. New Releases (newest upload dates)
+    const trending = [...activeVideos].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
     const newReleases = [...activeVideos]
       .sort((a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime())
       .slice(0, 10);
+    const recommendedShorts = activeVideos.filter((v) => v.is_short).slice(0, 8);
+    const purchasedVideos =
+      userId && purchasedVideoIds.size > 0
+        ? activeVideos.filter((v) => purchasedVideoIds.has(String(v.id)))
+        : [];
 
-    // 8. Recommended Shorts
-    const recommendedShorts = activeVideos
-      .filter((v) => v.is_short || v.category === 'Shorts')
-      .slice(0, 8);
+    // Live streams queried strictly from PostgreSQL livestreams table
+    const { data: liveRows } = await client
+      .from('livestreams')
+      .select('*')
+      .in('stream_status', ['live', 'scheduled'])
+      .order('scheduled_start_at', { ascending: true })
+      .limit(20);
 
-    // 9. Purchased Videos
-    const purchasedVideos = userId && purchasedVideoIds.size > 0
-      ? activeVideos.filter((v) => purchasedVideoIds.has(String(v.id)))
-      : [];
+    const liveNow = (liveRows || [])
+      .filter((s: any) => s.stream_status === 'live')
+      .map((s: any) => {
+        const artist = artistsMap[String(s.artist_profile_id || s.creator_channel_id || '')] || {
+          full_name: 'Creator',
+          profile_image: '',
+        };
+        return {
+          ...s,
+          status: s.stream_status,
+          artist_name: artist.full_name,
+          artist_avatar: artist.profile_image || s.metadata?.thumbnail_url || '',
+        };
+      });
 
-    // 10. Live Streams (Live Now & Upcoming Scheduled)
-    const allStreams = store.live_streams || [];
-    const liveNow = allStreams.filter((s: any) => s.status === 'live');
-    const upcomingLive = allStreams
-      .filter((s: any) => s.status === 'scheduled')
-      .sort((a: any, b: any) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime());
-
-    // User Reminders lookup
-    const userReminders = userId
-      ? (store.stream_reminders || [])
-          .filter((r: any) => r.user_id === userId)
-          .map((r: any) => r.stream_id)
-      : [];
-
-    const enrichedUpcomingLive = upcomingLive.map((stream: any) => {
-      const artist = artistsMap[stream.artist_id] || {
-        full_name: stream.artist_name || "PAYTUNE Creator",
-        profile_image: ""
-      };
-      return {
-        ...stream,
-        artist_name: artist.full_name || stream.artist_name || "PAYTUNE Creator",
-        artist_avatar: artist.profile_image || stream.thumbnail_url || "",
-        is_reminded: userReminders.includes(stream.id)
-      };
-    });
-
-    const enrichedLiveNow = liveNow.map((stream: any) => {
-      const artist = artistsMap[stream.artist_id] || {
-        full_name: stream.artist_name || "PAYTUNE Creator",
-        profile_image: ""
-      };
-      return {
-        ...stream,
-        artist_name: artist.full_name || stream.artist_name || "PAYTUNE Creator",
-        artist_avatar: artist.profile_image || stream.thumbnail_url || ""
-      };
-    });
+    const upcomingLive = (liveRows || [])
+      .filter((s: any) => s.stream_status === 'scheduled')
+      .map((s: any) => {
+        const artist = artistsMap[String(s.artist_profile_id || s.creator_channel_id || '')] || {
+          full_name: 'Creator',
+          profile_image: '',
+        };
+        return {
+          ...s,
+          status: s.stream_status,
+          scheduled_start: s.scheduled_start_at || s.created_at,
+          artist_name: artist.full_name,
+          artist_avatar: artist.profile_image || s.metadata?.thumbnail_url || '',
+          is_reminded: false,
+        };
+      });
 
     return res.json({
       success: true,
-      userInterests,
-      hasInterests: userInterests.length > 0,
+      userInterests: [],
+      hasInterests: false,
       feed: {
         forYou: forYouVideos,
         continueWatching: continueWatchingList,
         fromYourChannels,
-        liveNow: enrichedLiveNow,
-        upcomingLive: enrichedUpcomingLive,
+        liveNow,
+        upcomingLive,
         trending,
         newReleases,
         recommendedShorts,
-        purchasedVideos
-      }
+        purchasedVideos,
+      },
     });
   } catch (error: any) {
-    console.error("getPersonalizedFeed error:", error);
-    res.status(500).json({ error: "Failed to generate personalized feed." });
+    console.error('getPersonalizedFeed error:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate personalized feed.' });
   }
 };

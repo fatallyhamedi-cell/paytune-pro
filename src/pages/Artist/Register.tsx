@@ -1,315 +1,385 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  User,
+  Mail,
+  Lock,
+  AtSign,
+  Phone,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  AlertCircle,
+  Loader2,
+  Music2,
+} from 'lucide-react';
 import { useArtistAuth } from '../../contexts/ArtistAuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function ArtistRegister() {
   const navigate = useNavigate();
-  const { register, verifyPhone, resendOTP } = useArtistAuth();
+  const { register, artist } = useArtistAuth();
+  const { user, refreshProfile } = useAuth();
 
-  const [step, setStep] = useState<'form' | 'verify'>('form');
   const [form, setForm] = useState({
     full_name: '',
+    artist_handle: '',
+    artist_type: 'solo',
     email: '',
     password: '',
     confirmPassword: '',
     phone: '',
-    momo_code: '',
     momo_provider: 'MTN',
+    momo_code: '',
   });
-  const [artistId, setArtistId] = useState('');
-  const [otp, setOtp] = useState('');
-  const [devCode, setDevCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resendStatus, setResendStatus] = useState('');
+
+  useEffect(() => {
+    if (artist) {
+      navigate('/artist/dashboard', { replace: true });
+    }
+  }, [artist, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
 
-    if (form.password.length < 6) {
-      return setError('Password must be at least 6 characters');
-    }
-    if (form.password !== form.confirmPassword) {
-      return setError('Passwords do not match');
-    }
+    const cleanName = form.full_name.trim();
+    const cleanEmail = form.email.trim().toLowerCase();
     const cleanPhone = form.phone.trim();
-    if (!cleanPhone.startsWith('+')) {
-      return setError('Phone number must start with + and country code (e.g., +250...)');
+    const cleanHandle = form.artist_handle.trim().replace(/^@/, '').toLowerCase();
+
+    if (cleanName.length < 2) {
+      setError('Artist or stage name must be at least 2 characters.');
+      return;
+    }
+
+    if (!user) {
+      if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        setError('Please enter a valid email address.');
+        return;
+      }
+      if (form.password.length < 6) {
+        setError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (form.password !== form.confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+    }
+
+    if (cleanHandle && !/^[a-z0-9_]{3,60}$/.test(cleanHandle)) {
+      setError('Handle must be 3–60 lowercase letters, numbers, or underscores.');
+      return;
     }
 
     setLoading(true);
     try {
-      const res = await register({
-        full_name: form.full_name.trim(),
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-        phone: cleanPhone,
-        momo_code: form.momo_code.trim() || cleanPhone,
-        momo_provider: form.momo_provider,
-      });
+      const payload: Record<string, any> = {
+        full_name: cleanName,
+        artist_name: cleanName,
+        artist_type: form.artist_type,
+      };
+      if (cleanHandle) payload.artist_handle = cleanHandle;
+      if (cleanPhone) payload.phone = cleanPhone;
+      if (form.momo_code.trim()) {
+        payload.momo_code = form.momo_code.trim();
+        payload.momo_provider = form.momo_provider;
+      } else if (cleanPhone) {
+        payload.momo_code = cleanPhone;
+        payload.momo_provider = form.momo_provider;
+      }
+
+      if (!user) {
+        payload.email = cleanEmail;
+        payload.password = form.password;
+      }
+
+      const res = await register(payload);
 
       if (res?.success) {
-        setArtistId(res.artistId);
-        setDevCode(res.devCode || '123456');
-        if (res.devCode) {
-          console.log(`📱 OTP for ${cleanPhone}: ${res.devCode}`);
-        }
-        setStep('verify');
+        await refreshProfile().catch(() => {});
+        navigate(res.redirectTo || '/artist/dashboard', { replace: true });
       } else {
-        setError(res?.error || 'Registration failed');
+        setError(res?.message || res?.error || 'Could not complete artist registration.');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Registration failed. Please check your details.');
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Registration failed. Please review your details and try again.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    const cleanOtp = otp.trim();
-    if (cleanOtp.length !== 6) {
-      return setError('Enter the 6-digit verification code');
-    }
-
-    setLoading(true);
-    try {
-      const res = await verifyPhone(artistId, cleanOtp);
-      if (res?.success) {
-        navigate(`/artist/login?verified=1&email=${encodeURIComponent(form.email)}`);
-      } else {
-        setError(res?.error || 'Invalid code');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Verification failed. Please check the code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError('');
-    setResendStatus('');
-    try {
-      const r = await resendOTP(artistId);
-      if (r.devCode) {
-        setDevCode(r.devCode);
-        setResendStatus(`New code sent: ${r.devCode}`);
-      } else {
-        setResendStatus('Verification code resent successfully!');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to resend code');
-    }
-  };
-
-  if (step === 'verify') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0F0F0F] px-4">
-        <div className="bg-[#1A1A1A] p-8 rounded-2xl w-full max-w-md border border-gray-700 shadow-2xl">
-          <div className="w-12 h-12 bg-purple-600/10 border border-purple-600/30 rounded-xl flex items-center justify-center mx-auto mb-4 text-purple-600 text-xl">
-            📱
-          </div>
-          <h1 className="text-2xl font-bold text-white text-center mb-2">Verify Your Phone</h1>
-          <p className="text-gray-400 text-sm text-center mb-6">
-            Code sent to <b className="text-white">{form.phone}</b>
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0F0F0F] text-gray-900 dark:text-white flex items-center justify-center px-4 py-10 transition-colors">
+      <div className="w-full max-w-lg">
+        <div className="text-center mb-8">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-purple-600 text-white font-black tracking-tight shadow-md shadow-purple-600/20 hover:bg-purple-700 transition-colors mb-5"
+          >
+            <Music2 className="w-5 h-5" />
+            <span className="text-base tracking-wide">PAYTUNE</span>
+          </Link>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+            Create Artist Studio
+          </h1>
+          <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+            Publish music videos &amp; shorts, track analytics, and receive 70/30 payouts
           </p>
+        </div>
+
+        <div className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl shadow-black/5 dark:shadow-black/40">
+          {user && (
+            <div className="mb-5 p-3.5 rounded-xl bg-purple-50 dark:bg-purple-600/10 border border-purple-200 dark:border-purple-600/30 text-xs text-purple-900 dark:text-purple-200">
+              Signed in as <strong className="font-semibold">{user.email}</strong>. Completing this form will create and link your artist profile automatically.
+            </div>
+          )}
 
           {error && (
-            <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-lg mb-4 text-sm">
-              {error}
+            <div
+              role="alert"
+              className="mb-5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-sm flex items-start gap-2.5"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
-          {devCode && (
-            <div className="bg-purple-600/20 border border-purple-600/40 text-purple-300 p-3 rounded-lg mb-4 text-sm flex items-center justify-between">
-              <span>Dev / Sandbox OTP: <b>{devCode}</b></span>
-              <button
-                type="button"
-                onClick={() => setOtp(devCode)}
-                className="text-xs bg-purple-600 text-black px-2 py-1 rounded font-semibold hover:bg-purple-400"
-              >
-                Use Code
-              </button>
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label
+                  htmlFor="artist-reg-name"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                >
+                  Stage / Artist Name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="artist-reg-name"
+                    type="text"
+                    placeholder="e.g. Bruce Melodie"
+                    value={form.full_name}
+                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
+                    required
+                  />
+                </div>
+              </div>
 
-          {resendStatus && (
-            <div className="bg-green-500/20 border border-green-500/40 text-green-300 p-3 rounded-lg mb-4 text-sm">
-              {resendStatus}
+              <div>
+                <label
+                  htmlFor="artist-reg-type"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                >
+                  Artist Type
+                </label>
+                <select
+                  id="artist-reg-type"
+                  value={form.artist_type}
+                  onChange={(e) => setForm({ ...form, artist_type: e.target.value })}
+                  className="w-full h-11 px-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
+                >
+                  <option value="solo">Solo Artist</option>
+                  <option value="group">Group / Duo</option>
+                  <option value="band">Band</option>
+                  <option value="orchestra">Orchestra</option>
+                  <option value="other">Label / Other</option>
+                </select>
+              </div>
             </div>
-          )}
 
-          <form onSubmit={handleVerify} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1 text-center">
-                Enter 6-Digit Code
+              <label
+                htmlFor="artist-reg-handle"
+                className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+              >
+                Studio Handle <span className="font-normal lowercase text-gray-400">(optional)</span>
               </label>
-              <input
-                type="text"
-                maxLength={6}
-                placeholder="000000"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                className="w-full p-4 text-center text-2xl tracking-widest rounded-lg bg-[#2A2A2A] text-white border border-gray-700 font-mono focus:border-purple-500 focus:outline-none"
-                autoFocus
-              />
+              <div className="relative">
+                <AtSign className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  id="artist-reg-handle"
+                  type="text"
+                  placeholder="auto-generated if blank"
+                  value={form.artist_handle}
+                  onChange={(e) => setForm({ ...form, artist_handle: e.target.value })}
+                  className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm font-mono"
+                />
+              </div>
             </div>
+
+            {!user && (
+              <>
+                <div>
+                  <label
+                    htmlFor="artist-reg-email"
+                    className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                  >
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      id="artist-reg-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="artist@example.com"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label
+                      htmlFor="artist-reg-password"
+                      className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        id="artist-reg-password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        placeholder="Min 6 characters"
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        className="w-full h-11 pl-10 pr-9 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((p) => !p)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="artist-reg-confirm"
+                      className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                    >
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        id="artist-reg-confirm"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        placeholder="Repeat password"
+                        value={form.confirmPassword}
+                        onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                        className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="pt-2 border-t border-gray-200 dark:border-white/10">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                Payout Preferences <span className="font-normal lowercase text-gray-400">(optional)</span>
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label
+                    htmlFor="artist-reg-provider"
+                    className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1"
+                  >
+                    Provider
+                  </label>
+                  <select
+                    id="artist-reg-provider"
+                    value={form.momo_provider}
+                    onChange={(e) => setForm({ ...form, momo_provider: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:outline-none text-sm"
+                  >
+                    <option value="MTN">MTN MoMo</option>
+                    <option value="Airtel">Airtel Money</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="artist-reg-phone"
+                    className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1"
+                  >
+                    Mobile / MoMo Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      id="artist-reg-phone"
+                      type="tel"
+                      placeholder="+250788123456"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value, momo_code: e.target.value })}
+                      className="w-full h-10 pl-9 pr-3 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:outline-none text-sm font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <button
               type="submit"
-              disabled={loading || otp.length !== 6}
-              className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer"
+              disabled={loading}
+              className="w-full h-11 mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 cursor-pointer"
             >
-              {loading ? 'Verifying...' : 'Verify Phone & Continue'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Creating Artist Studio...</span>
+                </>
+              ) : (
+                <>
+                  <span>Create Artist Account</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <button
-              type="button"
-              onClick={handleResend}
-              className="text-purple-600 hover:text-purple-400 font-medium cursor-pointer"
-            >
-              Resend code
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep('form')}
-              className="text-gray-400 hover:text-gray-300"
-            >
-              Change phone
-            </button>
+          <div className="mt-6 pt-5 border-t border-gray-200 dark:border-white/10 text-center space-y-2 text-sm">
+            <p className="text-gray-600 dark:text-gray-400">
+              Already have an artist studio?{' '}
+              <Link to="/artist/login" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+                Log in
+              </Link>
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-500">
+              Looking for listener sign in?{' '}
+              <Link to="/auth" className="text-gray-700 dark:text-gray-300 hover:underline font-medium">
+                User Auth
+              </Link>
+            </p>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0F0F0F] py-8 px-4">
-      <div className="bg-[#1A1A1A] p-8 rounded-2xl w-full max-w-md border border-gray-700 shadow-2xl">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-purple-600 font-black text-2xl tracking-wider">PAYTUNE</span>
-          <span className="text-xs bg-purple-600/20 text-purple-400 border border-purple-600/40 px-2 py-0.5 rounded font-mono">
-            ARTIST
-          </span>
-        </div>
-        <h1 className="text-2xl font-bold text-white text-center mb-1">Create Artist Account</h1>
-        <p className="text-xs text-gray-400 text-center mb-6">
-          Publish your music videos, set prices in RWF/USD, and receive MoMo payouts directly
-        </p>
-
-        {error && (
-          <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Full Name / Stage Name</label>
-            <input
-              type="text"
-              placeholder="e.g. Bruce Melodie"
-              value={form.full_name}
-              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Email Address</label>
-            <input
-              type="email"
-              placeholder="artist@paytune.com"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
-              <input
-                type="password"
-                placeholder="Min 6 chars"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Confirm</label>
-              <input
-                type="password"
-                placeholder="Re-type password"
-                value={form.confirmPassword}
-                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none text-sm"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Phone Number (with country code)</label>
-            <input
-              type="tel"
-              placeholder="+250788123456"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none font-mono"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">MoMo Provider</label>
-              <select
-                value={form.momo_provider}
-                onChange={(e) => setForm({ ...form, momo_provider: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none"
-              >
-                <option value="MTN">MTN MoMo</option>
-                <option value="Airtel">Airtel Money</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Payout MoMo Number</label>
-              <input
-                type="tel"
-                placeholder="0788123456"
-                value={form.momo_code}
-                onChange={(e) => setForm({ ...form, momo_code: e.target.value })}
-                className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-purple-500 focus:outline-none font-mono"
-                required
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-400 text-black font-bold py-3.5 rounded-lg disabled:opacity-50 transition-colors shadow-lg cursor-pointer mt-2"
-          >
-            {loading ? 'Creating Artist Account...' : 'Create Artist Account'}
-          </button>
-        </form>
-
-        <p className="text-gray-400 text-sm mt-6 text-center">
-          Already registered as an artist?{' '}
-          <Link to="/artist/login" className="text-purple-600 hover:underline font-semibold">
-            Log in
-          </Link>
-        </p>
       </div>
     </div>
   );

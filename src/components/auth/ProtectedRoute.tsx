@@ -16,27 +16,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ role, redirectTo
     return <Navigate to={redirectTo} replace />;
   }
 
-  const isArtist = 
-    roleData?.momo_code !== undefined || 
-    roleData?.phone !== undefined || 
+  const isArtist =
+    roleData?.role === 'artist' ||
+    roleData?.momo_code !== undefined ||
     user?.user_metadata?.role === 'artist';
 
-  const isMaster = 
-    roleData?.is_master === true || 
-    roleData?.role === 'master' || 
+  const isMaster =
+    roleData?.is_master === true ||
+    roleData?.role === 'master' ||
     roleData?.role === 'MASTER_ADMIN' ||
     user?.user_metadata?.role === 'MASTER_ADMIN' ||
-    user?.app_metadata?.role === 'MASTER_ADMIN' ||
-    user?.email === 'master@paytune.com';
+    user?.app_metadata?.role === 'MASTER_ADMIN';
 
-  if (role === 'artist') {
-    if (!isArtist) {
-      return <Navigate to="/artist/login" replace />;
-    }
-    // If phone is not verified, redirect to phone verification
-    if (roleData?.phone_verified === false) {
-      return <Navigate to="/artist/verify-phone" replace />;
-    }
+  if (role === 'artist' && !isArtist) {
+    return <Navigate to="/artist/login" replace />;
   }
 
   if ((role === 'master' || role === 'admin') && !isMaster) {

@@ -13,9 +13,8 @@ import {
   Smartphone,
   Monitor
 } from 'lucide-react';
-import axios from 'axios';
 import { uploadDirect } from '../../services/uploadDirect';
-import api from '../../services/api';
+import { api } from '../../lib/api';
 
 interface VideoUploadModalProps {
   isOpen: boolean;
@@ -123,6 +122,10 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!videoFile) {
+      setError('Please select a video file before publishing.');
+      return;
+    }
     if (!title) {
       setError('Please provide a title for your release.');
       return;
@@ -141,16 +144,22 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
       let videoUrl = '';
       if (videoFile) {
         setUploadProgress(25);
-        videoUrl = await uploadDirect(isShort ? 'videos' : 'videos', videoFile, (p) => {
-          setUploadProgress(20 + Math.round(p * 0.65));
+        videoUrl = await uploadDirect('videos', videoFile, (p) => {
+          setUploadProgress(20 + Math.round(p * 0.55));
         });
+      }
+
+      let thumbnailUrl: string | null = null;
+      if (thumbnailFile) {
+        setUploadProgress(80);
+        thumbnailUrl = await uploadDirect('thumbnails', thumbnailFile);
       }
 
       setUploadProgress(90);
 
       const payload = {
         videoUrl,
-        thumbnailUrl: null,
+        thumbnailUrl: thumbnailUrl || null,
         title,
         description,
         category: isShort ? 'Shorts' : category,
@@ -158,14 +167,14 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
         price_rwf: isShort ? 0 : (isFree ? 0 : priceRwf),
         price_usd: isShort ? 0 : Math.round(priceRwf / 1400),
         visibility,
-        duration: detectedDuration || (isShort ? 45 : 240),
+        duration: detectedDuration || 0,
         media_type: isShort ? 'short' : 'video',
         ownership_declared: true,
         no_ai_declared: true,
         no_copyright_declared: true,
       };
 
-      await api.post('/artist/video/complete', payload);
+      await api.post('/api/artist/video/complete', payload);
       
       setUploadProgress(100);
       setCompleted(true);
@@ -549,12 +558,11 @@ export const VideoUploadModal: React.FC<VideoUploadModalProps> = ({
                     <span className="font-bold text-[#FFB300]">Uploading & Transcoding...</span>
                     <span className="font-mono text-gray-300">{uploadProgress}%</span>
                   </div>
-                  <div className="w-full h-2 bg-black/50 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-purple-600 to-purple-300 transition-all duration-300 rounded-full"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
+                  <progress
+                    value={uploadProgress}
+                    max={100}
+                    className="w-full h-2 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-black/50 [&::-webkit-progress-value]:bg-purple-500 [&::-moz-progress-bar]:bg-purple-500"
+                  />
                 </div>
               )}
 

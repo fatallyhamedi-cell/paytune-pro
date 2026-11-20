@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import { api } from "../lib/api";
 import {
   Tag,
   Plus,
@@ -40,12 +40,13 @@ export function MasterCategoryManager() {
   const [formVisible, setFormVisible] = useState(true);
   const [formFeatured, setFormFeatured] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingDeleteCat, setPendingDeleteCat] = useState<Category | null>(null);
 
   // Fetch categories
   const { data: categories = [], isLoading, error } = useQuery<Category[]>({
     queryKey: ["categories"],
     queryFn: async () => {
-      const res = await axios.get("/api/categories");
+      const res = await api.get("/api/categories");
       return Array.isArray(res.data) ? res.data : (res.data?.categories || []);
     }
   });
@@ -90,7 +91,7 @@ export function MasterCategoryManager() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (payload: Partial<Category>) => {
-      const res = await axios.post("/api/categories", payload);
+      const res = await api.post("/api/categories", payload);
       return res.data;
     },
     onSuccess: () => {
@@ -105,7 +106,7 @@ export function MasterCategoryManager() {
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...payload }: Partial<Category> & { id: string }) => {
-      const res = await axios.put(`/api/categories/${id}`, payload);
+      const res = await api.put(`/api/categories/${id}`, payload);
       return res.data;
     },
     onSuccess: () => {
@@ -120,14 +121,16 @@ export function MasterCategoryManager() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await axios.delete(`/api/categories/${id}`);
+      const res = await api.delete(`/api/categories/${id}`);
       return res.data;
     },
     onSuccess: () => {
+      setPendingDeleteCat(null);
       queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
     onError: (err: any) => {
-      alert(err.response?.data?.error || "Failed to delete category");
+      setPendingDeleteCat(null);
+      setErrorMessage(err.response?.data?.error || "Failed to delete category");
     }
   });
 
@@ -203,6 +206,32 @@ export function MasterCategoryManager() {
           <span>Add New Category</span>
         </Button>
       </div>
+
+      {!isAdding && !editingId && errorMessage && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-600 font-semibold flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2"><AlertCircle className="w-4 h-4" />{errorMessage}</span>
+          <button onClick={() => setErrorMessage(null)} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {pendingDeleteCat && (
+        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <span className="font-semibold text-red-800 dark:text-red-300">
+            Delete category &ldquo;{pendingDeleteCat.name}&rdquo;? This cannot be undone.
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPendingDeleteCat(null)} className="text-xs h-7">Cancel</Button>
+            <Button
+              size="sm"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(pendingDeleteCat.id)}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs h-7"
+            >
+              Confirm Delete
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Add / Edit Form Modal / Card */}
       {(isAdding || editingId) && (
@@ -398,11 +427,7 @@ export function MasterCategoryManager() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          if (confirm(`Delete category "${cat.name}"?`)) {
-                            deleteMutation.mutate(cat.id);
-                          }
-                        }}
+                        onClick={() => setPendingDeleteCat(cat)}
                         className="h-7 w-7 p-0 text-red-500 hover:text-red-600 cursor-pointer"
                         title="Delete category"
                       >

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { 
   ShieldCheck, 
   Music, 
@@ -40,7 +40,7 @@ export default function CopyrightHolderPortal() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await axios.get('/api/copyright/holder/dashboard');
+      const res = await api.get('/api/copyright/holder/dashboard');
       setDashboardData(res.data);
     } catch (err) {
       console.error("Failed to load rights holder dashboard:", err);
@@ -57,7 +57,7 @@ export default function CopyrightHolderPortal() {
     setActionLoading(disputeId);
     setFeedback(null);
     try {
-      await axios.post('/api/copyright/disputes/respond', {
+      await api.post('/api/copyright/disputes/respond', {
         dispute_id: disputeId,
         action,
         note: action === 'release' ? 'Rights holder approved dispute and released claim.' : 'Rights holder upheld copyright claim.'
@@ -71,23 +71,39 @@ export default function CopyrightHolderPortal() {
     }
   };
 
-  const handleRegisterTrack = (e: React.FormEvent) => {
+  const handleRegisterTrack = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackTitle || !trackArtist) return;
-
-    // Add into client & state
-    setFeedback(`Track "${trackTitle}" successfully registered in PAYTUNE Content ID fingerprint engine.`);
-    setTrackTitle('');
-    setTrackArtist('');
-    setTrackIsrc('');
-    setTrackLabel('');
-    setDashboardData((prev: any) => ({
-      ...prev,
-      financials: {
-        ...prev.financials,
-        catalogTracksCount: (prev.financials.catalogTracksCount || 0) + 1
+    if (!trackTitle.trim() || !trackArtist.trim()) return;
+    setActionLoading('register-track');
+    setFeedback(null);
+    try {
+      const res = await api.post('/api/copyright/catalog/register', {
+        title: trackTitle.trim(),
+        artist: trackArtist.trim(),
+        isrc: trackIsrc.trim(),
+        label: trackLabel.trim() || 'PAYTUNE Rights Publishing',
+        defaultPolicy: trackPolicy,
+      });
+      setFeedback(`Track "${trackTitle.trim()}" registered in PAYTUNE Content ID catalog.`);
+      setTrackTitle('');
+      setTrackArtist('');
+      setTrackIsrc('');
+      setTrackLabel('');
+      if (res.data?.catalogTracksCount !== undefined) {
+        setDashboardData((prev: any) => ({
+          ...prev,
+          financials: {
+            ...prev.financials,
+            catalogTracksCount: res.data.catalogTracksCount,
+          },
+        }));
       }
-    }));
+      await fetchDashboard();
+    } catch (err: any) {
+      setFeedback(`Registration failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -129,7 +145,7 @@ export default function CopyrightHolderPortal() {
           <div className="p-5 rounded-2xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-1">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Protected Catalog</span>
             <div className="text-2xl font-black text-gray-900 dark:text-white flex items-center justify-between">
-              <span>{dashboardData.financials?.catalogTracksCount || 6} Masters</span>
+              <span>{Number(dashboardData.financials?.catalogTracksCount ?? 0)} Masters</span>
               <Music className="w-5 h-5 text-purple-600" />
             </div>
             <p className="text-[11px] text-emerald-500 font-medium">Automatic Content ID protection active</p>
@@ -147,7 +163,7 @@ export default function CopyrightHolderPortal() {
           <div className="p-5 rounded-2xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-1">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Revenue in Escrow</span>
             <div className="text-2xl font-black text-purple-600 flex items-center justify-between">
-              <span>{(dashboardData.financials?.escrowRevenue || 665).toLocaleString()} RWF</span>
+              <span>{Number(dashboardData.financials?.escrowRevenue ?? 0).toLocaleString()} RWF</span>
               <Clock className="w-5 h-5 text-purple-600" />
             </div>
             <p className="text-[11px] text-purple-600/80 font-medium">Held pending dispute resolutions</p>
@@ -156,7 +172,7 @@ export default function CopyrightHolderPortal() {
           <div className="p-5 rounded-2xl bg-white dark:bg-[#121215] border border-gray-200 dark:border-gray-800 shadow-sm space-y-1">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase">Disbursed (70% Share)</span>
             <div className="text-2xl font-black text-emerald-500 flex items-center justify-between">
-              <span>{(dashboardData.financials?.totalClaimedRevenue || 124000).toLocaleString()} RWF</span>
+              <span>{Number(dashboardData.financials?.totalClaimedRevenue ?? 0).toLocaleString()} RWF</span>
               <DollarSign className="w-5 h-5 text-emerald-500" />
             </div>
             <p className="text-[11px] text-gray-400 font-medium">Direct Mobile Money settlement</p>

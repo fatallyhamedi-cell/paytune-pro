@@ -18,7 +18,7 @@ import {
   Check,
   Zap
 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 import { VideoEditModal } from './VideoEditModal';
 import { VideoAnalyticsModal } from './VideoAnalyticsModal';
 
@@ -45,6 +45,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
   const [analyticsVideo, setAnalyticsVideo] = useState<any | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Filter & Sort
   const filteredVideos = (videos || [])
@@ -76,13 +77,15 @@ export const VideosTab: React.FC<VideosTabProps> = ({
   const handleDelete = async () => {
     if (!deletingVideo) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await axios.delete(`/api/artist/video/${deletingVideo.id}`);
+      await api.delete(`/api/artist/video/${deletingVideo.id}`);
       setDeletingVideo(null);
       onRefresh();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.error || 'Failed to delete video.');
+      setDeleteError(err.response?.data?.error || 'Failed to delete video.');
+      setDeletingVideo(null);
     } finally {
       setDeleting(false);
     }
@@ -107,6 +110,12 @@ export const VideosTab: React.FC<VideosTabProps> = ({
           <span>Upload Release</span>
         </button>
       </div>
+
+      {deleteError && (
+        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
+          {deleteError}
+        </div>
+      )}
 
       {/* Control Bar: Search & Selectors */}
       <div className="bg-[#161616] border border-white/5 rounded-2xl p-4 flex flex-wrap items-center gap-3">
@@ -217,7 +226,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
                             <span className="text-purple-400 text-xs font-bold">▶</span>
                           )}
                           <span className="absolute bottom-1 right-1 bg-black/80 px-1 py-0.5 rounded text-[9px] font-mono text-white">
-                            {video.duration ? `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}` : '3:45'}
+                            {video.duration ? `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}` : '0:00'}
                           </span>
                         </div>
                         <div className="min-w-0">
@@ -250,7 +259,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
                         <span className="text-emerald-400">Free Access</span>
                       ) : (
                         <span className="text-[#FFB300]">
-                          {(video.price_rwf || 1000).toLocaleString()} RWF
+                          {(video.price_rwf ?? 0).toLocaleString()} RWF
                         </span>
                       )}
                     </td>
@@ -263,7 +272,7 @@ export const VideosTab: React.FC<VideosTabProps> = ({
                     {/* Purchases / Buyers */}
                     <td className="py-4 px-4 whitespace-nowrap">
                       <span className="font-bold text-white">
-                        {(video.buyers_count || Math.floor((video.views || 0) * 0.08)).toLocaleString()}
+                        {(video.buyers_count ?? 0).toLocaleString()}
                       </span>
                       <span className="text-gray-500 text-[10px] block">Fans paid</span>
                     </td>

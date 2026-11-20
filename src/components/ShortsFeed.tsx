@@ -18,7 +18,7 @@ import {
   Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { useShorts, ShortItem } from '../hooks/useShorts';
 import { ShortsPlayer } from './ShortsPlayer';
 import { useAuth } from '../hooks/useAuth';
@@ -38,6 +38,7 @@ export const ShortsFeed: React.FC = () => {
   const [newCommentText, setNewCommentText] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -48,8 +49,37 @@ export const ShortsFeed: React.FC = () => {
   const [tipProvider, setTipProvider] = useState<'MTN' | 'Airtel'>('MTN');
   const [isTipping, setIsTipping] = useState(false);
   const [tipSuccess, setTipSuccess] = useState(false);
+  const [tipPending, setTipPending] = useState(false);
+  const [tipError, setTipError] = useState<string | null>(null);
 
+  const tipPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tipPollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedContainerRef = useRef<HTMLDivElement>(null);
+
+  const clearTipPolling = useCallback(() => {
+    if (tipPollIntervalRef.current) {
+      clearInterval(tipPollIntervalRef.current);
+      tipPollIntervalRef.current = null;
+    }
+    if (tipPollTimeoutRef.current) {
+      clearTimeout(tipPollTimeoutRef.current);
+      tipPollTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => clearTipPolling();
+  }, [clearTipPolling]);
+
+  useEffect(() => {
+    if (!showTipModal) {
+      clearTipPolling();
+      setIsTipping(false);
+      setTipPending(false);
+      setTipError(null);
+      setTipSuccess(false);
+    }
+  }, [showTipModal, clearTipPolling]);
 
   const {
     shorts,
@@ -169,8 +199,9 @@ export const ShortsFeed: React.FC = () => {
     if (!activeShort) return;
     setShowComments(true);
     setLoadingComments(true);
+    setCommentError(null);
     try {
-      const res = await axios.get(`/api/shorts/${activeShort.id}/comments`);
+      const res = await api.get(`/api/shorts/${activeShort.id}/comments`);
       setComments(Array.isArray(res.data) ? res.data : []);
     } catch {
       setComments([]);
@@ -185,8 +216,9 @@ export const ShortsFeed: React.FC = () => {
     if (!activeShort || !newCommentText.trim() || submittingComment) return;
 
     setSubmittingComment(true);
+    setCommentError(null);
     try {
-      const res = await axios.post(`/api/shorts/${activeShort.id}/comments`, {
+      const res = await api.post(`/api/shorts/${activeShort.id}/comments`, {
         content: newCommentText.trim()
       });
       if (res.data?.comment) {
@@ -195,6 +227,7 @@ export const ShortsFeed: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to post comment', err);
+      setCommentError(err.response?.data?.error || err.response?.data?.message || 'Failed to post comment.');
     } finally {
       setSubmittingComment(false);
     }
@@ -211,19 +244,73 @@ export const ShortsFeed: React.FC = () => {
 
   // Process MoMo Tip
   const handleSendTip = async () => {
-    if (!activeShort || !tipPhone.trim()) return;
+    if (!activeShort || !tipPhone.trim() || isTipping) return;
+    if (!user) {
+      navigate('/auth?redirect=' + encodeURIComponent(window.location.pathname));
+      return;
+    }
+
+    clearTipPolling();
     setIsTipping(true);
+    setTipError(null);
+    setTipPending(false);
+
     try {
-      // Simulate real MoMo push notification
-      await new Promise(r => setTimeout(r, 1200));
-      setTipSuccess(true);
-      setTimeout(() => {
-        setTipSuccess(false);
-        setShowTipModal(false);
-        setTipPhone('');
-      }, 2000);
-    } finally {
+      const res = await api.post('/api/payments/initiate', {
+        paymentType: 'super_thanks',
+        videoId: activeShort.id,
+        artistId: activeShort.artist_id,
+        amount: tipAmount,
+        currency: 'RWF',
+        provider: tipProvider === 'MTN' ? 'mtn_momo' : 'airtel_money',
+        phoneNumber: tipPhone.trim()
+      });
+
+      const paymentId = res.data?.paymentId;
+      if (!paymentId) {
+        throw new Error(res.data?.message || 'Payment initiation failed');
+      }
+
+      setTipPending(true);
+      tipPollIntervalRef.current = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/api/payments/${paymentId}/status`);
+          const status = statusRes.data?.status;
+          if (status === 'paid' || status === 'completed' || status === 'success') {
+            clearTipPolling();
+            setTipPending(false);
+            setTipSuccess(true);
+            setIsTipping(false);
+            setTimeout(() => {
+              setShowTipModal(false);
+              setTipPhone('');
+            }, 2000);
+          } else if (status === 'failed' || status === 'cancelled') {
+            clearTipPolling();
+            setTipPending(false);
+            setIsTipping(false);
+            setTipError(statusRes.data?.failure_reason || 'Tip payment was declined or failed.');
+          }
+        } catch {
+          // continue polling until timeout
+        }
+      }, 3000);
+
+      tipPollTimeoutRef.current = setTimeout(() => {
+        clearTipPolling();
+        setIsTipping(false);
+        setTipPending(false);
+        setTipError('Payment confirmation timed out. Please check your phone or try again.');
+      }, 60000);
+    } catch (err: any) {
       setIsTipping(false);
+      setTipPending(false);
+      setTipError(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Payment provider unavailable.'
+      );
     }
   };
 
@@ -302,7 +389,6 @@ export const ShortsFeed: React.FC = () => {
           ref={feedContainerRef}
           onScroll={handleScroll}
           className="w-full h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth no-scrollbar"
-          style={{ scrollSnapType: 'y mandatory' }}
         >
           {shorts.map((short, index) => (
             <div
@@ -424,26 +510,31 @@ export const ShortsFeed: React.FC = () => {
               </div>
 
               {/* Input Form */}
-              <form onSubmit={handleSubmitComment} className="p-3 border-t border-white/10 bg-neutral-950 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newCommentText}
-                  onChange={(e) => setNewCommentText(e.target.value)}
-                  placeholder="Add a comment on this short..."
-                  className="flex-1 bg-neutral-800 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-400"
-                />
-                <button
-                  type="submit"
-                  disabled={!newCommentText.trim() || submittingComment}
-                  className="p-2 rounded-full bg-purple-400 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-black transition-colors"
-                >
-                  {submittingComment ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </button>
-              </form>
+              <div className="border-t border-white/10 bg-neutral-950">
+                {commentError && (
+                  <p className="px-4 pt-2 text-[11px] text-rose-400 font-medium">{commentError}</p>
+                )}
+                <form onSubmit={handleSubmitComment} className="p-3 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    placeholder="Add a comment on this short..."
+                    className="flex-1 bg-neutral-800 border border-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newCommentText.trim() || submittingComment}
+                    className="p-2 rounded-full bg-purple-400 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-black transition-colors"
+                  >
+                    {submittingComment ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </button>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}
@@ -613,6 +704,18 @@ export const ShortsFeed: React.FC = () => {
                     </div>
                   </div>
 
+                  {tipPending && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                      Awaiting Mobile Money PIN confirmation on {tipPhone}...
+                    </div>
+                  )}
+
+                  {tipError && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                      {tipError}
+                    </div>
+                  )}
+
                   <button
                     onClick={handleSendTip}
                     disabled={!tipPhone.trim() || isTipping}
@@ -621,7 +724,7 @@ export const ShortsFeed: React.FC = () => {
                     {isTipping ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Authorizing MoMo Prompt...
+                        {tipPending ? 'Waiting for MoMo Confirmation...' : 'Initiating MoMo Prompt...'}
                       </>
                     ) : (
                       <>Send {tipAmount} RWF Tip</>

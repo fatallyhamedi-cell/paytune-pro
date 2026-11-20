@@ -13,6 +13,7 @@ export const Playlists: React.FC = () => {
   const [newPublic, setNewPublic] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [confirmDeletePlaylistId, setConfirmDeletePlaylistId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -39,9 +40,15 @@ export const Playlists: React.FC = () => {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this playlist?')) return;
+    setConfirmDeletePlaylistId(id);
+  };
+
+  const executeDeletePlaylist = async () => {
+    if (!confirmDeletePlaylistId) return;
+    const id = confirmDeletePlaylistId;
+    setConfirmDeletePlaylistId(null);
     await deletePlaylist(id);
     showToast('Playlist deleted');
   };
@@ -282,6 +289,33 @@ export const Playlists: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {confirmDeletePlaylistId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-[#181818] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white">Delete Playlist?</h3>
+            <p className="text-xs text-gray-400">
+              Are you sure you want to delete this playlist? This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeletePlaylistId(null)}
+                className="px-4 py-2 text-xs text-gray-400 hover:text-white rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeDeletePlaylist}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold text-xs rounded-xl"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

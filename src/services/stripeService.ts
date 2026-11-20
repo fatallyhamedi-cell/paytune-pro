@@ -3,17 +3,25 @@ import { logProviderCall } from './paymentService';
 
 let stripeInstance: Stripe | null = null;
 
+export const hasStripeCredentials = (): boolean => {
+  const key = process.env.STRIPE_SECRET_KEY || '';
+  return Boolean(key && !key.includes('placeholder'));
+};
+
 export const getStripe = (): Stripe => {
+  if (!hasStripeCredentials()) {
+    const err: any = new Error('STRIPE_SECRET_KEY is not configured in environment variables.');
+    err.statusCode = 503;
+    err.provider_configured = false;
+    throw err;
+  }
   if (!stripeInstance) {
-    const key = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder_key';
-    stripeInstance = new Stripe(key, {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
       apiVersion: '2025-02-24.acacia' as any
     });
   }
   return stripeInstance;
 };
-
-export const stripe = getStripe();
 
 export interface CreatePaymentIntentParams {
   amount: number;
@@ -22,7 +30,7 @@ export interface CreatePaymentIntentParams {
 }
 
 /**
- * Create a real Stripe PaymentIntent for video purchases, subscriptions, or Super Thanks.
+ * Create a real Stripe PaymentIntent. Throws cleanly if Stripe is not configured.
  */
 export const createPaymentIntent = async ({
   amount,
@@ -32,50 +40,39 @@ export const createPaymentIntent = async ({
   const stripeClient = getStripe();
   const cleanCurrency = (currency || 'usd').toLowerCase();
 
-  // For USD/EUR, amount is in dollars so multiply by 100 for cents.
-  // For zero-decimal currencies like RWF, Stripe accepts integer amount directly without multiplying by 100.
   const zeroDecimalCurrencies = ['rwf', 'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf'];
   const isZeroDecimal = zeroDecimalCurrencies.includes(cleanCurrency);
-
   const finalAmount = isZeroDecimal ? Math.round(amount) : Math.round(amount * 100);
 
-  try {
-    const intent = await stripeClient.paymentIntents.create({
-      amount: Math.max(finalAmount, 50), // Stripe minimum
-      currency: cleanCurrency,
-      automatic_payment_methods: { enabled: true },
-      metadata
-    });
+  const intent = await stripeClient.paymentIntents.create({
+    amount: Math.max(finalAmount, 50),
+    currency: cleanCurrency,
+    automatic_payment_methods: { enabled: true },
+    metadata
+  });
 
-    await logProviderCall(metadata.paymentId || intent.id, 'stripe', 'create_payment_intent', {
-      amount: finalAmount,
-      currency: cleanCurrency,
-      metadata
-    }, {
-      id: intent.id,
-      status: intent.status
-    });
+  await logProviderCall(metadata.paymentId || intent.id, 'stripe', 'create_payment_intent', {
+    amount: finalAmount,
+    currency: cleanCurrency,
+    metadata
+  }, {
+    id: intent.id,
+    status: intent.status
+  });
 
-    return {
-      clientSecret: intent.client_secret,
-      intentId: intent.id
-    };
-  } catch (err: any) {
-    console.warn('[Stripe] Live Stripe call note:', err.message, 'falling back to simulation');
-    await logProviderCall(metadata.paymentId || 'unknown', 'stripe', 'create_payment_intent_fallback', {
-      amount: finalAmount,
-      currency: cleanCurrency,
-      metadata
-    }, {
-      error: err.message,
-      simulated: true
-    });
-    
-    return {
-      clientSecret: `pi_simulated_${Date.now()}_secret_${Math.random().toString(36).substring(2, 10)}`,
-      intentId: `pi_simulated_${Date.now()}`
-    };
-  }
+  return {
+    clientSecret: intent.client_secret,
+    intentId: intent.id,
+    provider_configured: true
+  };
+};
+
+/**
+ * Retrieve a Stripe PaymentIntent by ID.
+ */
+export const retrievePaymentIntent = async (paymentIntentId: string) => {
+  const stripeClient = getStripe();
+  return stripeClient.paymentIntents.retrieve(paymentIntentId);
 };
 
 /**

@@ -16,7 +16,7 @@ import {
   Upload,
   Loader2
 } from "lucide-react";
-import axios from "axios";
+import { api } from "../lib/api";
 import { MasterPlatformSettings } from "../hooks/useMasterSettings";
 
 interface MasterSettingsProps {
@@ -45,7 +45,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
     vat_percentage: 5,
     commission_percentage: 30,
     min_withdrawal: 5000,
-    momo_number: "0788192233",
+    momo_number: "",
     trending_days: 7,
     maintenance_mode: false,
     maintenance_message: "PAYTUNE is undergoing scheduled maintenance. Please check back shortly.",
@@ -69,7 +69,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
 
   useEffect(() => {
     // Load current master profile
-    axios.get("/api/master/profile")
+    api.get("/api/master/profile")
       .then(res => {
         if (res.data?.profile) {
           setMasterName(res.data.profile.full_name || "PAYTUNE Master Administrator");
@@ -90,14 +90,14 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
       formData.append("avatar", file);
       formData.append("file", file);
 
-      const res = await axios.post("/api/upload/avatar", formData, {
+      const res = await api.post("/api/upload/avatar", formData, {
         headers: { "Content-Type": "multipart/form-data" }
       });
 
       if (res.data?.url) {
         setMasterAvatar(res.data.url);
         // Automatically persist to master profile
-        await axios.put("/api/master/profile", {
+        await api.put("/api/master/profile", {
           full_name: masterName,
           avatar_url: res.data.url
         });
@@ -119,7 +119,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
     setSavingProfile(true);
     setProfileError(null);
     try {
-      await axios.put("/api/master/profile", {
+      await api.put("/api/master/profile", {
         full_name: masterName,
         avatar_url: masterAvatar
       });
@@ -142,7 +142,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({
         vat_percentage: settings.vat_percentage ?? 5,
         commission_percentage: settings.owner_commission_percentage ?? settings.commission_percentage ?? 30,
         min_withdrawal: settings.min_withdrawal_amount ?? settings.min_withdrawal ?? 5000,
-        momo_number: settings.owner_momo_number ?? settings.momo_number ?? "0788192233",
+        momo_number: settings.owner_momo_number ?? settings.momo_number ?? "",
         trending_days: settings.trending_days ?? 7,
         maintenance_mode: !!settings.maintenance_mode,
         maintenance_message: settings.maintenance_message || "PAYTUNE is undergoing maintenance.",

@@ -1,2023 +1,2211 @@
 import { Request, Response } from 'express';
-import path from 'path';
-import fs from 'fs';
-import { supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
-import { getDbStore } from '../config/supabase_mock';
-import { contentIdService } from '../services/contentIdService';
-import { processAndUploadVideo } from '../services/videoService';
-import { notifySubscribersNewVideo, notifyArtistNewSubscriber, notifyOnCopyrightClaim } from '../services/notificationService';
+import crypto from 'crypto';
+import { rawSupabaseAdmin, supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
+import { cacheService } from '../services/cacheService';
+import { notifyArtistNewSubscriber } from '../services/notificationService';
+import { uploadVideo as uploadVideoHandler } from './artistVideoController';
+import { requestWithdrawal as requestWithdrawalHandler } from './withdrawalController';
 
-/**
- * Helper to resolve artist from request or params
- */
-async function resolveArtistForDashboard(req: Request) {
-  const { artistId } = req.params;
+const getDb = () => rawSupabaseAdmin || supabaseAdmin;
+
+export const uploadVideo = uploadVideoHandler;
+export const requestWithdrawal = requestWithdrawalHandler;
+
+function normalizeSocialLinks(rows: any[] | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of rows || []) {
+    if (row?.platform_name && row?.platform_url) {
+      out[String(row.platform_name).toLowerCase()] = row.platform_url;
+    }
+  }
+  return out;
+}
+
+async function resolveCreatorContext(req: Request, allowPublicParam = false) {
+  const db = getDb();
   const user = (req as any).user;
+  const paramId = allowPublicParam ? req.params.id || req.params.artistId : req.params.artistId;
+  const candidateId =
+    paramId && paramId !== 'current' && paramId !== 'undefined'
+      ? paramId
+      : (req as any).artistId || user?.artistId || null;
 
-  // 1. If artistId passed and not 'current' or 'undefined'
-  if (artistId && artistId !== 'current' && artistId !== 'undefined') {
-    // Try matching artist.id
-    const { data: byId } = await supabaseAdmin
-      .from('artists')
-      .select('*')
-      .eq('id', artistId)
-      .maybeSingle();
-    if (byId) return byId;
+  let artistProfile: any = null;
+  let creatorChannel: any = null;
 
-    // Try matching artist.user_id
-    const { data: byUserId } = await supabaseAdmin
-      .from('artists')
-      .select('*')
-      .eq('user_id', artistId)
-      .maybeSingle();
-    if (byUserId) return byUserId;
+  if (candidateId) {
+    const [{ data: apById }, { data: chById }] = await Promise.all([
+      db.from('artist_profiles').select('*').eq('id', candidateId).maybeSingle(),
+      db.from('creator_channels').select('*').eq('id', candidateId).maybeSingle(),
+    ]);
+    artistProfile = apById || null;
+    creatorChannel = chById || null;
+
+    if (!artistProfile && !creatorChannel) {
+      const [{ data: apByHandle }, { data: chByHandle }] = await Promise.all([
+        db.from('artist_profiles').select('*').eq('artist_handle', candidateId).maybeSingle(),
+        db.from('creator_channels').select('*').eq('channel_handle', candidateId).maybeSingle(),
+      ]);
+      artistProfile = apByHandle || null;
+      creatorChannel = chByHandle || null;
+    }
+
+    if (!artistProfile && !creatorChannel) {
+      const [{ data: apByOwner }, { data: chByOwner }] = await Promise.all([
+        db
+          .from('artist_profiles')
+          .select('*')
+          .or(`primary_contact_user_id.eq.${candidateId},created_by_user_id.eq.${candidateId}`)
+          .limit(1)
+          .maybeSingle(),
+        db
+          .from('creator_channels')
+          .select('*')
+          .or(`owner_user_id.eq.${candidateId},created_by_user_id.eq.${candidateId}`)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      artistProfile = apByOwner || null;
+      creatorChannel = chByOwner || null;
+    }
   }
 
-  // 2. If user is authenticated, look up by user.id
-  if (user) {
-    const { data: byUser } = await supabaseAdmin
-      .from('artists')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (byUser) return byUser;
+  if (!artistProfile && !creatorChannel && user?.id) {
+    const [{ data: apByUser }, { data: chByUser }] = await Promise.all([
+      db
+        .from('artist_profiles')
+        .select('*')
+        .or(`primary_contact_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+        .limit(1)
+        .maybeSingle(),
+      db
+        .from('creator_channels')
+        .select('*')
+        .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    artistProfile = apByUser || null;
+    creatorChannel = chByUser || null;
 
-    const { data: byDirectId } = await supabaseAdmin
-      .from('artists')
-      .select('*')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (byDirectId) return byDirectId;
+    if (!artistProfile && !creatorChannel) {
+      const [{ data: apMember }, { data: chMember }] = await Promise.all([
+        db.from('artist_members').select('artist_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle(),
+        db.from('creator_channel_members').select('channel_id').eq('user_id', user.id).eq('is_active', true).limit(1).maybeSingle(),
+      ]);
+      if (apMember?.artist_id) {
+        const { data: ap } = await db.from('artist_profiles').select('*').eq('id', apMember.artist_id).maybeSingle();
+        artistProfile = ap || null;
+      }
+      if (chMember?.channel_id) {
+        const { data: ch } = await db.from('creator_channels').select('*').eq('id', chMember.channel_id).maybeSingle();
+        creatorChannel = ch || null;
+      }
+    }
   }
 
-  // 3. Fallback for demo / testing mode
-  const store = getDbStore();
-  const mockArtist = (store.artists || []).find((a: any) => 
-    a.id === artistId || a.user_id === artistId || (user && (a.user_id === user.id || a.email === user.email))
-  );
-  if (mockArtist) return mockArtist;
+  if (!artistProfile && !creatorChannel) return null;
 
-  if (store.artists && store.artists.length > 0) {
-    return store.artists[0];
+  const ownerUserId =
+    creatorChannel?.owner_user_id ||
+    creatorChannel?.created_by_user_id ||
+    artistProfile?.primary_contact_user_id ||
+    artistProfile?.created_by_user_id ||
+    null;
+
+  if (!creatorChannel && ownerUserId) {
+    const { data: linkedChannel } = await db
+      .from('creator_channels')
+      .select('*')
+      .eq('owner_user_id', ownerUserId)
+      .limit(1)
+      .maybeSingle();
+    creatorChannel = linkedChannel || null;
   }
 
-  return null;
+  if (!artistProfile && ownerUserId) {
+    const { data: linkedArtist } = await db
+      .from('artist_profiles')
+      .select('*')
+      .or(`primary_contact_user_id.eq.${ownerUserId},created_by_user_id.eq.${ownerUserId}`)
+      .limit(1)
+      .maybeSingle();
+    artistProfile = linkedArtist || null;
+  }
+
+  // Enforce strict ownership check on private studio endpoints when an explicit paramId is passed
+  let isForbidden = false;
+  if (!allowPublicParam && user?.id) {
+    const roleLower = String(user.role || user.user_metadata?.role || '').toLowerCase();
+    const isAdminOrMaster = roleLower === 'master' || roleLower === 'master_admin' || roleLower === 'admin';
+    if (!isAdminOrMaster) {
+      const directOwner =
+        ownerUserId === user.id ||
+        artistProfile?.created_by_user_id === user.id ||
+        artistProfile?.primary_contact_user_id === user.id ||
+        creatorChannel?.owner_user_id === user.id ||
+        creatorChannel?.created_by_user_id === user.id;
+
+      if (!directOwner) {
+        const [{ data: apMember }, { data: chMember }] = await Promise.all([
+          artistProfile?.id
+            ? db
+                .from('artist_members')
+                .select('id')
+                .eq('artist_id', artistProfile.id)
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+          creatorChannel?.id
+            ? db
+                .from('creator_channel_members')
+                .select('id')
+                .eq('channel_id', creatorChannel.id)
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
+        if (!apMember && !chMember) {
+          isForbidden = true;
+        }
+      }
+    }
+  }
+
+  return {
+    artistProfile,
+    creatorChannel,
+    ownerUserId,
+    isForbidden,
+    artistId: artistProfile?.id || null,
+    channelId: creatorChannel?.id || null,
+    primaryId: artistProfile?.id || creatorChannel?.id,
+    displayName: artistProfile?.artist_name || creatorChannel?.channel_name || 'Creator',
+    handle: artistProfile?.artist_handle || creatorChannel?.channel_handle || 'creator',
+    bio: artistProfile?.bio_en || artistProfile?.bio_rw || creatorChannel?.description_en || '',
+    avatarUrl: artistProfile?.avatar_path || creatorChannel?.avatar_path || '',
+    bannerUrl: artistProfile?.banner_path || creatorChannel?.banner_path || '',
+    websiteUrl: artistProfile?.website_url || creatorChannel?.website_url || '',
+    countryCode: artistProfile?.country_code || creatorChannel?.country_code || 'RW',
+    isVerified:
+      artistProfile?.verification_status === 'verified' ||
+      creatorChannel?.verification_status === 'verified' ||
+      artistProfile?.approval_status === 'approved',
+    isApproved: (artistProfile?.approval_status || creatorChannel?.approval_status) === 'approved',
+    isBlocked: (artistProfile?.record_status || creatorChannel?.record_status) === 'suspended',
+    createdAt: artistProfile?.created_at || creatorChannel?.created_at || new Date().toISOString(),
+  };
+}
+
+function buildVideosFilter(ctx: NonNullable<Awaited<ReturnType<typeof resolveCreatorContext>>>) {
+  const parts: string[] = [];
+  if (ctx.artistId) parts.push(`artist_profile_id.eq.${ctx.artistId}`);
+  if (ctx.channelId) parts.push(`creator_channel_id.eq.${ctx.channelId}`);
+  return parts.join(',');
+}
+
+function formatStudioVideo(v: any, stats?: { buyersCount?: number; totalEarned?: number; commentsCount?: number }) {
+  const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
+  const isShort = v.video_type === 'short' || Boolean(meta.is_short);
+  const priceRwf = Number(meta.price_rwf || 0);
+  const priceUsd = Number(meta.price_usd || (priceRwf > 0 ? Number((priceRwf / 1300).toFixed(2)) : 0));
+
+  return {
+    id: v.id,
+    artist_id: v.artist_profile_id || v.creator_channel_id,
+    creator_channel_id: v.creator_channel_id,
+    title: v.title,
+    description: v.description || '',
+    category: meta.category || (isShort ? 'Shorts' : 'Music'),
+    thumbnail_url: meta.thumbnail_url || '',
+    video_url: meta.video_url || '',
+    preview_url: meta.preview_url || meta.video_url || '',
+    duration: Number(v.duration_seconds || 0),
+    price_rwf: v.is_free ? 0 : priceRwf,
+    price_usd: v.is_free ? 0 : priceUsd,
+    is_free: Boolean(v.is_free),
+    is_short: isShort,
+    visibility: v.visibility || 'public',
+    publication_status: v.publication_status || 'published',
+    status: v.publication_status === 'draft' ? 'draft' : v.visibility || 'public',
+    views: Number(meta.view_count ?? meta.views ?? 0),
+    likes: Number(meta.like_count ?? meta.likes ?? 0),
+    unique_link: meta.unique_link || null,
+    tags: Array.isArray(meta.tags) ? meta.tags : [],
+    buyers_count: stats?.buyersCount ?? 0,
+    total_earned: stats?.totalEarned ?? 0,
+    comments_count: stats?.commentsCount ?? 0,
+    uploaded_at: v.published_at || v.created_at,
+    created_at: v.created_at,
+  };
 }
 
 export const getArtistDashboard = async (req: Request, res: Response) => {
   if (!isSupabaseConfigured()) {
-    return res.status(503).json({ error: "Supabase not configured." });
+    return res.status(503).json({ error: 'Database not configured.' });
   }
-  
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
+    if (!(req as any).user?.id) {
+      return res.status(401).json({ error: 'Authentication required to access artist dashboard.' });
+    }
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) {
+      return res.status(403).json({ error: 'Artist profile or creator channel access required.' });
+    }
+    if (ctx.isForbidden) {
+      return res.status(403).json({ error: 'Forbidden: you do not have access to this artist dashboard.' });
     }
 
-    const artistId = artist.id;
+    const db = getDb();
+    const videoFilter = buildVideosFilter(ctx);
 
-    // 1. Fetch all artist videos
-    const { data: videosData, error: videosError } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('artist_id', artistId)
-      .order('uploaded_at', { ascending: false });
+    const [videosRes, followsRes, earningAccRes, withdrawalsRes, txRes] = await Promise.all([
+      videoFilter
+        ? db.from('videos').select('*').or(videoFilter).order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      ctx.artistId
+        ? db.from('artist_follows').select('id', { count: 'exact', head: true }).eq('artist_id', ctx.artistId)
+        : Promise.resolve({ count: 0 }),
+      ctx.channelId
+        ? db.from('creator_earning_accounts').select('*').eq('creator_channel_id', ctx.channelId)
+        : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('creator_withdrawal_requests')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('financial_transactions')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('transaction_status', 'succeeded')
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    if (videosError) {
-      console.error("Dashboard videos fetch error:", videosError);
-    }
+    const rawVideos = videosRes.data || [];
+    const videoIds = rawVideos.map((v: any) => v.id);
 
-    const rawVideos = videosData || [];
-    const videoIds = rawVideos.map(v => v.id);
+    const [commentsRes, dailyAnalyticsRes] = await Promise.all([
+      videoIds.length
+        ? db
+            .from('comments')
+            .select('*')
+            .eq('content_type', 'video')
+            .in('content_id', videoIds)
+            .order('created_at', { ascending: false })
+            .limit(30)
+        : Promise.resolve({ data: [] }),
+      videoIds.length
+        ? db
+            .from('video_daily_analytics')
+            .select('*')
+            .in('video_id', videoIds)
+            .order('analytics_date', { ascending: true })
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    // 2. Fetch purchases related to artist's videos
-    let purchases: any[] = [];
-    if (videoIds.length > 0) {
-      const { data: purchasesData } = await supabaseAdmin
-        .from('purchases')
-        .select('*')
-        .in('video_id', videoIds)
-        .order('purchased_at', { ascending: false });
-      purchases = purchasesData || [];
-    }
+    const recentComments = commentsRes.data || [];
+    const dailyRows = dailyAnalyticsRes.data || [];
+    const transactions = txRes.data || [];
+    const withdrawals = withdrawalsRes.data || [];
+    const earningAccounts = earningAccRes.data || [];
 
-    // 3. Fetch past withdrawals for this artist
-    const { data: withdrawalsData } = await supabaseAdmin
-      .from('withdrawals')
-      .select('*')
-      .eq('artist_id', artistId)
-      .order('created_at', { ascending: false });
-    const withdrawals = withdrawalsData || [];
+    const commentAuthorIds = Array.from(new Set(recentComments.map((c: any) => c.user_id).filter(Boolean)));
+    const { data: commentProfiles } = commentAuthorIds.length
+      ? await db.from('profiles').select('user_id, display_name, username, avatar_storage_path').in('user_id', commentAuthorIds)
+      : { data: [] };
+    const profileMap = new Map<string, any>((commentProfiles || []).map((p: any) => [String(p.user_id), p]));
 
-    // 4. Fetch subscribers count
-    let subscribersCount = Number(artist.subscriber_count || 0);
-    try {
-      const { data: subs } = await supabaseAdmin
-        .from('subscriptions')
-        .select('id')
-        .eq('artist_id', artistId);
-      if (subs && subs.length > 0) {
-        subscribersCount = Math.max(subscribersCount, subs.length);
+    const txByVideo: Record<string, { count: number; artistNet: number }> = {};
+    for (const tx of transactions) {
+      const vid = tx.source_record_id;
+      if (vid) {
+        if (!txByVideo[vid]) txByVideo[vid] = { count: 0, artistNet: 0 };
+        txByVideo[vid].count += 1;
+        txByVideo[vid].artistNet += Math.round(Number(tx.net_amount || 0) * 0.7);
       }
-    } catch {
-      // ignore
     }
 
-    // 5. Fetch recent comments on artist videos
-    let recentComments: any[] = [];
-    if (videoIds.length > 0) {
-      try {
-        const { data: commentsData } = await supabaseAdmin
-          .from('user_comments')
-          .select('*, profiles(full_name, username, avatar_url)')
-          .in('video_id', videoIds)
-          .order('created_at', { ascending: false })
-          .limit(15);
-        recentComments = commentsData || [];
-      } catch {
-        // ignore
-      }
-    }
+    const totalViews =
+      dailyRows.length > 0
+        ? Math.max(
+            dailyRows.reduce((acc: number, r: any) => acc + Number(r.valid_views || r.total_view_events || 0), 0),
+            rawVideos.reduce((acc: number, v: any) => acc + Number(v.metadata?.view_count ?? v.metadata?.views ?? 0), 0)
+          )
+        : rawVideos.reduce((acc: number, v: any) => acc + Number(v.metadata?.view_count ?? v.metadata?.views ?? 0), 0);
 
-    // 6. Calculate total views and enriched videos with purchases & earnings metrics
-    const totalViews = rawVideos.reduce((acc: number, v: any) => acc + (Number(v.views) || 0), 0);
-    
-    // Total lifetime earnings (sum from purchases or artist record)
-    const calculatedPurchasesRevenue = purchases.reduce((acc: number, p: any) => acc + (Number(p.artist_share) || 0), 0);
-    const totalLifetimeEarnings = Math.max(Number(artist.total_earnings || 0), calculatedPurchasesRevenue);
+    const availableBalance = earningAccounts.reduce(
+      (sum: number, a: any) => sum + Number(a.available_balance || 0),
+      0
+    );
+    const pendingBalance = earningAccounts.reduce(
+      (sum: number, a: any) => sum + Number(a.pending_balance || 0),
+      0
+    );
+    const settledTotal = earningAccounts.reduce(
+      (sum: number, a: any) => sum + Number(a.settled_total || 0),
+      0
+    );
 
-    // Current balance available to withdraw
-    const pendingBalance = Number(artist.pending_balance ?? 15000);
-    const currentBalance = pendingBalance; // Available for immediate cashout
+    const txComputedEarnings = transactions.reduce(
+      (sum: number, tx: any) => sum + Math.round(Number(tx.net_amount || 0) * 0.7),
+      0
+    );
+    const totalLifetimeEarnings = Math.max(
+      availableBalance + pendingBalance + settledTotal,
+      txComputedEarnings
+    );
+    const currentBalance = availableBalance > 0 ? availableBalance : txComputedEarnings;
 
-    // Enrich video cards
-    const enrichedVideos = rawVideos.map((video: any) => {
-      const videoPurchases = purchases.filter((p: any) => p.video_id === video.id);
-      const buyersCount = videoPurchases.length || Math.floor((video.views || 0) * 0.08);
-      const videoEarned = videoPurchases.length > 0
-        ? videoPurchases.reduce((sum: number, p: any) => sum + Number(p.artist_share || 0), 0)
-        : Math.round(((video.views || 0) * (video.price_rwf || 0)) * 0.95 * 0.70);
-
-      const videoCommentsCount = recentComments.filter((c: any) => c.video_id === video.id).length;
-
-      return {
-        ...video,
-        buyers_count: buyersCount,
-        total_earned: videoEarned,
-        comments_count: videoCommentsCount,
-        status: video.is_active === false ? 'draft' : (video.visibility || 'public')
-      };
-    });
-
-    // 7. Aggregate Recent Activity Feed
-    const recentActivity: any[] = [];
-    // A) Purchases
-    purchases.slice(0, 10).forEach((p: any) => {
-      const v = rawVideos.find((vid: any) => vid.id === p.video_id);
-      recentActivity.push({
-        id: `act-p-${p.id}`,
-        type: 'purchase',
-        title: 'New Video Purchase',
-        description: `Purchased "${v?.title || 'Video'}" for ${Number(p.amount_paid || 0).toLocaleString()} RWF (Your share: ${Number(p.artist_share || 0).toLocaleString()} RWF)`,
-        timestamp: p.purchased_at || p.created_at || new Date().toISOString(),
-        amount: Number(p.artist_share || 0),
-        user_identifier: p.payment_phone ? `Phone: ${p.payment_phone}` : 'Supporter'
+    const enrichedVideos = rawVideos.map((v: any) => {
+      const vStats = txByVideo[v.id] || { count: 0, artistNet: 0 };
+      const vCommentsCount = recentComments.filter((c: any) => c.content_id === v.id).length;
+      return formatStudioVideo(v, {
+        buyersCount: vStats.count,
+        totalEarned: vStats.artistNet,
+        commentsCount: vCommentsCount,
       });
     });
 
-    // B) Comments
+    const recentActivity: any[] = [];
+    transactions.slice(0, 10).forEach((tx: any) => {
+      const v = rawVideos.find((vid: any) => vid.id === tx.source_record_id);
+      const artistShare = Math.round(Number(tx.net_amount || 0) * 0.7);
+      recentActivity.push({
+        id: `act-tx-${tx.id}`,
+        type: 'purchase',
+        title: tx.revenue_source === 'super_thanks' ? 'Super Thanks Received' : 'Content Sale',
+        description: `${v?.title ? `"${v.title}" — ` : ''}${Number(tx.gross_amount || 0).toLocaleString()} ${tx.currency_code || 'RWF'} (Share: ${artistShare.toLocaleString()} ${tx.currency_code || 'RWF'})`,
+        timestamp: tx.processed_at || tx.created_at,
+        amount: artistShare,
+        user_identifier: 'Supporter',
+      });
+    });
+
     recentComments.slice(0, 8).forEach((c: any) => {
-      const v = rawVideos.find((vid: any) => vid.id === c.video_id);
+      const v = rawVideos.find((vid: any) => vid.id === c.content_id);
+      const prof = profileMap.get(c.user_id);
       recentActivity.push({
         id: `act-c-${c.id}`,
         type: 'comment',
-        title: 'New Fan Comment',
+        title: 'New Comment',
         description: `"${c.comment_text}" on ${v?.title || 'your video'}`,
-        timestamp: c.created_at || new Date().toISOString(),
-        user_identifier: c.profiles?.full_name || 'Fan'
+        timestamp: c.created_at,
+        user_identifier: prof?.display_name || prof?.username || 'Listener',
       });
     });
 
-    // C) Withdrawals
     withdrawals.slice(0, 5).forEach((w: any) => {
       recentActivity.push({
         id: `act-w-${w.id}`,
         type: 'payout',
-        title: `Withdrawal ${w.status || 'Processed'}`,
-        description: `${Number(w.amount).toLocaleString()} RWF payout request via ${w.payment_method || 'Mobile Money'}`,
+        title: `Withdrawal ${w.withdrawal_status}`,
+        description: `${Number(w.requested_amount || 0).toLocaleString()} ${w.currency_code || 'RWF'} (${w.withdrawal_reference})`,
         timestamp: w.created_at,
-        amount: Number(w.amount),
-        user_identifier: w.phone || 'MoMo'
+        amount: Number(w.requested_amount || 0),
+        user_identifier: w.withdrawal_status,
       });
     });
 
-    // Sort by timestamp descending
     recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // 8. Build Earnings Chart Datasets (Daily, Weekly, Monthly, Yearly)
-    // Daily (Last 14 days)
+    // Build real time-series from transactions & daily analytics (zero Math.random())
+    const dailyViewsMap: Record<string, number> = {};
+    for (const dr of dailyRows) {
+      dailyViewsMap[dr.analytics_date] =
+        (dailyViewsMap[dr.analytics_date] || 0) + Number(dr.valid_views || dr.total_view_events || 0);
+    }
+    const dailyEarnMap: Record<string, number> = {};
+    for (const tx of transactions) {
+      const day = String(tx.processed_at || tx.created_at || '').slice(0, 10);
+      if (day) {
+        dailyEarnMap[day] = (dailyEarnMap[day] || 0) + Math.round(Number(tx.net_amount || 0) * 0.7);
+      }
+    }
+
     const dailyPoints: any[] = [];
     for (let i = 13; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dayLabel = d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
-      // Calculate from purchases if matching
-      const dayStr = d.toISOString().split('T')[0];
-      const dayPurchases = purchases.filter((p: any) => (p.purchased_at || "").startsWith(dayStr));
-      const earned = dayPurchases.length > 0 
-        ? dayPurchases.reduce((s: number, p: any) => s + Number(p.artist_share || 0), 0)
-        : Math.floor(Math.random() * 3500 + 1200);
-      const views = Math.floor(earned / 15) + Math.floor(Math.random() * 80 + 30);
-      dailyPoints.push({ label: dayLabel, date: dayLabel, earned, views });
+      const dayStr = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      dailyPoints.push({
+        label,
+        date: label,
+        earned: dailyEarnMap[dayStr] || 0,
+        views: dailyViewsMap[dayStr] || 0,
+      });
     }
 
-    // Weekly (Last 8 weeks)
     const weeklyPoints: any[] = [];
-    for (let i = 7; i >= 0; i--) {
-      weeklyPoints.push({
-        label: `Wk ${8 - i}`,
-        earned: Math.floor(Math.random() * 22000 + 14000),
-        views: Math.floor(Math.random() * 800 + 350)
-      });
+    for (let w = 7; w >= 0; w--) {
+      const weekEnd = new Date();
+      weekEnd.setDate(weekEnd.getDate() - w * 7);
+      const weekStart = new Date(weekEnd);
+      weekStart.setDate(weekStart.getDate() - 6);
+      const startIso = weekStart.toISOString().slice(0, 10);
+      const endIso = weekEnd.toISOString().slice(0, 10);
+      let earned = 0;
+      let views = 0;
+      for (const [day, val] of Object.entries(dailyEarnMap)) {
+        if (day >= startIso && day <= endIso) earned += val;
+      }
+      for (const [day, val] of Object.entries(dailyViewsMap)) {
+        if (day >= startIso && day <= endIso) views += val;
+      }
+      weeklyPoints.push({ label: `Wk ${8 - w}`, earned, views });
     }
 
-    // Monthly (Last 6 months)
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const curMonth = new Date().getMonth();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const monthlyPoints: any[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const mIdx = (curMonth - i + 12) % 12;
-      monthlyPoints.push({
-        label: months[mIdx],
-        earned: Math.floor(Math.random() * 95000 + 45000),
-        views: Math.floor(Math.random() * 3500 + 1200)
-      });
+    for (let m = 5; m >= 0; m--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - m);
+      const ym = d.toISOString().slice(0, 7);
+      let earned = 0;
+      let views = 0;
+      for (const [day, val] of Object.entries(dailyEarnMap)) {
+        if (day.startsWith(ym)) earned += val;
+      }
+      for (const [day, val] of Object.entries(dailyViewsMap)) {
+        if (day.startsWith(ym)) views += val;
+      }
+      monthlyPoints.push({ label: monthNames[d.getMonth()], earned, views });
     }
 
-    // Yearly
-    const yearlyPoints = [
-      { label: '2024', earned: 380000, views: 14200 },
-      { label: '2025', earned: 840000, views: 36800 },
-      { label: '2026', earned: totalLifetimeEarnings, views: totalViews }
-    ];
+    const yearMap: Record<string, { earned: number; views: number }> = {};
+    for (const [day, val] of Object.entries(dailyEarnMap)) {
+      const y = day.slice(0, 4);
+      if (!yearMap[y]) yearMap[y] = { earned: 0, views: 0 };
+      yearMap[y].earned += val;
+    }
+    for (const [day, val] of Object.entries(dailyViewsMap)) {
+      const y = day.slice(0, 4);
+      if (!yearMap[y]) yearMap[y] = { earned: 0, views: 0 };
+      yearMap[y].views += val;
+    }
+    const curYear = String(new Date().getFullYear());
+    if (!yearMap[curYear]) {
+      yearMap[curYear] = { earned: totalLifetimeEarnings, views: totalViews };
+    }
+    const yearlyPoints = Object.keys(yearMap)
+      .sort()
+      .map((y) => ({ label: y, earned: yearMap[y].earned, views: yearMap[y].views }));
 
-    res.json({
+    const subscribersCount = followsRes.count || 0;
+    const summaryPayload = {
+      total_earnings: totalLifetimeEarnings,
+      current_balance: currentBalance,
+      pending_balance: pendingBalance,
+      total_views: totalViews,
+      subscriber_count: subscribersCount,
+      video_count: rawVideos.length,
+      total_videos: rawVideos.length,
+    };
+
+    return res.json({
+      totalViews,
+      totalVideos: rawVideos.length,
+      balance: currentBalance,
+      stats: summaryPayload,
       artist: {
-        ...artist,
+        id: ctx.primaryId,
+        creator_channel_id: ctx.channelId,
+        full_name: ctx.displayName,
+        username: ctx.handle,
+        profile_image: ctx.avatarUrl,
+        banner_image: ctx.bannerUrl,
+        bio: ctx.bio,
+        is_verified: ctx.isVerified,
+        is_approved: ctx.isApproved,
+        approval_status: ctx.artistProfile?.approval_status || ctx.creatorChannel?.approval_status || 'pending',
+        currency_code: earningAccounts[0]?.currency_code || 'RWF',
         total_earnings: totalLifetimeEarnings,
         current_balance: currentBalance,
         pending_balance: pendingBalance,
-        subscriber_count: subscribersCount
-      },
-      summary: {
-        total_earnings: totalLifetimeEarnings,
-        current_balance: currentBalance,
-        pending_balance: pendingBalance,
-        total_views: totalViews,
         subscriber_count: subscribersCount,
-        video_count: rawVideos.length
       },
+      summary: summaryPayload,
       earningsGraph: {
         daily: dailyPoints,
         weekly: weeklyPoints,
         monthly: monthlyPoints,
-        yearly: yearlyPoints
+        yearly: yearlyPoints,
       },
       videos: enrichedVideos,
-      withdrawals,
-      recentPurchases: purchases.slice(0, 20),
-      recentActivity: recentActivity.slice(0, 15)
+      withdrawals: withdrawals.map((w: any) => ({
+        id: w.id,
+        reference: w.withdrawal_reference,
+        amount: Number(w.requested_amount || 0),
+        net_amount: Number(w.net_payout_amount || 0),
+        currency: w.currency_code || 'RWF',
+        status: w.withdrawal_status,
+        created_at: w.created_at,
+      })),
+      recentPurchases: transactions.slice(0, 20),
+      recentActivity: recentActivity.slice(0, 15),
     });
   } catch (error: any) {
-    console.error("getArtistDashboard unexpected error:", error);
-    res.status(500).json({ error: "An unexpected error occurred while loading dashboard." });
+    console.error('getArtistDashboard unexpected error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to load artist dashboard.' });
   }
 };
 
-/**
- * GET /api/artist/videos
- * Returns list of all uploaded videos for the logged-in artist
- */
 export const getMyVideos = async (req: Request, res: Response) => {
-  try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) {
-      return res.status(404).json({ error: "Artist profile not found" });
-    }
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
-    const { data: videos, error } = await supabaseAdmin
+  try {
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist profile not found' });
+
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
+    const { data, error } = await db
       .from('videos')
       .select('*')
-      .eq('artist_id', artist.id)
-      .order('uploaded_at', { ascending: false });
+      .or(filter)
+      .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    res.json(videos || []);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json((data || []).map((v: any) => formatStudioVideo(v)));
   } catch (err: any) {
-    console.error("getMyVideos error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/artist/video/:id
- * Updates video metadata
- */
 export const updateArtistVideo = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   const { id } = req.params;
-  const { title, description, category, price_rwf, is_free, visibility, preview_duration } = req.body;
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(403).json({ error: "Artist profile required." });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(401).json({ error: 'Artist authentication required' });
 
-    // Ensure video belongs to artist
-    const { data: video } = await supabaseAdmin
-      .from('videos')
-      .select('artist_id')
-      .eq('id', id)
-      .single();
+    const db = getDb();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
 
-    if (!video || video.artist_id !== artist.id) {
-      return res.status(403).json({ error: "Unauthorized. You can only edit your own videos." });
+    const ownsVideo =
+      video.created_by_user_id === ctx.ownerUserId ||
+      (ctx.channelId && video.creator_channel_id === ctx.channelId) ||
+      (ctx.artistId && video.artist_profile_id === ctx.artistId);
+    if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
+
+    const { title, description, category, price_rwf, price_usd, visibility, tags, is_free } = req.body;
+    const prevMeta = video.metadata && typeof video.metadata === 'object' ? { ...video.metadata } : {};
+
+    if (category !== undefined) prevMeta.category = category;
+    if (price_rwf !== undefined) prevMeta.price_rwf = Number(price_rwf);
+    if (price_usd !== undefined) prevMeta.price_usd = Number(price_usd);
+    if (tags !== undefined) {
+      prevMeta.tags = Array.isArray(tags)
+        ? tags
+        : String(tags)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean);
     }
 
-    const updatePayload: any = {
-      updated_at: new Date().toISOString()
+    const patch: Record<string, any> = {
+      metadata: prevMeta,
+      updated_at: new Date().toISOString(),
     };
-    if (title !== undefined) updatePayload.title = title;
-    if (description !== undefined) updatePayload.description = description;
-    if (category !== undefined) updatePayload.category = category;
-    if (price_rwf !== undefined) updatePayload.price_rwf = Number(price_rwf);
-    if (is_free !== undefined) updatePayload.is_free = is_free === true || is_free === 'true';
-    if (visibility !== undefined) updatePayload.visibility = visibility;
-    if (preview_duration !== undefined) updatePayload.preview_duration = Number(preview_duration);
+    if (title !== undefined) patch.title = String(title).trim();
+    if (description !== undefined) patch.description = description;
+    if (visibility && ['public', 'unlisted', 'private', 'members_only'].includes(visibility)) {
+      patch.visibility = visibility;
+    }
+    if (is_free !== undefined) {
+      patch.is_free = Boolean(is_free);
+      patch.is_paywalled = !Boolean(is_free);
+    }
 
-    const { data: updatedVideo, error } = await supabaseAdmin
+    const { data: updated, error } = await db
       .from('videos')
-      .update(updatePayload)
+      .update(patch)
       .eq('id', id)
-      .select()
+      .select('*')
       .single();
 
-    if (error) throw error;
-    res.json({ success: true, video: updatedVideo });
+    if (error) return res.status(500).json({ error: error.message });
+
+    await Promise.all([
+      cacheService.del('paytune:videos:trending'),
+      cacheService.del('paytune:videos:new'),
+      cacheService.del('paytune:videos:catalog:all'),
+      cacheService.del(`paytune:videos:related:${id}`),
+    ]);
+
+    return res.json({ success: true, video: formatStudioVideo(updated) });
   } catch (err: any) {
-    console.error("updateArtistVideo error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * DELETE /api/artist/video/:id
- * Deletes a video
- */
 export const deleteArtistVideo = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   const { id } = req.params;
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(403).json({ error: "Artist profile required." });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(401).json({ error: 'Artist authentication required' });
 
-    const { data: video } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const db = getDb();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
 
-    if (!video || video.artist_id !== artist.id) {
-      return res.status(403).json({ error: "Unauthorized. You can only delete your own videos." });
-    }
+    const ownsVideo =
+      video.created_by_user_id === ctx.ownerUserId ||
+      (ctx.channelId && video.creator_channel_id === ctx.channelId) ||
+      (ctx.artistId && video.artist_profile_id === ctx.artistId);
+    if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
 
-    // Extract storage paths from public URLs and remove files from Supabase Storage
-    const extractPath = (url?: string, bucket?: string) => {
-      if (!url || !bucket) return null;
-      const marker = `/object/public/${bucket}/`;
-      const idx = url.indexOf(marker);
-      if (idx >= 0) return url.substring(idx + marker.length);
-      if (url.includes(`/uploads/`)) return url.replace('/uploads/', '');
-      return null;
-    };
+    const { error } = await db.from('videos').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: error.message });
 
-    const videoPath = extractPath(video.video_url, 'videos');
-    const previewPath = extractPath(video.preview_url, 'previews');
-    const thumbPath = extractPath(video.thumbnail_url, 'thumbnails');
+    await Promise.all([
+      cacheService.del('paytune:videos:trending'),
+      cacheService.del('paytune:videos:new'),
+      cacheService.del('paytune:videos:catalog:all'),
+      cacheService.del(`paytune:videos:related:${id}`),
+    ]);
 
-    const deletions = [
-      videoPath && supabaseAdmin.storage.from('videos').remove([videoPath]),
-      previewPath && supabaseAdmin.storage.from('previews').remove([previewPath]),
-      thumbPath && supabaseAdmin.storage.from('thumbnails').remove([thumbPath])
-    ].filter(Boolean);
-
-    await Promise.allSettled(deletions);
-
-    const { error } = await supabaseAdmin
-      .from('videos')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    const store = getDbStore();
-    if (store.videos) {
-      store.videos = store.videos.filter((v: any) => v.id !== id);
-    }
-
-    res.json({ success: true, message: "Video deleted successfully." });
+    return res.json({ success: true, message: 'Video deleted successfully' });
   } catch (err: any) {
-    console.error("deleteArtistVideo error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-export const uploadVideo = async (req: Request, res: Response) => {
-  const user = (req as any).user;
-  const { 
-    title, 
-    description, 
-    category = "Afrobeat", 
-    is_free, 
-    price_rwf, 
-    price_usd, 
-    visibility = "public", 
-    preview_duration = 30,
-    min_membership_tier_id,
-    is_short,
-    duration,
-    tags,
-    video_url,
-    thumbnail_url
-  } = req.body;
-
-  if (!isSupabaseConfigured()) {
-    return res.status(503).json({ error: "Supabase not configured." });
-  }
-  
-  try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) throw new Error("Artist profile not found");
-
-    const isShortBool = is_short === 'true' || is_short === true;
-    const parsedDuration = Number(duration) || (isShortBool ? 45 : 240);
-
-    // Shorts validation: max 50 seconds duration limit
-    if (isShortBool && parsedDuration > 50) {
-      return res.status(400).json({ error: "Shorts videos must be 50 seconds or less." });
-    }
-
-    // Process device uploaded video and thumbnail files
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-    const uploadedVideoFile = files?.video?.[0];
-    const uploadedThumbFile = files?.thumbnail?.[0];
-
-    let finalVideoUrl = video_url || "";
-    let finalPreviewUrl = "";
-    let finalThumbUrl = thumbnail_url || "";
-    let finalDuration = parsedDuration;
-
-    if (uploadedVideoFile) {
-      try {
-        const processed = await processAndUploadVideo({
-          videoBuffer: uploadedVideoFile.buffer,
-          thumbnailBuffer: uploadedThumbFile ? uploadedThumbFile.buffer : null,
-          originalName: uploadedVideoFile.originalname,
-          artistId: artist.id,
-          metadata: { is_short: isShortBool }
-        });
-        finalVideoUrl = processed.video_url;
-        finalPreviewUrl = processed.preview_url;
-        finalThumbUrl = uploadedThumbFile ? processed.thumbnail_url : (thumbnail_url || processed.thumbnail_url);
-        finalDuration = processed.duration || parsedDuration;
-      } catch (procErr: any) {
-        console.error("FFmpeg / Supabase Storage video processing error:", procErr);
-        return res.status(400).json({ error: procErr.message || "Failed to process video file." });
-      }
-    }
-
-    if (!finalVideoUrl) {
-      return res.status(400).json({ error: "Please select and upload a video file from your device." });
-    }
-
-    if (!finalPreviewUrl) {
-      finalPreviewUrl = finalVideoUrl;
-    }
-
-    const { data: video, error } = await supabaseAdmin
-      .from('videos')
-      .insert({
-        artist_id: artist.id,
-        title: title || (isShortBool ? "New Short" : "Untitled Track"),
-        description: description || "",
-        video_url: finalVideoUrl,
-        preview_url: finalPreviewUrl,
-        thumbnail_url: finalThumbUrl,
-        category: isShortBool ? "Shorts" : (category || "Afrobeat"),
-        duration: finalDuration,
-        is_free: isShortBool ? true : (is_free === 'true' || is_free === true),
-        price_rwf: isShortBool ? 0 : (price_rwf ? Number(price_rwf) : (is_free ? 0 : 1000)),
-        price_usd: isShortBool ? 0 : (price_usd ? Number(price_usd) : (is_free ? 0 : 1)),
-        visibility: visibility || 'public',
-        is_short: isShortBool,
-        preview_duration: Number(preview_duration) || 30,
-        min_membership_tier_id: min_membership_tier_id || null,
-        tags: Array.isArray(tags) ? tags : (typeof tags === 'string' ? tags.split(',').map((t: string) => t.trim()) : []),
-        views: 0,
-        likes: 0,
-        rating_avg: 5,
-        rating_count: 0,
-        is_active: true,
-        is_approved: true,
-        uploaded_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    let finalResultVideo = video;
-
-    if (error) {
-      // Fallback: save to local store so artist's upload is preserved
-      const store = getDbStore();
-      const newVideo = {
-        id: `video-${Date.now()}`,
-        artist_id: artist.id,
-        artist_name: artist.full_name || artist.name || "Artist",
-        title: title || (isShortBool ? "New Short" : "Untitled Track"),
-        description: description || "",
-        video_url: finalVideoUrl,
-        preview_url: finalPreviewUrl,
-        thumbnail_url: finalThumbUrl,
-        category: isShortBool ? "Shorts" : (category || "Afrobeat"),
-        duration: parsedDuration,
-        is_free: isShortBool ? true : (is_free === 'true' || is_free === true),
-        price_rwf: isShortBool ? 0 : (price_rwf ? Number(price_rwf) : (is_free ? 0 : 1000)),
-        price_usd: isShortBool ? 0 : (price_usd ? Number(price_usd) : (is_free ? 0 : 1)),
-        visibility: visibility || 'public',
-        is_short: isShortBool,
-        tags: Array.isArray(tags) ? tags : [],
-        views: 0,
-        likes: 0,
-        rating_avg: 5,
-        rating_count: 0,
-        is_active: true,
-        is_approved: true,
-        has_copyright_claim: false,
-        uploaded_at: new Date().toISOString()
-      };
-      if (store) {
-        if (!store.videos) store.videos = [];
-        store.videos.unshift(newVideo);
-      }
-      finalResultVideo = newVideo;
-    }
-
-    // --- Content ID Automatic Detection ---
-    let contentIdScan = null;
-    try {
-      contentIdScan = await contentIdService.scanVideo({
-        title: finalResultVideo.title,
-        description: finalResultVideo.description,
-        tags: finalResultVideo.tags || [],
-        videoUrl: finalResultVideo.video_url
-      });
-
-      if (contentIdScan && contentIdScan.hasMatch) {
-        const store = getDbStore();
-        const claimId = `claim-${Date.now()}`;
-        const claimPolicy = contentIdScan.suggestedPolicy || 'monetize';
-
-        const newClaim = {
-          id: claimId,
-          video_id: finalResultVideo.id,
-          video_title: finalResultVideo.title,
-          uploader_id: artist.id,
-          uploader_name: artist.full_name || artist.name || "Artist",
-          claimant_id: contentIdScan.claimantId || 'external-holder',
-          claimant_type: contentIdScan.claimantType || 'external',
-          claimant_name: contentIdScan.claimantName || 'Copyright Rights Administration',
-          match_confidence: contentIdScan.confidence,
-          detected_track_title: contentIdScan.detectedTrack || finalResultVideo.title,
-          detected_artist_name: contentIdScan.detectedArtist || 'Unknown Artist',
-          detected_label: contentIdScan.detectedLabel || 'Verified Music Publishing',
-          detected_isrc: contentIdScan.detectedIsrc || 'ISRC-GEN',
-          status: 'active',
-          policy: claimPolicy,
-          revenue_split_artist: 0,
-          revenue_split_claimant: 70,
-          revenue_split_platform: 30,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        if (store) {
-          if (!store.copyright_claims) store.copyright_claims = [];
-          store.copyright_claims.unshift(newClaim);
-
-          // Update video claim state
-          const matchedVid = (store.videos || []).find((v: any) => v.id === finalResultVideo.id);
-          if (matchedVid) {
-            matchedVid.has_copyright_claim = true;
-            matchedVid.copyright_claim_id = claimId;
-            matchedVid.copyright_policy = claimPolicy;
-            if (claimPolicy === 'block') {
-              matchedVid.is_active = false;
-              matchedVid.visibility = 'copyright_blocked';
-            }
-          }
-
-          // Issue notification to the uploader
-          if (!store.notifications) store.notifications = [];
-          store.notifications.unshift({
-            id: `notif-cid-${Date.now()}`,
-            user_id: artist.id,
-            title: `⚠️ Content ID Claim: "${finalResultVideo.title}"`,
-            message: `Content ID matched "${contentIdScan.detectedTrack}" by ${contentIdScan.detectedArtist} (${contentIdScan.confidence}% confidence). Policy: ${claimPolicy.toUpperCase()}. You can review or dispute this in your Copyright dashboard.`,
-            type: 'copyright',
-            link: '/artist/dashboard?tab=copyright',
-            is_read: false,
-            created_at: new Date().toISOString()
-          });
-        }
-
-        try {
-          notifyOnCopyrightClaim({
-            claimId,
-            artistId: artist.id,
-            videoTitle: finalResultVideo.title,
-            claimantName: contentIdScan.detectedArtist || 'Rights Holder',
-            policy: claimPolicy
-          });
-        } catch (notifErr) {
-          console.warn("Copyright notification error:", notifErr);
-        }
-
-        finalResultVideo.has_copyright_claim = true;
-        finalResultVideo.copyright_claim_id = claimId;
-        finalResultVideo.copyright_policy = claimPolicy;
-      }
-    } catch (cidErr) {
-      console.warn("Content ID scanning skipped or encountered non-fatal error:", cidErr);
-    }
-
-    try {
-      notifySubscribersNewVideo(finalResultVideo);
-    } catch (notifErr) {
-      console.warn("New video notification error:", notifErr);
-    }
-
-    res.json({
-      ...finalResultVideo,
-      contentIdScan
-    });
-  } catch (error: any) {
-    console.error("uploadVideo unexpected error:", error);
-    res.status(500).json({ error: error.message || "An unexpected error occurred during upload." });
-  }
-};
-
-export const requestWithdrawal = async (req: Request, res: Response) => {
-  // Delegate to withdrawalController
-  const { requestWithdrawal: doWithdrawal } = await import('./withdrawalController');
-  return doWithdrawal(req, res);
-};
-
-/**
- * Helper: Resolve artist record by ID (UUID), username, name, or graceful fallback
- */
-async function resolveArtistRecord(rawIdentifier: string) {
-  const identifier = (rawIdentifier || '').trim();
-  const { getDbStore } = await import('../config/supabase_mock');
-  const store = getDbStore();
-  const allStoreArtists = store.artists || [];
-
-  // Default alias handlers
-  if (!identifier || identifier === 'undefined' || identifier === 'null' || identifier === '1' || identifier === 'default') {
-    if (allStoreArtists.length > 0) {
-      return allStoreArtists[0];
-    }
-  }
-
-  // 1. Try direct ID match if valid UUID format
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-
-  if (isUuid) {
-    const { data, error } = await supabaseAdmin
-      .from('artists')
-      .select('*')
-      .eq('id', identifier)
-      .maybeSingle();
-
-    if (!error && data) return data;
-  }
-
-  // 2. Try by username
-  const { data: byUsername } = await supabaseAdmin
-    .from('artists')
-    .select('*')
-    .eq('username', identifier)
-    .maybeSingle();
-
-  if (byUsername) return byUsername;
-
-  // 3. Try by full_name insensitive or fallback
-  const { data: byName } = await supabaseAdmin
-    .from('artists')
-    .select('*')
-    .ilike('full_name', identifier)
-    .maybeSingle();
-
-  if (byName) return byName;
-
-  // 4. Try mock store artists list (id, username, full_name, or partial match)
-  const mockArtist = allStoreArtists.find((a: any) =>
-    a.id === identifier ||
-    (a.username && a.username.toLowerCase() === identifier.toLowerCase()) ||
-    (a.full_name && a.full_name.toLowerCase() === identifier.toLowerCase())
-  );
-
-  if (mockArtist) return mockArtist;
-
-  // 5. Check if any video in the database matches this artist ID or name
-  const allVideos = store.videos || [];
-  const videoMatch = allVideos.find((v: any) =>
-    v.artist_id === identifier ||
-    (v.artist_name && v.artist_name.toLowerCase() === identifier.toLowerCase())
-  );
-
-  if (videoMatch) {
-    const synthesizedArtist: any = {
-      id: videoMatch.artist_id || identifier,
-      full_name: videoMatch.artist_name || 'PAYTUNE Artist',
-      username: (videoMatch.artist_name || 'artist').toLowerCase().replace(/[^a-z0-9]/g, ''),
-      email: `${(videoMatch.artist_name || 'artist').toLowerCase().replace(/[^a-z0-9]/g, '')}@paytune.com`,
-      phone: '0788000000',
-      profile_image: videoMatch.thumbnail_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
-      banner_image: '',
-      bio: `Official PAYTUNE channel for ${videoMatch.artist_name || 'Artist'}.`,
-      is_verified: true,
-      subscribers_count: 240,
-      subscriber_count: 240,
-      created_at: new Date().toISOString()
-    };
-    if (!store.artists) store.artists = [];
-    store.artists.push(synthesizedArtist);
-    return synthesizedArtist;
-  }
-
-  // 6. Graceful fallback: return the primary store artist if available
-  if (allStoreArtists.length > 0) {
-    return allStoreArtists[0];
-  }
-
-  // 7. Last-resort fallback profile guaranteeing no 404 crash
-  return {
-    id: identifier || 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
-    full_name: 'PAYTUNE Artist',
-    username: 'paytuneartist',
-    email: 'artist@paytune.com',
-    phone: '0788000000',
-    profile_image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
-    banner_image: '',
-    bio: 'Official PAYTUNE verified music and video artist.',
-    is_verified: true,
-    subscribers_count: 100,
-    subscriber_count: 100,
-    created_at: new Date().toISOString()
-  };
-}
-
-/**
- * GET /api/artists/:id
- * Returns complete artist channel profile
- */
 export const getArtistById = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-
-    if (!artist) {
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx) {
       return res.status(404).json({
-        error: "Artist not found",
-        message: "No artist profile exists for this identifier."
+        error: 'Artist not found',
+        message: 'No artist profile exists for this identifier.',
       });
     }
 
-    const artistId = artist.id;
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
 
-    // 1. Fetch artist's videos to compute stats safely (without querying non-existent columns)
-    const { data: videos } = await supabaseAdmin
-      .from('videos')
-      .select('id, views, category, duration, title, thumbnail_url, price_rwf, is_free, uploaded_at')
-      .eq('artist_id', artistId);
+    const [videosRes, followsRes, socialRes, tiersRes] = await Promise.all([
+      filter ? db.from('videos').select('*').or(filter) : Promise.resolve({ data: [] }),
+      ctx.artistId
+        ? db.from('artist_follows').select('id', { count: 'exact', head: true }).eq('artist_id', ctx.artistId)
+        : Promise.resolve({ count: 0 }),
+      ctx.artistId
+        ? db
+            .from('artist_social_links')
+            .select('platform_name, platform_url')
+            .eq('artist_id', ctx.artistId)
+            .eq('is_visible', true)
+        : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('creator_membership_tiers')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('is_active', true)
+            .order('display_order', { ascending: true })
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    const videoList = videos || [];
-    const regularVideos = videoList.filter((v: any) => v.category !== 'Shorts' && (!v.duration || v.duration > 90));
-    const videoCount = videoList.length;
-    const computedViews = videoList.reduce((acc: number, v: any) => acc + (Number(v.views) || 0), 0);
+    const videoList = (videosRes.data || []).filter(
+      (v: any) => v.visibility === 'public' && v.publication_status === 'published'
+    );
+    const totalViews = videoList.reduce((sum: number, v: any) => sum + Number(v.metadata?.view_count ?? v.metadata?.views ?? 0), 0);
+    const totalSubscribers = followsRes.count || 0;
+    const socials = normalizeSocialLinks(socialRes.data);
+    if (ctx.websiteUrl && !socials.website) socials.website = ctx.websiteUrl;
 
-    // 2. Fetch real subscribers count from subscriptions table
-    let realSubsCount = 0;
-    try {
-      const { data: subs } = await supabaseAdmin
-        .from('subscriptions')
-        .select('id')
-        .eq('artist_id', artistId);
-      realSubsCount = subs ? subs.length : 0;
-    } catch {
-      // ignore
-    }
+    const regularVideos = videoList.filter((v: any) => v.video_type !== 'short');
 
-    const totalSubscribers = Number(artist.subscriber_count) || realSubsCount || 0;
-
-    // 3. Prepare Social Links
-    let parsedSocials: any = artist.social_links;
-    if (typeof parsedSocials === 'string') {
-      try {
-        parsedSocials = JSON.parse(parsedSocials);
-      } catch {
-        parsedSocials = null;
-      }
-    }
-
-    if (!parsedSocials || typeof parsedSocials !== 'object') {
-      parsedSocials = {};
-    }
-
-    const bannerImage = artist.banner_image || "";
-    const cleanUsername = artist.username || (artist.full_name ? artist.full_name.toLowerCase().replace(/[^a-z0-9]/g, '') : 'artist');
-
-    let membershipTiers: any[] = [];
-    try {
-      const { data: dbTiers } = await supabaseAdmin
-        .from('membership_tiers')
-        .select('*')
-        .eq('artist_id', artistId);
-      membershipTiers = dbTiers || [];
-    } catch {
-      membershipTiers = [];
-    }
-
-    const responsePayload = {
-      id: artist.id,
-      user_id: artist.user_id,
-      full_name: artist.full_name,
-      username: cleanUsername,
-      email: artist.email,
-      phone: artist.phone,
-      profile_image: artist.profile_image || "",
-      bio: artist.bio || "",
-      banner_image: bannerImage,
-      social_links: parsedSocials,
-      is_verified: !!artist.is_verified,
-      featured_video_id: artist.featured_video_id || (regularVideos[0]?.id || videoList[0]?.id || null),
+    return res.json({
+      id: ctx.primaryId,
+      user_id: ctx.ownerUserId,
+      creator_channel_id: ctx.channelId,
+      full_name: ctx.displayName,
+      username: ctx.handle,
+      profile_image: ctx.avatarUrl,
+      bio: ctx.bio,
+      banner_image: ctx.bannerUrl,
+      social_links: socials,
+      is_verified: ctx.isVerified,
+      featured_video_id: regularVideos[0]?.id || videoList[0]?.id || null,
       subscriber_count: totalSubscribers,
       subscribers_count: totalSubscribers,
-      video_count: videoCount,
-      total_views: Number(artist.total_views || computedViews || 0),
-      join_date: artist.created_at || new Date().toISOString(),
-      membership_tiers: membershipTiers
-    };
-
-    res.json(responsePayload);
+      video_count: videoList.length,
+      total_views: totalViews,
+      join_date: ctx.createdAt,
+      membership_tiers: (tiersRes.data || []).map((t: any) => ({
+        id: t.id,
+        artist_id: ctx.primaryId,
+        creator_channel_id: t.creator_channel_id,
+        name: t.tier_name,
+        price_rwf: Number(t.monthly_price || 0),
+        currency_code: t.currency_code || 'RWF',
+        billing_period: 'monthly',
+        description: t.tier_description || '',
+        perks: Array.isArray(t.benefits) ? t.benefits : [],
+        badge_color: t.tier_metadata?.badge_color || '#8B5CF6',
+      })),
+    });
   } catch (error: any) {
-    console.error("getArtistById unexpected error:", error);
-    res.status(500).json({ error: error.message || "Failed to retrieve artist channel." });
+    console.error('getArtistById error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to retrieve artist channel.' });
   }
 };
 
-/**
- * GET /api/artists/:id/videos
- * Returns paginated list of artist's videos
- * Query params: limit (default 20), offset (default 0), sort (newest, most_popular, oldest)
- */
 export const getArtistVideos = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const limit = Math.max(1, parseInt(req.query.limit as string) || 20);
-  const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const limit = Math.max(1, parseInt(req.query.limit as string, 10) || 20);
+  const offset = Math.max(0, parseInt(req.query.offset as string, 10) || 0);
   const sort = (req.query.sort as string) || 'newest';
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx) return res.json([]);
 
-    let query = supabaseAdmin
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
+    if (!filter) return res.json([]);
+
+    const { data, error } = await db
       .from('videos')
-      .select('*, artists(full_name, profile_image)')
-      .eq('artist_id', targetArtistId);
+      .select('*')
+      .or(filter)
+      .eq('visibility', 'public')
+      .eq('publication_status', 'published')
+      .neq('moderation_status', 'rejected')
+      .order('created_at', { ascending: sort === 'oldest' });
 
-    // Apply sort
-    if (sort === 'oldest') {
-      query = query.order('uploaded_at', { ascending: true });
-    } else if (sort === 'most_popular' || sort === 'most_purchased') {
-      query = query.order('views', { ascending: false });
-    } else {
-      query = query.order('uploaded_at', { ascending: false });
-    }
+    if (error) return res.status(500).json({ error: error.message });
 
-    const { data: allVideos, error } = await query;
-
-    if (error) {
-      console.error("getArtistVideos error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    const videos = allVideos || [];
-    // Only return public/approved videos
-    const filtered = videos.filter((v: any) => v.is_approved !== false);
-    const paginated = filtered.slice(offset, offset + limit);
-
-    res.json(paginated);
-  } catch (error: any) {
-    console.error("getArtistVideos unexpected error:", error);
-    res.status(500).json({ error: error.message || "Failed to load artist videos." });
-  }
-};
-
-/**
- * GET /api/artists/:id/shorts
- * Returns artist's vertical shorts (category = 'Shorts' or duration <= 90)
- */
-export const getArtistShorts = async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
-
-    const { data: videos, error } = await supabaseAdmin
-      .from('videos')
-      .select('*, artists(full_name, profile_image)')
-      .eq('artist_id', targetArtistId)
-      .order('uploaded_at', { ascending: false });
-
-    if (error) {
-      console.error("getArtistShorts error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    const all = videos || [];
-    let shorts = all.filter((v: any) => v.category === 'Shorts' || (v.duration && v.duration <= 90));
-
-    // If none are specifically shorts, create dynamic vertical short clips from existing videos
-    if (shorts.length === 0 && all.length > 0) {
-      shorts = all.slice(0, 4).map((v: any, index: number) => ({
-        ...v,
-        id: `short-${v.id}`,
-        title: `${v.title} #Shorts ${index + 1}`,
-        category: 'Shorts',
-        duration: 35 + (index * 10),
-        views: Math.floor((Number(v.views) || 500) * 1.8),
-        thumbnail_url: v.thumbnail_url || ""
+    let items = (data || [])
+      .filter((v: any) => v.video_type !== 'short')
+      .map((v: any) => ({
+        ...formatStudioVideo(v),
+        artists: {
+          id: ctx.primaryId,
+          full_name: ctx.displayName,
+          profile_image: ctx.avatarUrl,
+        },
       }));
+
+    if (sort === 'most_popular' || sort === 'most_purchased') {
+      items.sort((a, b) => b.views - a.views);
     }
 
-    res.json(shorts);
+    return res.json(items.slice(offset, offset + limit));
   } catch (error: any) {
-    console.error("getArtistShorts unexpected error:", error);
-    res.status(500).json({ error: error.message || "Failed to load artist shorts." });
+    return res.status(500).json({ error: error.message || 'Failed to load artist videos.' });
   }
 };
 
-/**
- * GET /api/artists/:id/playlists
- * Returns artist's curated playlists
- */
-export const getArtistPlaylists = async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const getArtistShorts = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx) return res.json([]);
 
-    // Fetch videos to assemble curated playlists
-    const { data: videos } = await supabaseAdmin
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
+    if (!filter) return res.json([]);
+
+    const { data, error } = await db
       .from('videos')
-      .select('id, title, thumbnail_url, views, duration')
-      .eq('artist_id', targetArtistId);
+      .select('*')
+      .or(filter)
+      .eq('video_type', 'short')
+      .eq('visibility', 'public')
+      .eq('publication_status', 'published')
+      .order('created_at', { ascending: false });
 
-    const vList = videos || [];
+    if (error) return res.status(500).json({ error: error.message });
 
-    const curatedPlaylists = [
-      {
-        id: `pl-hits-${targetArtistId}`,
-        artist_id: targetArtistId,
-        title: `${artist?.full_name || 'Artist'} - Greatest Hits & Music Videos`,
-        description: "All official music videos and chart-topping singles in high definition.",
-        video_count: Math.max(vList.length, 6),
-        thumbnail_url: vList[0]?.thumbnail_url || "",
-        updated_at: new Date().toISOString()
+    const shorts = (data || []).map((v: any) => ({
+      ...formatStudioVideo(v),
+      artists: {
+        id: ctx.primaryId,
+        full_name: ctx.displayName,
+        profile_image: ctx.avatarUrl,
       },
-      {
-        id: `pl-acoustic-${targetArtistId}`,
-        artist_id: targetArtistId,
-        title: "Live Acoustic & Studio Sessions",
-        description: "Intimate acoustic performances, rehearsals, and live concert replays.",
-        video_count: Math.max(Math.floor(vList.length / 2), 3),
-        thumbnail_url: vList[1]?.thumbnail_url || "",
-        updated_at: new Date().toISOString()
-      },
-      {
-        id: `pl-collabs-${targetArtistId}`,
-        artist_id: targetArtistId,
-        title: "Collaborations & Featured Tracks",
-        description: "Cross-border collaborations and hit features with top artists.",
-        video_count: 4,
-        thumbnail_url: vList[2]?.thumbnail_url || "",
-        updated_at: new Date().toISOString()
-      }
-    ];
+    }));
 
-    res.json(curatedPlaylists);
+    return res.json(shorts);
   } catch (error: any) {
-    console.error("getArtistPlaylists unexpected error:", error);
-    res.status(500).json({ error: error.message || "Failed to load artist playlists." });
+    return res.status(500).json({ error: error.message || 'Failed to load artist shorts.' });
   }
 };
 
-/**
- * GET /api/artists/:id/live
- * Returns artist's live streams (active or past VODs)
- */
+export const getArtistPlaylists = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  try {
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx) return res.json([]);
+
+    const db = getDb();
+    const filters: string[] = [];
+    if (ctx.channelId) filters.push(`creator_channel_id.eq.${ctx.channelId}`);
+    if (ctx.ownerUserId) filters.push(`owner_user_id.eq.${ctx.ownerUserId}`);
+    if (filters.length === 0) return res.json([]);
+
+    const { data: playlists, error } = await db
+      .from('playlists')
+      .select('*')
+      .or(filters.join(','))
+      .eq('visibility', 'public')
+      .order('updated_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!playlists || playlists.length === 0) return res.json([]);
+
+    const plIds = playlists.map((p: any) => p.id);
+    const { data: items } = await db
+      .from('playlist_items')
+      .select('playlist_id')
+      .in('playlist_id', plIds);
+
+    const countMap: Record<string, number> = {};
+    for (const item of items || []) {
+      countMap[item.playlist_id] = (countMap[item.playlist_id] || 0) + 1;
+    }
+
+    return res.json(
+      playlists.map((p: any) => ({
+        id: p.id,
+        artist_id: ctx.primaryId,
+        title: p.title,
+        description: p.description || '',
+        video_count: countMap[p.id] || 0,
+        thumbnail_url: p.cover_storage_path || '',
+        updated_at: p.updated_at,
+      }))
+    );
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to load artist playlists.' });
+  }
+};
+
 export const getArtistLiveStreams = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx) return res.json([]);
 
-    const vods = [
-      {
-        id: `live-vod-1-${targetArtistId}`,
-        artist_id: targetArtistId,
-        title: `🔴 Live from Kigali Arena: Album Launch Full Replay`,
-        description: "Exclusive stream replay of the sold-out Kigali Arena live concert with live band.",
-        status: "ended",
-        viewer_count: 8940,
-        thumbnail_url: "",
-        streamed_at: "2024-11-20T19:00:00Z",
-        duration: "1h 45m"
-      },
-      {
-        id: `live-vod-2-${targetArtistId}`,
-        artist_id: targetArtistId,
-        title: `Exclusive Fan Q&A + Acoustic Preview Session`,
-        description: "Studio hangout answering fan questions and performing unreleased songs live.",
-        status: "ended",
-        viewer_count: 3410,
-        thumbnail_url: "",
-        streamed_at: "2024-10-15T18:30:00Z",
-        duration: "58m"
-      }
-    ];
+    const db = getDb();
+    const filters: string[] = [];
+    if (ctx.channelId) filters.push(`creator_channel_id.eq.${ctx.channelId}`);
+    if (ctx.artistId) filters.push(`artist_profile_id.eq.${ctx.artistId}`);
+    if (ctx.ownerUserId) filters.push(`host_user_id.eq.${ctx.ownerUserId}`);
+    if (filters.length === 0) return res.json([]);
 
-    res.json(vods);
+    const { data, error } = await db
+      .from('livestreams')
+      .select('*')
+      .or(filters.join(','))
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    return res.json(
+      (data || []).map((s: any) => ({
+        id: s.id,
+        artist_id: ctx.primaryId,
+        title: s.title,
+        description: s.description || '',
+        status: s.stream_status,
+        viewer_count: Number(s.metadata?.peak_viewers || s.metadata?.current_viewers || 0),
+        thumbnail_url: s.metadata?.thumbnail_url || '',
+        streamed_at: s.started_at || s.scheduled_start_at || s.created_at,
+        ended_at: s.ended_at || null,
+      }))
+    );
   } catch (error: any) {
-    console.error("getArtistLiveStreams unexpected error:", error);
-    res.status(500).json({ error: error.message || "Failed to load artist live streams." });
+    return res.status(500).json({ error: error.message || 'Failed to load artist live streams.' });
   }
 };
 
-/**
- * GET /api/artists/:id/membership
- * Returns membership tiers for the artist
- */
 export const getArtistMembershipTiers = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx || !ctx.channelId) return res.json([]);
 
-    const defaultTiers = [
-      {
-        id: `tier-bronze-${targetArtistId}`,
-        artist_id: targetArtistId,
-        name: "Bronze Fan",
-        price_rwf: 1500,
-        price_usd: 1.25,
-        billing_period: "monthly",
-        description: "Show your direct support and get recognized across every release.",
-        perks: [
-          "Official purple fan loyalty badge next to your name",
-          "Exclusive custom artist emojis in live chats and comments",
-          "Priority reply in video comment discussions"
-        ],
-        badge_color: "#CD7F32",
-        color: "#CD7F32",
-        subscribers_count: 85
-      },
-      {
-        id: `tier-silver-${targetArtistId}`,
-        artist_id: targetArtistId,
-        name: "Silver VIP",
-        price_rwf: 4500,
-        price_usd: 3.75,
-        billing_period: "monthly",
-        description: "48-hour early music video access and private behind-the-scenes footage.",
-        perks: [
-          "All Bronze Fan perks included",
-          "48-hour early access to new official music videos",
-          "Exclusive behind-the-scenes recording studio clips",
-          "Members-only community polls on upcoming releases"
-        ],
-        badge_color: "#C0C0C0",
-        color: "#C0C0C0",
-        is_popular: true,
-        subscribers_count: 240
-      },
-      {
-        id: `tier-gold-${targetArtistId}`,
-        artist_id: targetArtistId,
-        name: "Gold All-Access",
-        price_rwf: 12000,
-        price_usd: 9.99,
-        billing_period: "monthly",
-        description: "The ultimate fan pass: live Q&A sessions, free unreleased MP3s, and credit shoutouts.",
-        perks: [
-          "All Silver & Bronze perks included",
-          "Access to monthly private live stream Q&A sessions",
-          "Free unreleased acoustic MP3 downloads",
-          "Your name in the end credits of official music videos",
-          "Direct VIP messaging & priority concert ticket reservations"
-        ],
-        badge_color: "#FFB300",
-        color: "#FFB300",
-        subscribers_count: 94
-      }
-    ];
+    const db = getDb();
+    const [tiersRes, membersRes] = await Promise.all([
+      db
+        .from('creator_membership_tiers')
+        .select('*')
+        .eq('creator_channel_id', ctx.channelId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true }),
+      db
+        .from('creator_memberships')
+        .select('membership_tier_id')
+        .eq('creator_channel_id', ctx.channelId)
+        .eq('membership_status', 'active'),
+    ]);
 
-    res.json(defaultTiers);
+    if (tiersRes.error) return res.status(500).json({ error: tiersRes.error.message });
+
+    const countByTier: Record<string, number> = {};
+    for (const m of membersRes.data || []) {
+      countByTier[m.membership_tier_id] = (countByTier[m.membership_tier_id] || 0) + 1;
+    }
+
+    return res.json(
+      (tiersRes.data || []).map((t: any) => ({
+        id: t.id,
+        artist_id: ctx.primaryId,
+        creator_channel_id: t.creator_channel_id,
+        name: t.tier_name,
+        price_rwf: Number(t.monthly_price || 0),
+        price_usd: t.yearly_price ? Number(t.yearly_price) : Number((Number(t.monthly_price || 0) / 1300).toFixed(2)),
+        currency_code: t.currency_code || 'RWF',
+        billing_period: 'monthly',
+        description: t.tier_description || '',
+        perks: Array.isArray(t.benefits) ? t.benefits : [],
+        badge_color: t.tier_metadata?.badge_color || '#8B5CF6',
+        color: t.tier_metadata?.badge_color || '#8B5CF6',
+        subscribers_count: countByTier[t.id] || 0,
+      }))
+    );
   } catch (error: any) {
-    console.error("getArtistMembershipTiers unexpected error:", error);
-    res.status(500).json({ error: error.message || "Failed to load membership tiers." });
+    return res.status(500).json({ error: error.message || 'Failed to load membership tiers.' });
   }
 };
 
-/**
- * GET /api/artists/:id/subscribe-status
- * Checks if authenticated user is currently subscribed to artist
- */
 export const getArtistSubscribeStatus = async (req: Request, res: Response) => {
-  const { id } = req.params;
   const user = (req as any).user;
-
-  if (!user) {
-    return res.json({ subscribed: false });
-  }
+  if (!user?.id) return res.json({ subscribed: false, followed: false });
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx?.artistId) return res.json({ subscribed: false, followed: false });
 
-    const { data: existing } = await supabaseAdmin
-      .from('subscriptions')
+    const db = getDb();
+    const { data: existing } = await db
+      .from('artist_follows')
       .select('id')
-      .eq('artist_id', targetArtistId)
+      .eq('artist_id', ctx.artistId)
       .eq('user_id', user.id)
       .maybeSingle();
 
-    res.json({ 
-      subscribed: !!existing,
-      followed: !!existing 
-    });
-  } catch (error: any) {
-    console.error("getArtistSubscribeStatus error:", error);
-    res.json({ subscribed: false, followed: false });
+    return res.json({ subscribed: Boolean(existing), followed: Boolean(existing) });
+  } catch {
+    return res.json({ subscribed: false, followed: false });
   }
 };
 
-/**
- * POST /api/artists/:id/subscribe
- * Toggles subscribe / unsubscribe (requires auth)
- * Returns { subscribed: boolean, subscriber_count: number }
- */
 export const toggleArtistSubscribe = async (req: Request, res: Response) => {
-  const { id } = req.params;
   const user = (req as any).user;
-
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required to subscribe." });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required to follow an artist.' });
   }
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    if (!ctx?.artistId) {
+      return res.status(404).json({ error: 'Artist profile not found.' });
+    }
 
-    // 1. Check if already subscribed
-    const { data: existing } = await supabaseAdmin
-      .from('subscriptions')
+    const db = getDb();
+    const { data: existing } = await db
+      .from('artist_follows')
       .select('id')
-      .eq('artist_id', targetArtistId)
+      .eq('artist_id', ctx.artistId)
       .eq('user_id', user.id)
       .maybeSingle();
 
     let isSubscribed = false;
-
     if (existing) {
-      await supabaseAdmin
-        .from('subscriptions')
-        .delete()
-        .eq('id', existing.id);
+      await db.from('artist_follows').delete().eq('id', existing.id);
       isSubscribed = false;
     } else {
-      await supabaseAdmin
-        .from('subscriptions')
-        .insert({
-          artist_id: targetArtistId,
-          user_id: user.id,
-          created_at: new Date().toISOString()
-        });
+      await db.from('artist_follows').insert({
+        artist_id: ctx.artistId,
+        user_id: user.id,
+      });
       isSubscribed = true;
     }
 
-    // 2. Compute updated count
-    let subsCount = 0;
-    try {
-      const { data: subs } = await supabaseAdmin
-        .from('subscriptions')
-        .select('id')
-        .eq('artist_id', targetArtistId);
-      subsCount = subs ? subs.length : 0;
-    } catch {
-      // ignore
-    }
+    const { count } = await db
+      .from('artist_follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('artist_id', ctx.artistId);
 
-    const baseCount = Number(artist?.subscriber_count) || 0;
-    const finalCount = isSubscribed ? Math.max(baseCount + 1, subsCount) : Math.max(0, Math.max(baseCount, subsCount) - (existing ? 1 : 0));
-
-    // Also update artist record subscriber_count/follower_count in database if artist exists
-    try {
-      if (artist?.id) {
-        await supabaseAdmin
-          .from('artists')
-          .update({ subscriber_count: finalCount })
-          .eq('id', artist.id);
-      }
-    } catch {
-      // ignore
-    }
+    const finalCount = count || 0;
 
     if (isSubscribed) {
       try {
-        notifyArtistNewSubscriber(targetArtistId, user);
+        notifyArtistNewSubscriber(ctx.artistId, user);
       } catch (notifErr) {
-        console.warn("Subscriber notification error:", notifErr);
+        console.warn('Subscriber notification notice:', notifErr);
       }
     }
 
-    res.json({
+    return res.json({
       subscribed: isSubscribed,
       followed: isSubscribed,
       subscriber_count: finalCount,
-      follower_count: finalCount
+      follower_count: finalCount,
     });
   } catch (error: any) {
-    console.error("toggleArtistSubscribe error:", error);
-    res.status(500).json({ error: error.message || "Failed to update subscription." });
+    return res.status(500).json({ error: error.message || 'Failed to update subscription.' });
   }
 };
 
-/**
- * POST /api/artists/:id/report
- * Reports an artist for moderation (requires auth)
- */
 export const reportArtist = async (req: Request, res: Response) => {
-  const { id } = req.params;
   const user = (req as any).user;
   const { reason, details } = req.body;
-
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required to submit a report." });
-  }
-
-  if (!reason) {
-    return res.status(400).json({ error: "Please select a reason for your report." });
-  }
+  if (!user?.id) return res.status(401).json({ error: 'Authentication required to submit a report.' });
+  if (!reason) return res.status(400).json({ error: 'Please select a reason for your report.' });
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
   try {
-    const artist = await resolveArtistRecord(id);
-    const targetArtistId = artist ? artist.id : id;
+    const ctx = await resolveCreatorContext(req, true);
+    const db = getDb();
 
-    const reportRecord = {
-      artist_id: targetArtistId,
-      reported_by: user.id,
-      reason,
-      details: details || "",
-      status: "pending",
-      created_at: new Date().toISOString()
-    };
+    const reportRef = `RPT-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const { error } = await db.from('user_reports').insert({
+      report_reference: reportRef,
+      reporter_user_id: user.id,
+      reported_user_id: ctx?.ownerUserId || null,
+      report_category: String(reason).slice(0, 120),
+      report_reason: details ? `${reason}: ${details}` : String(reason),
+      report_status: 'submitted',
+      metadata: {
+        artist_id: ctx?.artistId || req.params.id,
+        creator_channel_id: ctx?.channelId || null,
+      },
+    });
 
-    try {
-      await supabaseAdmin.from('reports').insert(reportRecord);
-    } catch {
-      // Mock store or non-blocking
-    }
+    if (error) return res.status(500).json({ error: error.message });
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Report submitted successfully. Our safety team will review this within 24 hours."
+      report_reference: reportRef,
+      message: 'Report submitted successfully. Our safety team will review this within 24 hours.',
     });
   } catch (error: any) {
-    console.error("reportArtist error:", error);
-    res.status(500).json({ error: error.message || "Failed to submit report." });
+    return res.status(500).json({ error: error.message || 'Failed to submit report.' });
   }
 };
 
-/**
- * GET /api/artist/earnings
- * Financial summary: total earnings (70% split), current balance, pending balance
- */
 export const getArtistEarnings = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
-
-    const { data: videos } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('artist_id', artist.id);
-
-    const videoList = videos || [];
-    const videoIds = videoList.map((v: any) => v.id);
-
-    let purchases: any[] = [];
-    if (videoIds.length > 0) {
-      const { data: pData } = await supabaseAdmin
-        .from('purchases')
-        .select('*')
-        .in('video_id', videoIds);
-      purchases = pData || [];
+    if (!(req as any).user?.id) {
+      return res.status(401).json({ error: 'Authentication required to view artist earnings.' });
     }
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist profile not found' });
 
-    // Real earnings calculation from verified purchases
-    const realEarnings = purchases.reduce((sum, p) => sum + (Number(p.artist_payout) || (Number(p.amount_rwf || p.amount || 0) * 0.7)), 0);
-    const totalEarnings = Number(artist.total_earnings) || Math.round(realEarnings);
-    const currentBalance = Number(artist.pending_balance) || Math.round(realEarnings);
-    const pendingBalance = 0;
+    const db = getDb();
+    const [earningRes, txRes, payoutMethodRes, withdrawalsRes] = await Promise.all([
+      ctx.channelId
+        ? db.from('creator_earning_accounts').select('*').eq('creator_channel_id', ctx.channelId)
+        : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('financial_transactions')
+            .select('gross_amount, net_amount, currency_code')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('transaction_status', 'succeeded')
+        : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('creator_payout_methods')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('method_status', 'active')
+            .order('is_default', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      ctx.channelId
+        ? db
+            .from('creator_withdrawal_requests')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .order('created_at', { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    res.json({
-      currency: artist.currency_code || "RWF",
+    const accounts = earningRes.data || [];
+    const txs = txRes.data || [];
+    const payoutMethod = payoutMethodRes.data;
+    const rawWithdrawals = withdrawalsRes.data || [];
+
+    const availableBalance = accounts.reduce((s: number, a: any) => s + Number(a.available_balance || 0), 0);
+    const pendingBalance = accounts.reduce((s: number, a: any) => s + Number(a.pending_balance || 0), 0);
+    const settledTotal = accounts.reduce((s: number, a: any) => s + Number(a.settled_total || 0), 0);
+    const txNetTotal = txs.reduce((s: number, t: any) => s + Math.round(Number(t.net_amount || 0) * 0.7), 0);
+
+    const totalEarnings = Math.max(availableBalance + pendingBalance + settledTotal, txNetTotal);
+    const currentBalance = availableBalance > 0 ? availableBalance : txNetTotal;
+
+    const formattedWithdrawals = rawWithdrawals.map((w: any) => ({
+      id: w.id,
+      reference: w.withdrawal_reference,
+      amount: Number(w.requested_amount || 0),
+      net_amount: Number(w.net_payout_amount || 0),
+      currency: w.currency_code || 'RWF',
+      status: w.withdrawal_status || 'pending',
+      requested_at: w.created_at,
+      provider: w.payout_method_snapshot?.provider_name || payoutMethod?.provider_name || 'MTN',
+      phone_number: w.payout_method_snapshot?.masked_account_reference || w.payout_method_snapshot?.masked_destination || payoutMethod?.masked_account_reference || '',
+    }));
+
+    return res.json({
+      currency: payoutMethod?.currency_code || accounts[0]?.currency_code || 'RWF',
+      balance: currentBalance,
+      total_earned: totalEarnings,
       total_earnings: totalEarnings,
       current_balance: currentBalance,
       pending_balance: pendingBalance,
-      min_withdrawal: 5000,
-      artist_split_percent: 70,
-      platform_split_percent: 30,
-      vat_percent: 5,
-      history_period: "all_time",
+      min_withdrawal: Number(process.env.MIN_WITHDRAWAL_RWF || 5000),
+      artist_split_percent: Number(process.env.ARTIST_SHARE_PERCENTAGE || 70),
+      platform_split_percent: 100 - Number(process.env.ARTIST_SHARE_PERCENTAGE || 70),
+      vat_percent: Number(process.env.VAT_PERCENTAGE || 5),
+      history_period: 'all_time',
+      withdrawals: formattedWithdrawals,
       artist: {
-        id: artist.id,
-        name: artist.full_name || artist.name || "Artist",
-        momo_code: artist.momo_code || artist.phone || "",
-        payment_method: artist.payout_provider || (artist.currency_code === 'USD' ? 'Stripe' : 'MTN Mobile Money')
-      }
+        id: ctx.primaryId,
+        name: ctx.displayName,
+        momo_code: payoutMethod?.masked_account_reference || '',
+        payment_method: payoutMethod?.provider_name || '',
+      },
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/earnings/breakdown
- * Per-video revenue breakdown with VAT and 70/30 split calculations
- */
 export const getEarningsBreakdown = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist profile not found" });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist profile not found' });
 
-    const { data: videos } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('artist_id', artist.id);
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
+    const [videosRes, txRes] = await Promise.all([
+      filter ? db.from('videos').select('*').or(filter) : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('financial_transactions')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('transaction_status', 'succeeded')
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    const videoList = videos || [];
-    const videoIds = videoList.map((v: any) => v.id);
+    const videoList = videosRes.data || [];
+    const txList = txRes.data || [];
 
-    let purchases: any[] = [];
-    if (videoIds.length > 0) {
-      const { data: pData } = await supabaseAdmin
-        .from('purchases')
-        .select('*')
-        .in('video_id', videoIds);
-      purchases = pData || [];
-    }
-
-    // Map real purchases by video_id
-    const purchaseMap: Record<string, { count: number; gross: number; vat: number; artistShare: number; platformFee: number }> = {};
-    for (const p of purchases) {
-      const vid = p.video_id;
-      if (!purchaseMap[vid]) {
-        purchaseMap[vid] = { count: 0, gross: 0, vat: 0, artistShare: 0, platformFee: 0 };
-      }
-      const gross = Number(p.amount_rwf || p.amount || 0);
-      const vat = Number(p.vat_amount || Math.round(gross * 0.05));
-      const artistP = Number(p.artist_payout || Math.round((gross - vat) * 0.70));
-      const platformF = Number(p.platform_fee || (gross - vat - artistP));
-
-      purchaseMap[vid].count += 1;
-      purchaseMap[vid].gross += gross;
-      purchaseMap[vid].vat += vat;
-      purchaseMap[vid].artistShare += artistP;
-      purchaseMap[vid].platformFee += platformF;
+    const txByVideo: Record<string, { count: number; gross: number; vat: number; artistShare: number; platformFee: number }> = {};
+    for (const tx of txList) {
+      const vid = tx.source_record_id;
+      if (!vid) continue;
+      if (!txByVideo[vid]) txByVideo[vid] = { count: 0, gross: 0, vat: 0, artistShare: 0, platformFee: 0 };
+      const gross = Number(tx.gross_amount || 0);
+      const vat = Number(tx.fee_amount || 0);
+      const net = Number(tx.net_amount || Math.max(0, gross - vat));
+      const artistShare = Math.round(net * 0.7);
+      const platformFee = Math.max(0, net - artistShare);
+      txByVideo[vid].count += 1;
+      txByVideo[vid].gross += gross;
+      txByVideo[vid].vat += vat;
+      txByVideo[vid].artistShare += artistShare;
+      txByVideo[vid].platformFee += platformFee;
     }
 
     const breakdown = videoList.map((v: any) => {
-      const pStats = purchaseMap[v.id] || {
-        count: Number(v.purchases_count) || 0,
-        gross: (Number(v.price_rwf) || 0) * (Number(v.purchases_count) || 0),
-        vat: Math.round(((Number(v.price_rwf) || 0) * (Number(v.purchases_count) || 0)) * 0.05),
-        artistShare: Math.round(((Number(v.price_rwf) || 0) * (Number(v.purchases_count) || 0)) * 0.95 * 0.70),
-        platformFee: Math.round(((Number(v.price_rwf) || 0) * (Number(v.purchases_count) || 0)) * 0.95 * 0.30)
-      };
-
+      const pStats = txByVideo[v.id] || { count: 0, gross: 0, vat: 0, artistShare: 0, platformFee: 0 };
+      const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
       return {
         video_id: v.id,
         title: v.title,
-        thumbnail_url: v.thumbnail_url,
-        views: Number(v.views) || 0,
+        thumbnail_url: meta.thumbnail_url || '',
+        views: Number(meta.view_count ?? meta.views ?? 0),
         purchases: pStats.count,
         gross_revenue: pStats.gross,
         vat_deducted: pStats.vat,
         artist_share: pStats.artistShare,
         platform_fee: pStats.platformFee,
-        is_short: !!v.is_short
+        is_short: v.video_type === 'short',
       };
     });
 
-    res.json({
-      currency: artist.currency_code || "RWF",
+    return res.json({
+      currency: 'RWF',
       total_items: breakdown.length,
-      breakdown
+      breakdown,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/video/:id/analytics
- * Performance analytics for a specific video
- */
 export const getVideoAnalytics = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   const { id } = req.params;
+  const db = getDb();
+
   try {
-    const { data: video } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
 
-    if (!video) return res.status(404).json({ error: "Video not found" });
+    const [dailyRes, eventsRes, txRes] = await Promise.all([
+      db
+        .from('video_daily_analytics')
+        .select('*')
+        .eq('video_id', id)
+        .order('analytics_date', { ascending: true }),
+      db
+        .from('video_view_events')
+        .select('watch_duration_seconds, traffic_source, metadata, occurred_at')
+        .eq('video_id', id)
+        .limit(500),
+      db
+        .from('financial_transactions')
+        .select('gross_amount, net_amount, created_at')
+        .eq('source_record_id', id)
+        .eq('transaction_status', 'succeeded'),
+    ]);
 
-    const views = Number(video.views) || 0;
+    const dailyRows = dailyRes.data || [];
+    const viewEvents = eventsRes.data || [];
+    const txs = txRes.data || [];
+    const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
 
-    const { data: pData } = await supabaseAdmin
-      .from('purchases')
-      .select('*')
-      .eq('video_id', id);
+    const viewsFromDaily = dailyRows.reduce((s: number, r: any) => s + Number(r.valid_views || r.total_view_events || 0), 0);
+    const views = Math.max(Number(meta.view_count ?? meta.views ?? 0), viewsFromDaily, viewEvents.length);
+    const revenue = txs.reduce((s: number, t: any) => s + Math.round(Number(t.net_amount || 0) * 0.7), 0);
 
-    const videoPurchases = pData || [];
-    const purchasesCount = videoPurchases.length;
-    const revenue = videoPurchases.reduce((sum, p) => sum + (Number(p.artist_payout) || (Number(p.amount_rwf || p.amount || 0) * 0.7)), 0);
-    const duration = Number(video.duration) || 180;
-    const watchTimeMinutes = Math.round((views * (duration / 2)) / 60);
+    const watchSecondsTotal =
+      dailyRows.reduce((s: number, r: any) => s + Number(r.total_watch_seconds || 0), 0) ||
+      viewEvents.reduce((s: number, e: any) => s + Number(e.watch_duration_seconds || 0), 0);
+    const watchTimeMinutes = Math.round(watchSecondsTotal / 60);
 
-    // Group purchases by day
-    const purchaseDateMap: Record<string, { views: number; earnings: number }> = {};
-    videoPurchases.forEach((p: any) => {
-      const d = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent';
-      if (!purchaseDateMap[d]) purchaseDateMap[d] = { views: 0, earnings: 0 };
-      purchaseDateMap[d].views += 1;
-      purchaseDateMap[d].earnings += Number(p.artist_payout) || 0;
-    });
+    const duration = Number(video.duration_seconds || 0);
+    const avgPercentageWatched =
+      views > 0 && duration > 0 && watchSecondsTotal > 0
+        ? Math.min(100, Number((((watchSecondsTotal / views) / duration) * 100).toFixed(1)))
+        : 0;
 
-    const viewsOverTime = Object.keys(purchaseDateMap).map(date => ({
-      date,
-      views: purchaseDateMap[date].views,
-      earnings: purchaseDateMap[date].earnings
-    }));
+    const dateMap: Record<string, { views: number; earnings: number }> = {};
+    for (const r of dailyRows) {
+      dateMap[r.analytics_date] = {
+        views: Number(r.valid_views || r.total_view_events || 0),
+        earnings: 0,
+      };
+    }
+    for (const tx of txs) {
+      const d = String(tx.created_at || '').slice(0, 10);
+      if (!d) continue;
+      if (!dateMap[d]) dateMap[d] = { views: 0, earnings: 0 };
+      dateMap[d].earnings += Math.round(Number(tx.net_amount || 0) * 0.7);
+    }
 
-    res.json({
+    const viewsOverTime = Object.keys(dateMap)
+      .sort()
+      .map((date) => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        views: dateMap[date].views,
+        earnings: dateMap[date].earnings,
+      }));
+
+    const sourceCounts: Record<string, number> = {};
+    const countryCounts: Record<string, number> = {};
+    for (const ev of viewEvents) {
+      const src = ev.traffic_source || 'Direct';
+      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+      const country = ev.metadata?.country_code || 'Unknown';
+      countryCounts[country] = (countryCounts[country] || 0) + 1;
+    }
+
+    const totalEv = viewEvents.length;
+    const trafficSources =
+      totalEv > 0
+        ? Object.entries(sourceCounts).map(([source, count]) => ({
+            source,
+            percentage: Math.round((count / totalEv) * 100),
+          }))
+        : [];
+
+    const demographics =
+      totalEv > 0
+        ? Object.entries(countryCounts).map(([country, count]) => ({
+            country,
+            percentage: Math.round((count / totalEv) * 100),
+          }))
+        : [];
+
+    return res.json({
       video_id: id,
       title: video.title,
       views,
-      purchases: purchasesCount,
-      total_revenue_rwf: Math.round(revenue),
+      purchases: txs.length,
+      total_revenue_rwf: revenue,
       watch_time_minutes: watchTimeMinutes,
-      avg_percentage_watched: views > 0 ? 68.5 : 0,
+      avg_percentage_watched: avgPercentageWatched,
       views_over_time: viewsOverTime,
-      traffic_sources: views > 0 ? [
-        { source: 'Direct / Share Link', percentage: 55 },
-        { source: 'Platform Search', percentage: 30 },
-        { source: 'Recommendations', percentage: 15 }
-      ] : [],
-      demographics: views > 0 ? [
-        { country: 'Rwanda', percentage: 75 },
-        { country: 'East Africa', percentage: 18 },
-        { country: 'Diaspora', percentage: 7 }
-      ] : []
+      traffic_sources: trafficSources,
+      demographics,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/artist/video/:id/regenerate-link
- * Regenerates the video playback stream security token and shareable URL
- */
 export const regenerateVideoLink = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   const { id } = req.params;
   try {
-    const newStreamToken = `pt_token_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`;
-    const newShareUrl = `${process.env.APP_URL || ''}/watch/${id}?token=${newStreamToken}`;
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(401).json({ error: 'Artist authentication required' });
 
-    await supabaseAdmin
+    const db = getDb();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+
+    const ownsVideo =
+      video.created_by_user_id === ctx.ownerUserId ||
+      (ctx.channelId && video.creator_channel_id === ctx.channelId) ||
+      (ctx.artistId && video.artist_profile_id === ctx.artistId);
+    if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
+
+    const newStreamToken = `pt_${crypto.randomBytes(16).toString('hex')}`;
+    const newShareUrl = `${process.env.CLIENT_URL || ''}/watch/${id}?token=${newStreamToken}`;
+    const prevMeta = video.metadata && typeof video.metadata === 'object' ? { ...video.metadata } : {};
+
+    await db
       .from('videos')
       .update({
-        stream_token: newStreamToken,
-        updated_at: new Date().toISOString()
+        metadata: { ...prevMeta, stream_token: newStreamToken, unique_link: newStreamToken },
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id);
 
-    res.json({
+    return res.json({
       success: true,
-      message: "Security playback link regenerated successfully.",
+      message: 'Security playback link regenerated successfully.',
       stream_token: newStreamToken,
-      shareable_url: newShareUrl
+      shareable_url: newShareUrl,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/analytics
- * Overall studio performance analytics
- */
 export const getArtistAnalytics = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist not found' });
 
     const timeframe = (req.query.range as string) || '30d';
+    const daysBack = timeframe === '7d' ? 7 : timeframe === '90d' ? 90 : timeframe === '365d' ? 365 : 30;
+    const sinceIso = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: videos } = await supabaseAdmin
-      .from('videos')
-      .select('*')
-      .eq('artist_id', artist.id);
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
+    const [videosRes, followsRes, txRes] = await Promise.all([
+      filter ? db.from('videos').select('*').or(filter) : Promise.resolve({ data: [] }),
+      ctx.artistId
+        ? db.from('artist_follows').select('id', { count: 'exact', head: true }).eq('artist_id', ctx.artistId)
+        : Promise.resolve({ count: 0 }),
+      ctx.channelId
+        ? db
+            .from('financial_transactions')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('transaction_status', 'succeeded')
+            .gte('created_at', sinceIso)
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    const videoList = videos || [];
+    const videoList = videosRes.data || [];
     const videoIds = videoList.map((v: any) => v.id);
+    const transactions = txRes.data || [];
 
-    let purchases: any[] = [];
-    if (videoIds.length > 0) {
-      const { data: pData } = await supabaseAdmin
-        .from('purchases')
-        .select('*')
-        .in('video_id', videoIds);
-      purchases = pData || [];
+    const [dailyRes, sessionsRes, eventsRes] = await Promise.all([
+      videoIds.length
+        ? db
+            .from('video_daily_analytics')
+            .select('*')
+            .in('video_id', videoIds)
+            .gte('analytics_date', sinceIso.slice(0, 10))
+            .order('analytics_date', { ascending: true })
+        : Promise.resolve({ data: [] }),
+      videoIds.length
+        ? db
+            .from('video_playback_sessions')
+            .select('device_type, playback_source, watched_seconds, ended_at')
+            .in('video_id', videoIds)
+            .gte('started_at', sinceIso)
+            .limit(1000)
+        : Promise.resolve({ data: [] }),
+      videoIds.length
+        ? db
+            .from('video_view_events')
+            .select('traffic_source, metadata, occurred_at')
+            .in('video_id', videoIds)
+            .gte('occurred_at', sinceIso)
+            .limit(1000)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const dailyRows = dailyRes.data || [];
+    const sessions = sessionsRes.data || [];
+    const events = eventsRes.data || [];
+
+    const totalViews =
+      dailyRows.length > 0
+        ? dailyRows.reduce((s: number, r: any) => s + Number(r.valid_views || r.total_view_events || 0), 0)
+        : videoList.reduce((s: number, v: any) => s + Number(v.metadata?.view_count ?? v.metadata?.views ?? 0), 0);
+
+    const totalEarned = transactions.reduce(
+      (s: number, tx: any) => s + Math.round(Number(tx.net_amount || 0) * 0.7),
+      0
+    );
+
+    const totalWatchSeconds =
+      dailyRows.reduce((s: number, r: any) => s + Number(r.total_watch_seconds || 0), 0) ||
+      sessions.reduce((s: number, sess: any) => s + Number(sess.watched_seconds || 0), 0);
+    const totalWatchTime = Math.round(totalWatchSeconds / 60);
+
+    const avgSec = totalViews > 0 && totalWatchSeconds > 0 ? Math.round(totalWatchSeconds / totalViews) : 0;
+    const avgDurationFormatted = `${Math.floor(avgSec / 60)}m ${avgSec % 60}s`;
+
+    const dateMap: Record<string, { views: number; earnings: number }> = {};
+    for (const r of dailyRows) {
+      dateMap[r.analytics_date] = {
+        views: (dateMap[r.analytics_date]?.views || 0) + Number(r.valid_views || r.total_view_events || 0),
+        earnings: dateMap[r.analytics_date]?.earnings || 0,
+      };
+    }
+    for (const tx of transactions) {
+      const d = String(tx.created_at || '').slice(0, 10);
+      if (!d) continue;
+      if (!dateMap[d]) dateMap[d] = { views: 0, earnings: 0 };
+      dateMap[d].earnings += Math.round(Number(tx.net_amount || 0) * 0.7);
     }
 
-    const totalViews = videoList.reduce((acc: number, v: any) => acc + (Number(v.views) || 0), 0);
-    const realEarnings = purchases.reduce((sum, p) => sum + (Number(p.artist_payout) || (Number(p.amount_rwf || p.amount || 0) * 0.7)), 0);
-    const totalEarned = Number(artist.total_earnings) || Math.round(realEarnings);
-    const totalWatchTime = videoList.reduce((acc: number, v: any) => acc + Math.round(((Number(v.views) || 0) * (Number(v.duration) || 180) / 2) / 60), 0);
+    const viewsOverTime = Object.keys(dateMap)
+      .sort()
+      .map((date) => ({
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        views: dateMap[date].views,
+        earnings: dateMap[date].earnings,
+      }));
 
-    // Group real purchases by date
-    const dateMap: Record<string, { views: number; earnings: number }> = {};
-    purchases.forEach((p: any) => {
-      const d = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent';
-      if (!dateMap[d]) dateMap[d] = { views: 0, earnings: 0 };
-      dateMap[d].views += 1;
-      dateMap[d].earnings += Number(p.artist_payout) || 0;
-    });
+    const deviceCounts: Record<string, number> = {};
+    for (const s of sessions) {
+      const dev = s.device_type || 'Web Browser';
+      deviceCounts[dev] = (deviceCounts[dev] || 0) + 1;
+    }
+    const sourceCounts: Record<string, number> = {};
+    const countryCounts: Record<string, number> = {};
+    for (const ev of events) {
+      const src = ev.traffic_source || 'Direct';
+      sourceCounts[src] = (sourceCounts[src] || 0) + 1;
+      const country = ev.metadata?.country_code || 'Unknown';
+      countryCounts[country] = (countryCounts[country] || 0) + 1;
+    }
 
-    const viewsOverTime = Object.keys(dateMap).map(date => ({
-      date,
-      views: dateMap[date].views,
-      earnings: dateMap[date].earnings
-    }));
+    const totalSessions = sessions.length;
+    const totalEvents = events.length;
 
-    res.json({
-      range: timeframe,
-      summary: {
-        total_views: totalViews,
-        views_growth: "0%",
-        total_earnings: totalEarned,
-        earnings_growth: "0%",
-        total_watch_time_minutes: totalWatchTime,
-        avg_view_duration: totalViews > 0 ? "2m 30s" : "0m 0s",
-        subscribers_gained: Number(artist.subscriber_count) || 0,
-        realtime_active_viewers: 0
-      },
-      views_over_time: viewsOverTime,
-      top_performing_videos: videoList.slice(0, 5).map((v: any) => {
-        const vPurchases = purchases.filter((p: any) => p.video_id === v.id);
-        const vEarned = vPurchases.reduce((sum: number, p: any) => sum + (Number(p.artist_payout) || 0), 0);
+    const topPerformingVideos = [...videoList]
+      .sort((a: any, b: any) => Number(b.metadata?.view_count ?? b.metadata?.views ?? 0) - Number(a.metadata?.view_count ?? a.metadata?.views ?? 0))
+      .slice(0, 5)
+      .map((v: any) => {
+        const vEarned = transactions
+          .filter((t: any) => t.source_record_id === v.id)
+          .reduce((s: number, t: any) => s + Math.round(Number(t.net_amount || 0) * 0.7), 0);
         return {
           id: v.id,
           title: v.title,
-          thumbnail_url: v.thumbnail_url,
-          views: Number(v.views) || 0,
+          thumbnail_url: v.metadata?.thumbnail_url || '',
+          views: Number(v.metadata?.view_count ?? v.metadata?.views ?? 0),
           earnings_rwf: vEarned,
-          likes: Number(v.likes) || 0
+          likes: Number(v.metadata?.like_count ?? v.metadata?.likes ?? 0),
         };
-      }),
+      });
+
+    return res.json({
+      range: timeframe,
+      total_views: totalViews,
+      total_watch_minutes: totalWatchTime,
+      average_view_duration: avgSec,
+      top_videos: topPerformingVideos,
+      summary: {
+        total_views: totalViews,
+        views_growth: '0%',
+        total_earnings: totalEarned,
+        earnings_growth: '0%',
+        total_watch_time_minutes: totalWatchTime,
+        avg_view_duration: avgDurationFormatted,
+        subscribers_gained: followsRes.count || 0,
+        realtime_active_viewers: sessions.filter((s: any) => !s.ended_at).length,
+      },
+      views_over_time: viewsOverTime,
+      top_performing_videos: topPerformingVideos,
       demographics: {
-        countries: totalViews > 0 ? [
-          { name: 'Rwanda', percent: 80 },
-          { name: 'East Africa', percent: 15 },
-          { name: 'Others', percent: 5 }
-        ] : [],
-        devices: totalViews > 0 ? [
-          { device: 'Mobile Phone', percent: 85 },
-          { device: 'Desktop / PC', percent: 15 }
-        ] : [],
-        traffic_sources: totalViews > 0 ? [
-          { source: 'PayTune Search', percent: 50 },
-          { source: 'Direct Video Links', percent: 50 }
-        ] : []
-      }
+        countries: totalEvents
+          ? Object.entries(countryCounts).map(([name, c]) => ({ name, percent: Math.round((c / totalEvents) * 100) }))
+          : [],
+        devices: totalSessions
+          ? Object.entries(deviceCounts).map(([device, c]) => ({ device, percent: Math.round((c / totalSessions) * 100) }))
+          : [],
+        traffic_sources: totalEvents
+          ? Object.entries(sourceCounts).map(([source, c]) => ({ source, percent: Math.round((c / totalEvents) * 100) }))
+          : [],
+      },
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/subscribers
- * Subscriber list and growth metrics
- */
 export const getArtistSubscribers = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist not found' });
 
-    const totalSubscribers = Number(artist.subscriber_count) || 0;
+    const db = getDb();
+    const { data: follows, count } = ctx.artistId
+      ? await db
+          .from('artist_follows')
+          .select('id, user_id, created_at', { count: 'exact' })
+          .eq('artist_id', ctx.artistId)
+          .order('created_at', { ascending: false })
+          .limit(50)
+      : { data: [], count: 0 };
 
-    const { data: subsData } = await supabaseAdmin
-      .from('subscriptions')
-      .select('*, users:user_id(id, full_name, email, avatar_url)')
-      .eq('artist_id', artist.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const followerIds = (follows || []).map((f: any) => f.user_id).filter(Boolean);
+    const { data: profiles } = followerIds.length
+      ? await db.from('profiles').select('user_id, display_name, username, avatar_storage_path').in('user_id', followerIds)
+      : { data: [] };
 
-    const subscribersList = (subsData && subsData.length > 0)
-      ? subsData.map((s: any) => ({
-          id: s.id,
-          name: s.users?.full_name || 'Music Supporter',
-          email: s.users?.email || '',
-          avatar_url: s.users?.avatar_url || '',
-          subscribed_at: s.created_at || new Date().toISOString(),
-          tier: s.tier_name || 'Fan',
-          status: s.status || 'active'
-        }))
-      : [];
+    const profMap = new Map<string, any>((profiles || []).map((p: any) => [String(p.user_id), p]));
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
 
-    res.json({
-      total_subscribers: totalSubscribers,
-      monthly_growth_rate: "0%",
-      new_subscribers_this_month: 0,
-      subscribers: subscribersList
+    const newThisMonth = (follows || []).filter(
+      (f: any) => new Date(f.created_at).getTime() >= monthStart.getTime()
+    ).length;
+
+    const subscribers = (follows || []).map((f: any) => {
+      const prof = profMap.get(f.user_id);
+      return {
+        id: f.id,
+        user_id: f.user_id,
+        name: prof?.display_name || prof?.username || 'Supporter',
+        avatar_url: prof?.avatar_storage_path || '',
+        subscribed_at: f.created_at,
+        tier: 'Follower',
+        status: 'active',
+      };
+    });
+
+    return res.json({
+      count: count || 0,
+      total_subscribers: count || 0,
+      monthly_growth_rate: '0%',
+      new_subscribers_this_month: newThisMonth,
+      subscribers,
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/top-fans
- * Leaderboard of top supporters ranked by total purchases and support
- */
 export const getTopFans = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist not found' });
+    if (!ctx.channelId) return res.json([]);
 
-    const store = getDbStore();
-    const purchases = (store.purchases || []).filter((p: any) => p.artist_id === artist.id);
+    const db = getDb();
+    const { data: txs } = await db
+      .from('financial_transactions')
+      .select('user_id, gross_amount')
+      .eq('creator_channel_id', ctx.channelId)
+      .eq('transaction_status', 'succeeded')
+      .not('user_id', 'is', null);
 
-    if (purchases.length === 0) {
-      return res.json([]);
+    if (!txs || txs.length === 0) return res.json([]);
+
+    const userMap: Record<string, { total_spent_rwf: number; purchases_count: number }> = {};
+    for (const tx of txs) {
+      if (!tx.user_id) continue;
+      if (!userMap[tx.user_id]) userMap[tx.user_id] = { total_spent_rwf: 0, purchases_count: 0 };
+      userMap[tx.user_id].total_spent_rwf += Number(tx.gross_amount || 0);
+      userMap[tx.user_id].purchases_count += 1;
     }
 
-    const userMap: Record<string, { name: string; avatar_url: string; total_spent_rwf: number; purchases_count: number }> = {};
-    for (const p of purchases) {
-      const uId = p.user_id || 'anonymous';
-      if (!userMap[uId]) {
-        userMap[uId] = {
-          name: p.user_name || 'Fan',
-          avatar_url: '',
-          total_spent_rwf: 0,
-          purchases_count: 0
-        };
-      }
-      userMap[uId].total_spent_rwf += Number(p.amount_paid || 0);
-      userMap[uId].purchases_count += 1;
-    }
+    const topUserIds = Object.keys(userMap);
+    const { data: profiles } = topUserIds.length
+      ? await db.from('profiles').select('user_id, display_name, username, avatar_storage_path').in('user_id', topUserIds)
+      : { data: [] };
+    const profMap = new Map<string, any>((profiles || []).map((p: any) => [String(p.user_id), p]));
 
-    const sortedFans = Object.values(userMap)
-      .sort((a, b) => b.total_spent_rwf - a.total_spent_rwf)
+    const sortedFans = Object.entries(userMap)
+      .sort((a, b) => b[1].total_spent_rwf - a[1].total_spent_rwf)
       .slice(0, 10)
-      .map((f, idx) => ({
-        rank: idx + 1,
-        name: f.name,
-        avatar_url: f.avatar_url,
-        total_spent_rwf: f.total_spent_rwf,
-        purchases_count: f.purchases_count,
-        badge: idx === 0 ? 'VIP Diamond' : (idx < 3 ? 'Gold Supporter' : 'Silver Fan')
-      }));
+      .map(([uid, stats], idx) => {
+        const prof = profMap.get(uid);
+        return {
+          rank: idx + 1,
+          user_id: uid,
+          name: prof?.display_name || prof?.username || 'Supporter',
+          avatar_url: prof?.avatar_storage_path || '',
+          total_spent_rwf: stats.total_spent_rwf,
+          purchases_count: stats.purchases_count,
+          badge: idx === 0 ? 'VIP Diamond' : idx < 3 ? 'Gold Supporter' : 'Silver Fan',
+        };
+      });
 
-    res.json(sortedFans);
+    return res.json(sortedFans);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/comments
- * Comments across all artist's videos
- */
 export const getArtistComments = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist not found' });
 
-    const { data: videos } = await supabaseAdmin
-      .from('videos')
-      .select('id, title')
-      .eq('artist_id', artist.id);
+    const db = getDb();
+    const filter = buildVideosFilter(ctx);
+    if (!filter) return res.json([]);
 
-    const videoIds = (videos || []).map((v: any) => v.id);
-    let comments: any[] = [];
-    if (videoIds.length > 0) {
-      const { data: cData } = await supabaseAdmin
-        .from('comments')
-        .select('*')
-        .in('video_id', videoIds)
-        .order('created_at', { ascending: false });
-      comments = cData || [];
+    const { data: videos } = await db.from('videos').select('id, title').or(filter);
+    const videoList = videos || [];
+    const videoIds = videoList.map((v: any) => v.id);
+    if (videoIds.length === 0) return res.json([]);
+
+    const { data: comments } = await db
+      .from('comments')
+      .select('*')
+      .eq('content_type', 'video')
+      .in('content_id', videoIds)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const commentList = comments || [];
+    const authorIds = Array.from(new Set(commentList.map((c: any) => c.user_id).filter(Boolean)));
+    const { data: profiles } = authorIds.length
+      ? await db.from('profiles').select('user_id, display_name, username, avatar_storage_path').in('user_id', authorIds)
+      : { data: [] };
+    const profMap = new Map<string, any>((profiles || []).map((p: any) => [String(p.user_id), p]));
+    const videoMap = new Map<string, string>(videoList.map((v: any) => [String(v.id), String(v.title || '')]));
+
+    const topLevelComments = commentList.filter((c: any) => !c.parent_comment_id);
+    const repliesByParent = new Map<string, any[]>();
+    commentList
+      .filter((c: any) => Boolean(c.parent_comment_id))
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .forEach((r: any) => {
+        const parentKey = String(r.parent_comment_id);
+        const rProf = profMap.get(r.user_id);
+        const list = repliesByParent.get(parentKey) || [];
+        list.push({
+          id: r.id,
+          user_id: r.user_id,
+          author: rProf?.display_name || rProf?.username || (r.user_id === ctx.ownerUserId ? ctx.displayName || 'Creator' : 'Listener'),
+          text: r.comment_text,
+          created_at: r.created_at,
+          is_artist: r.user_id === ctx.ownerUserId,
+        });
+        repliesByParent.set(parentKey, list);
+      });
+
+    return res.json(
+      topLevelComments.map((c: any) => {
+        const prof = profMap.get(c.user_id);
+        const authorName = prof?.display_name || prof?.username || 'Listener';
+        return {
+          id: c.id,
+          video_id: c.content_id,
+          video_title: videoMap.get(c.content_id) || 'Video',
+          user_id: c.user_id,
+          author_name: authorName,
+          user_name: authorName,
+          author_avatar: prof?.avatar_storage_path || '',
+          comment_text: c.comment_text,
+          comment: c.comment_text,
+          is_hidden: c.moderation_status === 'rejected',
+          likes_count: Number(c.likes_count || 0),
+          created_at: c.created_at,
+          replies: repliesByParent.get(String(c.id)) || [],
+        };
+      })
+    );
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const hideComment = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const user = (req as any).user;
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required.' });
+  }
+
+  const { id } = req.params;
+  const hidden = req.body.hidden !== undefined ? Boolean(req.body.hidden) : true;
+  const db = getDb();
+
+  try {
+    const { data: comment, error: fetchErr } = await db
+      .from('comments')
+      .select('id, content_type, content_id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    if (!comment) return res.status(404).json({ error: 'Comment not found.' });
+
+    const isPrivileged = ['master', 'MASTER_ADMIN', 'master_admin', 'admin'].includes(String(user.role || ''));
+    if (!isPrivileged) {
+      const ctx = await resolveCreatorContext(req, false);
+      const { data: videoRow } = comment.content_id
+        ? await db
+            .from('videos')
+            .select('created_by_user_id, artist_profile_id, creator_channel_id')
+            .eq('id', comment.content_id)
+            .maybeSingle()
+        : { data: null };
+
+      const ownsVideo =
+        Boolean(videoRow) &&
+        (videoRow.created_by_user_id === user.id ||
+          (ctx?.artistId && videoRow.artist_profile_id === ctx.artistId) ||
+          (ctx?.channelId && videoRow.creator_channel_id === ctx.channelId));
+
+      if (!ownsVideo) {
+        return res.status(403).json({ error: 'Unauthorized: you can only moderate comments on your own videos.' });
+      }
     }
 
-    res.json(comments);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * PUT /api/artist/comments/:id/hide
- * Hide or show a comment
- */
-export const hideComment = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { hidden } = req.body;
-  try {
-    await supabaseAdmin
+    const { error } = await db
       .from('comments')
-      .update({ is_hidden: hidden !== undefined ? hidden : true })
+      .update({
+        moderation_status: hidden ? 'rejected' : 'approved',
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id);
 
-    res.json({ success: true, message: "Comment visibility updated." });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ success: true, message: 'Comment visibility updated.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artist/settings
- * Studio settings, payment accounts, and notifications
- */
 export const getArtistSettings = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist not found' });
 
-    let socials = typeof artist.social_links === 'object' && artist.social_links ? { ...artist.social_links } : {};
-    if (typeof artist.social_links === 'string') {
-      try { socials = JSON.parse(artist.social_links); } catch {}
-    }
+    const db = getDb();
+    const [socialRes, payoutRes, notifRes] = await Promise.all([
+      ctx.artistId
+        ? db.from('artist_social_links').select('platform_name, platform_url').eq('artist_id', ctx.artistId)
+        : Promise.resolve({ data: [] }),
+      ctx.channelId
+        ? db
+            .from('creator_payout_methods')
+            .select('*')
+            .eq('creator_channel_id', ctx.channelId)
+            .eq('method_status', 'active')
+            .order('is_default', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      ctx.ownerUserId
+        ? db.from('user_notification_preferences').select('*').eq('user_id', ctx.ownerUserId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
-    const full_name = artist.full_name || artist.name || "";
-    const bio = artist.bio || "";
-    const profile_image = artist.profile_image || artist.avatar_url || "";
-    const banner_image = artist.banner_image || artist.banner_url || "";
-    const phone = artist.phone || artist.momo_code || "";
-    const momo_code = artist.momo_code || artist.phone || "";
-    const momo_provider = artist.payout_provider || "MTN";
+    const socials = normalizeSocialLinks(socialRes.data);
+    if (ctx.websiteUrl && !socials.website) socials.website = ctx.websiteUrl;
 
-    res.json({
-      full_name,
-      bio,
-      profile_image,
-      avatar_url: profile_image,
-      banner_image,
-      banner_url: banner_image,
-      phone,
-      momo_code,
-      momo_provider,
-      social_links: {
-        instagram: socials.instagram || artist.instagram || "https://instagram.com/brucemelodie",
-        twitter: socials.twitter || artist.twitter || "https://twitter.com/brucemelodie",
-        youtube: socials.youtube || artist.youtube || "https://youtube.com/@brucemelodie",
-        spotify: socials.spotify || artist.spotify || "https://open.spotify.com/artist/brucemelodie",
-        website: socials.website || artist.website || "https://brucemelodie.rw"
+    const payout = payoutRes.data;
+    const notif = notifRes.data;
+    const momoPhone = payout?.metadata?.phone || payout?.masked_account_reference || '';
+    const momoProvider = payout?.provider_name || 'MTN';
+    const userEmail = (req as any).user?.email || '';
+
+    return res.json({
+      full_name: ctx.displayName,
+      bio: ctx.bio,
+      profile_image: ctx.avatarUrl,
+      avatar_url: ctx.avatarUrl,
+      banner_image: ctx.bannerUrl,
+      banner_url: ctx.bannerUrl,
+      phone: momoPhone,
+      momo_code: momoPhone,
+      momo_provider: momoProvider,
+      social_links: socials,
+      artist: {
+        id: ctx.primaryId,
+        full_name: ctx.displayName,
+        username: ctx.handle,
+        email: userEmail,
+        bio: ctx.bio,
+        avatar_url: ctx.avatarUrl,
+        profile_image: ctx.avatarUrl,
+        banner_url: ctx.bannerUrl,
+        banner_image: ctx.bannerUrl,
+        phone: momoPhone,
+        momo_code: momoPhone,
+        momo_provider: momoProvider,
+        country_code: ctx.countryCode,
+        is_verified: ctx.isVerified,
+        is_approved: ctx.isApproved,
+        monetization_status: ctx.creatorChannel?.monetization_status || null,
+        monetization_lifetime: ctx.creatorChannel?.monetization_status === 'approved_monetized',
+        monetization_level: ctx.creatorChannel?.monetization_status === 'approved_monetized' ? 3 : 1,
       },
       profile: {
-        id: artist.id,
-        stage_name: full_name,
-        full_name,
-        username: artist.username,
-        bio,
-        avatar_url: profile_image,
-        profile_image,
-        banner_url: banner_image,
-        banner_image,
-        country: "Rwanda",
-        city: "Kigali",
-        social_links: {
-          instagram: socials.instagram || artist.instagram || "https://instagram.com/brucemelodie",
-          twitter: socials.twitter || artist.twitter || "https://twitter.com/brucemelodie",
-          youtube: socials.youtube || artist.youtube || "https://youtube.com/@brucemelodie",
-          spotify: socials.spotify || artist.spotify || "https://open.spotify.com/artist/brucemelodie",
-          website: socials.website || artist.website || "https://brucemelodie.rw"
-        }
+        id: ctx.primaryId,
+        stage_name: ctx.displayName,
+        full_name: ctx.displayName,
+        username: ctx.handle,
+        bio: ctx.bio,
+        avatar_url: ctx.avatarUrl,
+        profile_image: ctx.avatarUrl,
+        banner_url: ctx.bannerUrl,
+        banner_image: ctx.bannerUrl,
+        country: ctx.countryCode,
+        social_links: socials,
       },
       payment: {
-        provider: momo_provider,
-        phone,
-        account_name: full_name
+        provider: momoProvider,
+        phone: momoPhone,
+        account_name: payout?.account_holder_name || ctx.displayName,
       },
       active_notifications: {
-        purchase: true,
-        subscriber: true,
-        comment: true,
-        payout: true
+        purchase: notif ? Boolean(notif.payment_notifications) : true,
+        subscriber: notif ? Boolean(notif.follows_notifications) : true,
+        comment: notif ? Boolean(notif.comments_notifications) : true,
+        payout: notif ? Boolean(notif.monetization_notifications) : true,
       },
       notifications: {
-        notify_purchases: true,
-        notify_subscribers: true,
-        notify_comments: true,
-        notify_withdrawals: true
+        notify_purchases: notif ? Boolean(notif.payment_notifications) : true,
+        notify_subscribers: notif ? Boolean(notif.follows_notifications) : true,
+        notify_comments: notif ? Boolean(notif.comments_notifications) : true,
+        notify_withdrawals: notif ? Boolean(notif.monetization_notifications) : true,
       },
-      security: {
-        two_factor_enabled: false,
-        last_password_change: "2026-02-15"
-      }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * PUT /api/artist/profile and PUT /api/artist/settings
- * Update artist studio profile details
- */
 export const updateArtistProfile = async (req: Request, res: Response) => {
-  try {
-    const artist = await resolveArtistForDashboard(req);
-    if (!artist) return res.status(404).json({ error: "Artist not found" });
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
-    const { 
-      full_name, 
-      bio, 
-      avatar_url, 
-      profile_image, 
-      banner_url, 
-      banner_image, 
+  try {
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(404).json({ error: 'Artist not found' });
+
+    const {
+      full_name,
+      bio,
+      avatar_url,
+      profile_image,
+      banner_url,
+      banner_image,
       phone,
-      instagram, 
-      twitter, 
-      youtube, 
-      spotify, 
+      instagram,
+      twitter,
+      youtube,
+      spotify,
       website,
       social_links,
-      momo_code, 
-      payout_provider 
+      momo_code,
+      payout_provider,
     } = req.body;
 
-    const finalAvatar = profile_image || avatar_url || artist.profile_image || artist.avatar_url;
-    const finalBanner = banner_image || banner_url || artist.banner_image || artist.banner_url;
+    const db = getDb();
+    const now = new Date().toISOString();
+    const finalAvatar = profile_image !== undefined ? profile_image : avatar_url;
+    const finalBanner = banner_image !== undefined ? banner_image : banner_url;
 
-    let updatedSocials: any = {};
-    if (typeof artist.social_links === 'object' && artist.social_links) {
-      updatedSocials = { ...artist.social_links };
-    } else if (typeof artist.social_links === 'string') {
-      try {
-        updatedSocials = JSON.parse(artist.social_links);
-      } catch {}
+    const artistPatch: Record<string, any> = { updated_at: now };
+    const channelPatch: Record<string, any> = { updated_at: now };
+
+    if (full_name !== undefined) {
+      artistPatch.artist_name = String(full_name).trim();
+      channelPatch.channel_name = String(full_name).trim();
+    }
+    if (bio !== undefined) {
+      artistPatch.bio_en = String(bio);
+      channelPatch.description_en = String(bio);
+    }
+    if (finalAvatar !== undefined) {
+      artistPatch.avatar_path = finalAvatar || null;
+      channelPatch.avatar_path = finalAvatar || null;
+    }
+    if (finalBanner !== undefined) {
+      artistPatch.banner_path = finalBanner || null;
+      channelPatch.banner_path = finalBanner || null;
+    }
+    if (website !== undefined || social_links?.website !== undefined) {
+      const site = website !== undefined ? website : social_links.website;
+      artistPatch.website_url = site || null;
+      channelPatch.website_url = site || null;
     }
 
-    if (social_links && typeof social_links === 'object') {
-      updatedSocials = { ...updatedSocials, ...social_links };
+    if (ctx.artistId) {
+      await db.from('artist_profiles').update(artistPatch).eq('id', ctx.artistId);
     }
-    if (instagram !== undefined) updatedSocials.instagram = instagram;
-    if (twitter !== undefined) updatedSocials.twitter = twitter;
-    if (youtube !== undefined) updatedSocials.youtube = youtube;
-    if (spotify !== undefined) updatedSocials.spotify = spotify;
-    if (website !== undefined) updatedSocials.website = website;
+    if (ctx.channelId) {
+      await db.from('creator_channels').update(channelPatch).eq('id', ctx.channelId);
+    }
 
-    const updatePayload: any = {
-      full_name: full_name !== undefined ? full_name : artist.full_name,
-      bio: bio !== undefined ? bio : artist.bio,
-      profile_image: finalAvatar,
-      avatar_url: finalAvatar,
-      banner_image: finalBanner,
-      banner_url: finalBanner,
-      social_links: updatedSocials,
-      phone: phone !== undefined ? phone : artist.phone,
-      momo_code: momo_code !== undefined ? momo_code : artist.momo_code,
-      updated_at: new Date().toISOString()
+    const incomingSocials: Record<string, string | undefined> = {
+      ...(typeof social_links === 'object' && social_links ? social_links : {}),
+      ...(instagram !== undefined ? { instagram } : {}),
+      ...(twitter !== undefined ? { twitter } : {}),
+      ...(youtube !== undefined ? { youtube } : {}),
+      ...(spotify !== undefined ? { spotify } : {}),
+      ...(website !== undefined ? { website } : {}),
     };
 
-    if (isSupabaseConfigured()) {
-      try {
-        await supabaseAdmin
-          .from('artists')
-          .update(updatePayload)
-          .eq('id', artist.id);
-      } catch (dbErr) {
-        console.warn("Supabase artist update notice:", dbErr);
+    if (ctx.artistId) {
+      for (const [platform, url] of Object.entries(incomingSocials)) {
+        if (url === undefined) continue;
+        await db
+          .from('artist_social_links')
+          .delete()
+          .eq('artist_id', ctx.artistId)
+          .eq('platform_name', platform);
+        if (url && String(url).trim()) {
+          await db.from('artist_social_links').insert({
+            artist_id: ctx.artistId,
+            platform_name: platform,
+            platform_url: String(url).trim(),
+            is_visible: true,
+          });
+        }
       }
     }
 
-    const { getDbStore } = await import('../config/supabase_mock');
-    const store = getDbStore();
-    if (store && store.artists) {
-      const idx = store.artists.findIndex((a: any) => a.id === artist.id || a.user_id === artist.user_id);
-      if (idx >= 0) {
-        store.artists[idx] = { ...store.artists[idx], ...updatePayload };
+    const payoutPhone = momo_code !== undefined ? momo_code : phone;
+    if (ctx.channelId && ctx.ownerUserId && payoutPhone !== undefined && String(payoutPhone).trim()) {
+      const cleanPhone = String(payoutPhone).trim();
+      const masked =
+        cleanPhone.length >= 6 ? `${cleanPhone.slice(0, 3)}****${cleanPhone.slice(-3)}` : cleanPhone;
+
+      const { data: existingMethod } = await db
+        .from('creator_payout_methods')
+        .select('id')
+        .eq('creator_channel_id', ctx.channelId)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (existingMethod) {
+        const { error: pmUpdateErr } = await db
+          .from('creator_payout_methods')
+          .update({
+            provider_name: payout_provider || 'MTN Mobile Money',
+            masked_account_reference: masked,
+            provider_account_reference: crypto.createHash('sha256').update(cleanPhone).digest('hex').slice(0, 32),
+            metadata: { phone: cleanPhone },
+            updated_at: now,
+          })
+          .eq('id', existingMethod.id);
+        if (pmUpdateErr) throw pmUpdateErr;
+      } else {
+        const { error: pmInsertErr } = await db.from('creator_payout_methods').insert({
+          creator_channel_id: ctx.channelId,
+          owner_user_id: ctx.ownerUserId,
+          method_type: 'mobile_money',
+          provider_name: payout_provider || 'MTN Mobile Money',
+          provider_account_reference: crypto.createHash('sha256').update(cleanPhone).digest('hex').slice(0, 32),
+          provider_method_reference: `pm_${crypto.randomBytes(6).toString('hex')}`,
+          country_code: ctx.countryCode || 'RW',
+          currency_code: 'RWF',
+          account_holder_name: full_name || ctx.displayName,
+          masked_account_reference: masked,
+          method_status: 'active',
+          verification_status: 'pending',
+          is_default: true,
+          metadata: { phone: cleanPhone },
+          created_at: now,
+          updated_at: now,
+        });
+        if (pmInsertErr) throw pmInsertErr;
       }
     }
 
-    const finalArtist = { ...artist, ...updatePayload };
-    res.json({ success: true, message: "Profile updated successfully.", artist: finalArtist });
-  } catch (err: any) {
-    console.error("updateArtistProfile error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-/**
- * PUT /api/artist/settings/notifications
- * Update notification preferences
- */
-export const updateNotificationSettings = async (req: Request, res: Response) => {
-  try {
-    const { notify_purchases, notify_subscribers, notify_comments, notify_withdrawals } = req.body;
-    res.json({
+    return res.json({
       success: true,
-      message: "Notification preferences saved successfully.",
-      preferences: {
-        notify_purchases: !!notify_purchases,
-        notify_subscribers: !!notify_subscribers,
-        notify_comments: !!notify_comments,
-        notify_withdrawals: !!notify_withdrawals
-      }
+      message: 'Profile updated successfully.',
+      artist: {
+        id: ctx.primaryId,
+        full_name: artistPatch.artist_name || ctx.displayName,
+        bio: artistPatch.bio_en !== undefined ? artistPatch.bio_en : ctx.bio,
+        profile_image: finalAvatar !== undefined ? finalAvatar : ctx.avatarUrl,
+        banner_image: finalBanner !== undefined ? finalBanner : ctx.bannerUrl,
+      },
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * POST /api/artist/change-password
- * Change password
- */
+export const updateNotificationSettings = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  try {
+    const ctx = await resolveCreatorContext(req, false);
+    const userId = ctx?.ownerUserId || (req as any).user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { notify_purchases, notify_subscribers, notify_comments, notify_withdrawals } = req.body;
+    const db = getDb();
+
+    await db.from('user_notification_preferences').upsert(
+      {
+        user_id: userId,
+        payment_notifications: Boolean(notify_purchases),
+        follows_notifications: Boolean(notify_subscribers),
+        comments_notifications: Boolean(notify_comments),
+        monetization_notifications: Boolean(notify_withdrawals),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Notification preferences saved successfully.',
+      preferences: {
+        notify_purchases: Boolean(notify_purchases),
+        notify_subscribers: Boolean(notify_subscribers),
+        notify_comments: Boolean(notify_comments),
+        notify_withdrawals: Boolean(notify_withdrawals),
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 export const changePassword = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
   try {
-    const { new_password } = req.body;
-    if (!new_password || new_password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long." });
+    const user = (req as any).user;
+    if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
+
+    const newPassword = req.body.new_password || req.body.newPassword;
+    if (!newPassword || String(newPassword).length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
     }
-    res.json({ success: true, message: "Password updated successfully." });
+
+    const db = getDb();
+    const { error } = await db.auth.admin.updateUserById(user.id, { password: String(newPassword) });
+    if (error) return res.status(400).json({ error: error.message });
+
+    return res.json({ success: true, message: 'Password updated successfully.' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
-/**
- * GET /api/artists
- * Returns registered artists from database
- */
-export const listArtists = async (req: Request, res: Response) => {
-  try {
-    const { data: artists, error } = await supabaseAdmin
-      .from('artists')
-      .select('*')
-      .order('created_at', { ascending: false });
+export const listArtists = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
-    if (error) {
-      const store = getDbStore();
-      return res.json(store?.artists || []);
+  const db = getDb();
+  try {
+    const [artistsRes, followsRes, videosRes] = await Promise.all([
+      db
+        .from('artist_profiles')
+        .select('*')
+        .eq('is_public', true)
+        .neq('record_status', 'suspended')
+        .order('created_at', { ascending: false })
+        .limit(100),
+      db.from('artist_follows').select('artist_id'),
+      db.from('videos').select('artist_profile_id').eq('visibility', 'public'),
+    ]);
+
+    if (artistsRes.error) return res.status(500).json({ error: artistsRes.error.message });
+
+    const followCounts: Record<string, number> = {};
+    for (const f of followsRes.data || []) {
+      followCounts[f.artist_id] = (followCounts[f.artist_id] || 0) + 1;
     }
-    return res.json(artists || []);
+
+    const videoCounts: Record<string, number> = {};
+    for (const v of videosRes.data || []) {
+      if (v.artist_profile_id) {
+        videoCounts[v.artist_profile_id] = (videoCounts[v.artist_profile_id] || 0) + 1;
+      }
+    }
+
+    const formatted = (artistsRes.data || []).map((a: any) => ({
+      id: a.id,
+      full_name: a.artist_name,
+      username: a.artist_handle,
+      bio: a.bio_en || a.bio_rw || '',
+      profile_image: a.avatar_path || '',
+      banner_image: a.banner_path || '',
+      is_verified: a.verification_status === 'verified' || a.approval_status === 'approved',
+      is_approved: a.approval_status === 'approved',
+      subscriber_count: followCounts[a.id] || 0,
+      video_count: videoCounts[a.id] || 0,
+      created_at: a.created_at,
+    }));
+
+    return res.json(formatted);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
-
-

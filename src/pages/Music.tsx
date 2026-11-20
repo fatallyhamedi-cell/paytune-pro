@@ -1,557 +1,443 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Music2,
   Play,
   Pause,
-  SkipForward,
-  SkipBack,
-  Volume2,
-  VolumeX,
-  Heart,
-  Share2,
-  Download,
-  ShoppingBag,
+  Disc,
+  Flame,
+  Globe2,
   Sparkles,
   Users,
-  Clock,
+  ChevronRight,
   CheckCircle2,
-  Disc,
-  Radio,
   Search,
-  Filter
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
-import api from '../services/api';
+import { api } from '../lib/api';
+import { useAudioPlayer, MusicTrack } from '../hooks/useAudioPlayer';
+import MusicTrackCard from '../components/music/MusicTrackCard';
 
-interface Track {
-  id: string;
-  title: string;
-  artist_name: string;
-  artist_id?: string;
-  album_title?: string;
-  genre: string;
-  duration_seconds: number;
-  artwork_url: string;
-  audio_url: string;
-  is_free: boolean;
-  price_rwf: number;
-  plays_count: number;
-  likes_count: number;
-  release_year: number;
+interface HomeFeedData {
+  madeForYou: MusicTrack[];
+  fromArtistsYouFollow: MusicTrack[];
+  popularInCountry: MusicTrack[];
+  trendingAcrossAfrica: MusicTrack[];
+  newReleases: MusicTrack[];
+  genres: string[];
+  countries: { code: string; name: string }[];
+  followedArtists: { id: string; name: string; avatar: string; verified: boolean; followers: number }[];
+  likedTrackIds: string[];
 }
 
-const DEFAULT_TRACKS: Track[] = [
-  {
-    id: 'track-1',
-    title: 'Katerina (Remix)',
-    artist_name: 'Bruce Melodie',
-    artist_id: 'artist-melodie-01',
-    album_title: 'Kigali Vibrations',
-    genre: 'Rwandan Hits',
-    duration_seconds: 214,
-    artwork_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
-    audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    is_free: true,
-    price_rwf: 0,
-    plays_count: 142500,
-    likes_count: 18400,
-    release_year: 2025,
-  },
-  {
-    id: 'track-2',
-    title: 'Amapiano Sunrise',
-    artist_name: 'DJ Maphorisa & Kabza',
-    artist_id: 'artist-amapiano-02',
-    album_title: 'Scorpion Kings EP',
-    genre: 'Amapiano',
-    duration_seconds: 285,
-    artwork_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&auto=format&fit=crop&q=80',
-    audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
-    is_free: false,
-    price_rwf: 500,
-    plays_count: 98200,
-    likes_count: 12100,
-    release_year: 2025,
-  },
-  {
-    id: 'track-3',
-    title: 'Lagos to Kigali',
-    artist_name: 'Burna Boy ft. Meddy',
-    artist_id: 'artist-burna-03',
-    album_title: 'Love, Damini Extra',
-    genre: 'Afrobeats',
-    duration_seconds: 198,
-    artwork_url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
-    audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-    is_free: true,
-    price_rwf: 0,
-    plays_count: 310000,
-    likes_count: 45000,
-    release_year: 2026,
-  },
-  {
-    id: 'track-4',
-    title: 'Ni Wowe Mwami',
-    artist_name: 'Israel Mbonyi',
-    artist_id: 'artist-mbonyi-04',
-    album_title: 'Harakabaho Gospel',
-    genre: 'Gospel & Worship',
-    duration_seconds: 340,
-    artwork_url: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80',
-    audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
-    is_free: true,
-    price_rwf: 0,
-    plays_count: 520000,
-    likes_count: 67000,
-    release_year: 2025,
-  },
-  {
-    id: 'track-5',
-    title: 'Bongo Flava Nights',
-    artist_name: 'Diamond Platnumz',
-    artist_id: 'artist-diamond-05',
-    album_title: 'First Of All',
-    genre: 'Bongo Flava',
-    duration_seconds: 226,
-    artwork_url: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80',
-    audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
-    is_free: false,
-    price_rwf: 1000,
-    plays_count: 215000,
-    likes_count: 29000,
-    release_year: 2025,
-  },
-  {
-    id: 'track-6',
-    title: 'Highlife Harmony',
-    artist_name: 'Kidi & Kuami Eugene',
-    artist_id: 'artist-kidi-06',
-    album_title: 'Golden Boy Africa',
-    genre: 'Highlife',
-    duration_seconds: 205,
-    artwork_url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=600&auto=format&fit=crop&q=80',
-    audio_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
-    is_free: true,
-    price_rwf: 0,
-    plays_count: 87000,
-    likes_count: 11400,
-    release_year: 2026,
-  },
-];
-
-const GENRES = [
-  'All',
-  'Rwandan Hits',
-  'Afrobeats',
-  'Amapiano',
-  'Gospel & Worship',
-  'Bongo Flava',
-  'Highlife',
-];
-
 export default function Music() {
-  const [tracks, setTracks] = useState<Track[]>(DEFAULT_TRACKS);
-  const [selectedGenre, setSelectedGenre] = useState<string>('All');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialCountry = searchParams.get('country') || 'All';
+
+  const [selectedCountry, setSelectedCountry] = useState<string>(initialCountry);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [currentTrack, setCurrentTrack] = useState<Track>(DEFAULT_TRACKS[0]);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(DEFAULT_TRACKS[0].duration_seconds);
-  const [volume, setVolume] = useState<number>(0.8);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [feedData, setFeedData] = useState<HomeFeedData | null>(null);
+  const [allTracks, setAllTracks] = useState<MusicTrack[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Attempt to load tracks from backend
-    api.get('/videos')
-      .then((res) => {
-        const videoList = res.data?.videos || res.data || [];
-        const audioMapped: Track[] = videoList
-          .filter((v: any) => v.category === 'Music' || v.audio_url || v.tags?.includes('music'))
-          .map((v: any, idx: number) => ({
-            id: `v-track-${v.id}`,
-            title: v.title,
-            artist_name: v.artist?.full_name || v.artists?.full_name || 'PayTune Artist',
-            artist_id: v.artist_id,
-            album_title: 'Single Release',
-            genre: v.category || 'Afrobeats',
-            duration_seconds: v.duration || 210,
-            artwork_url: v.thumbnail_url || DEFAULT_TRACKS[idx % DEFAULT_TRACKS.length].artwork_url,
-            audio_url: v.audio_url || v.video_url || DEFAULT_TRACKS[idx % DEFAULT_TRACKS.length].audio_url,
-            is_free: v.is_free ?? true,
-            price_rwf: v.price_rwf || 0,
-            plays_count: v.views || 1000,
-            likes_count: v.likes || 150,
-            release_year: 2025,
-          }));
+  const { currentTrack, isPlaying, playTrack } = useAudioPlayer();
 
-        if (audioMapped.length > 0) {
-          setTracks([...audioMapped, ...DEFAULT_TRACKS]);
-        }
-      })
-      .catch((err) => {
-        console.warn('Backend audio sync notice (using standard library):', err.message);
+  const fetchMusicFeed = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.get('/api/music/home', {
+        params: { country: selectedCountry },
       });
-  }, []);
+      if (res.data?.success) {
+        setFeedData(res.data);
+        const combined = [
+          ...(res.data.madeForYou || []),
+          ...(res.data.trendingAcrossAfrica || []),
+          ...(res.data.newReleases || []),
+          ...(res.data.popularInCountry || []),
+        ];
+        const uniqueMap = new Map<string, MusicTrack>();
+        combined.forEach((t) => uniqueMap.set(t.id, t));
+        setAllTracks(Array.from(uniqueMap.values()));
+      } else {
+        throw new Error(res.data?.error || 'Failed to load music catalog.');
+      }
+    } catch (err: any) {
+      console.error('Error loading music home feed:', err);
+      setError(err?.response?.data?.error || err?.message || 'Unable to load music catalog from database.');
+      setFeedData(null);
+      setAllTracks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCountry]);
 
   useEffect(() => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.play().catch(() => setIsPlaying(false));
+    fetchMusicFeed();
+  }, [fetchMusicFeed]);
+
+  const handleCountrySelect = (code: string) => {
+    setSelectedCountry(code);
+    const updated = new URLSearchParams(searchParams);
+    if (code === 'All') {
+      updated.delete('country');
     } else {
-      audioRef.current.pause();
+      updated.set('country', code);
     }
-  }, [isPlaying, currentTrack]);
-
-  const handlePlayTrack = (track: Track) => {
-    if (currentTrack.id === track.id) {
-      setIsPlaying(!isPlaying);
-    } else {
-      setCurrentTrack(track);
-      setCurrentTime(0);
-      setIsPlaying(true);
-    }
+    setSearchParams(updated);
   };
 
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-      if (audioRef.current.duration) {
-        setDuration(audioRef.current.duration);
-      }
-    }
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = Number(e.target.value);
-    setCurrentTime(time);
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-    }
-  };
-
-  const handleNext = () => {
-    const currentIndex = tracks.findIndex((t) => t.id === currentTrack.id);
-    const nextIndex = (currentIndex + 1) % tracks.length;
-    setCurrentTrack(tracks[nextIndex]);
-    setCurrentTime(0);
-    setIsPlaying(true);
-  };
-
-  const handlePrev = () => {
-    const currentIndex = tracks.findIndex((t) => t.id === currentTrack.id);
-    const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
-    setCurrentTrack(tracks[prevIndex]);
-    setCurrentTime(0);
-    setIsPlaying(true);
-  };
-
-  const toggleLike = (id: string) => {
-    const next = new Set(likedTrackIds);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
-    setLikedTrackIds(next);
-  };
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const filteredTracks = tracks.filter((t) => {
-    const matchesGenre = selectedGenre === 'All' || t.genre === selectedGenre;
+  const filteredCatalog = allTracks.filter((t) => {
+    const matchesCountry = selectedCountry === 'All' || t.country_code === selectedCountry;
     const matchesSearch =
       searchQuery === '' ||
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.artist_name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesGenre && matchesSearch;
+      t.artist_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.genre.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCountry && matchesSearch;
   });
 
+  const spotlightTrack = feedData?.trendingAcrossAfrica?.[0] || allTracks[0];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
-      <audio
-        ref={audioRef}
-        src={currentTrack.audio_url}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={handleNext}
-      />
-
-      {/* 1. Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200 mb-2">
-            <Music2 className="w-3.5 h-3.5" />
-            <span>PayTune Pan-African Music & Audio</span>
+    <div className="min-h-screen bg-gray-50 pb-28">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+        {/* Header & Filters (CategoryBar intentionally omitted) */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-bold mb-2">
+              <Music2 className="w-3.5 h-3.5" />
+              <span>PAYTUNE Music</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+              Music Catalog & Artist Releases
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              Stream published releases stored in PAYTUNE directly from creator channels.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
-            African Soundtracks & Discographies
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Stream high-bitrate African audio, discover trending Rwandan Hits and Afrobeats, or buy permanent lifetime tracks directly from verified artists.
-          </p>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative w-full sm:w-64 shrink-0">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search songs, artists, genres..."
+                className="w-full pl-9 pr-7 py-2 rounded-full bg-white border border-gray-200 text-xs font-medium text-gray-900 focus:outline-none focus:border-purple-600 transition-all shadow-xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {feedData?.countries && feedData.countries.length > 1 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
+                {feedData.countries.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => handleCountrySelect(c.code)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                      selectedCountry === c.code
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search tracks, artists..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-white border border-gray-200 text-xs font-medium focus:outline-none focus:border-purple-600 shadow-sm"
-          />
-        </div>
-      </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 py-4">
+            {[0, 1, 2, 3].map((idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-2xl p-4 border border-gray-200 animate-pulse space-y-3"
+              >
+                <div className="aspect-square rounded-xl bg-gray-200" />
+                <div className="h-3 w-20 bg-gray-200 rounded" />
+                <div className="h-4 w-3/4 bg-gray-200 rounded" />
+                <div className="h-8 w-full bg-gray-100 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* 2. Hero Interactive Player Card */}
-      <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-purple-800">
-        <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8 relative z-10">
-          {/* Artwork 1:1 with vinyl spin aesthetic */}
-          <div className="relative shrink-0 w-36 h-36 sm:w-44 sm:h-44 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 group">
-            <img
-              src={currentTrack.artwork_url}
-              alt={currentTrack.title}
-              className={`w-full h-full object-cover transition-transform duration-700 ${
-                isPlaying ? 'scale-105' : 'scale-100'
-              }`}
-            />
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Disc className={`w-12 h-12 text-[#FFB300] ${isPlaying ? 'animate-spin' : ''}`} />
+        {/* Error State */}
+        {!loading && error && (
+          <div className="bg-white rounded-3xl p-10 border border-red-200 text-center space-y-4">
+            <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">Unable to load music tracks</h2>
+              <p className="text-sm text-gray-500 max-w-md mx-auto">{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchMusicFeed}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry</span>
+            </button>
+          </div>
+        )}
+
+        {/* Honest Empty Database State */}
+        {!loading && !error && allTracks.length === 0 && (
+          <div className="bg-white rounded-3xl p-12 border border-dashed border-gray-300 text-center space-y-4">
+            <Music2 className="w-12 h-12 text-gray-400 mx-auto" />
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">No published music tracks yet</h2>
+              <p className="text-sm text-gray-500 max-w-md mx-auto">
+                There are currently no published tracks in the music catalog. Artists can publish audio releases from Studio.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Link
+                to="/artist/upload"
+                className="px-5 py-2.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors"
+              >
+                Upload in Studio
+              </Link>
+              <button
+                type="button"
+                onClick={fetchMusicFeed}
+                className="px-4 py-2.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Refresh
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Controls & Track Details */}
-          <div className="flex-1 w-full space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300">
-                  {currentTrack.genre} • {currentTrack.album_title || 'Featured Single'}
-                </span>
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-0.5 line-clamp-1">
-                  {currentTrack.title}
+        {/* Hero Spotlight Banner */}
+        {!loading && !error && !searchQuery && spotlightTrack && (
+          <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-neutral-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-purple-800">
+            <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8 relative z-10">
+              <div className="relative shrink-0 w-36 h-36 sm:w-48 sm:h-48 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 group bg-purple-900/50 flex items-center justify-center">
+                {spotlightTrack.artwork_url ? (
+                  <img
+                    src={spotlightTrack.artwork_url}
+                    alt={spotlightTrack.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                ) : (
+                  <Disc className="w-16 h-16 text-purple-300" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => playTrack(spotlightTrack, allTracks)}
+                  className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  aria-label="Play featured track"
+                >
+                  <Disc className="w-12 h-12 text-purple-300" />
+                </button>
+              </div>
+
+              <div className="flex-1 w-full space-y-3">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-200 text-xs font-bold border border-purple-400/30">
+                  <Flame className="w-3.5 h-3.5 fill-current" />
+                  <span>Top Track</span>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight line-clamp-1">
+                  {spotlightTrack.title}
                 </h2>
-                <p className="text-sm text-purple-200 font-semibold mt-0.5">
-                  {currentTrack.artist_name}
+
+                <p className="text-base text-purple-200 font-bold flex items-center gap-2">
+                  <Link
+                    to={spotlightTrack.artist_id ? `/artist/${spotlightTrack.artist_id}` : '#'}
+                    className="hover:underline flex items-center gap-1 text-white"
+                  >
+                    <span>{spotlightTrack.artist_name}</span>
+                    {spotlightTrack.artist_verified && (
+                      <CheckCircle2 className="w-4 h-4 text-purple-300 fill-black" />
+                    )}
+                  </Link>
+                  <span>•</span>
+                  <span className="text-sm text-purple-300 font-medium">
+                    {spotlightTrack.genre}
+                  </span>
+                </p>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => playTrack(spotlightTrack, allTracks)}
+                    className="px-5 py-2.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
+                  >
+                    {currentTrack?.id === spotlightTrack.id && isPlaying ? (
+                      <>
+                        <Pause className="w-4 h-4 fill-white" />
+                        <span>Pause Streaming</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 fill-white ml-0.5" />
+                        <span>Play Track</span>
+                      </>
+                    )}
+                  </button>
+
+                  {spotlightTrack.artist_id && (
+                    <Link
+                      to={`/artist/${spotlightTrack.artist_id}`}
+                      className="px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors"
+                    >
+                      <span>Visit Artist Channel</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Search Results or Discovery Sections */}
+        {!loading && !error && allTracks.length > 0 && searchQuery && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">
+              Search Results for &quot;{searchQuery}&quot; ({filteredCatalog.length})
+            </h2>
+            {filteredCatalog.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 border border-gray-200 text-center space-y-2">
+                <Music2 className="w-10 h-10 text-gray-400 mx-auto" />
+                <h3 className="text-base font-bold text-gray-800">No matching tracks</h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  Try another keyword or clear your search query.
                 </p>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleLike(currentTrack.id)}
-                  className={`p-2.5 rounded-full backdrop-blur-md transition-colors ${
-                    likedTrackIds.has(currentTrack.id)
-                      ? 'bg-rose-500 text-white'
-                      : 'bg-white/10 text-white hover:bg-white/20'
-                  }`}
-                  aria-label="Like track"
-                >
-                  <Heart className="w-4 h-4 fill-current" />
-                </button>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredCatalog.map((track) => (
+                  <MusicTrackCard
+                    key={track.id}
+                    track={track}
+                    allTracks={filteredCatalog}
+                    onFollowToggled={() => fetchMusicFeed()}
+                  />
+                ))}
               </div>
-            </div>
-
-            {/* Scrubber Progress Bar */}
-            <div className="space-y-1.5">
-              <input
-                type="range"
-                min="0"
-                max={duration || 100}
-                value={currentTime}
-                onChange={handleSeek}
-                className="w-full accent-[#FFB300] h-1.5 bg-white/20 rounded-lg cursor-pointer"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-purple-200">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-            </div>
-
-            {/* Playback Controls Stack */}
-            <div className="flex items-center justify-between flex-wrap gap-4 pt-1">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handlePrev}
-                  className="p-2 text-purple-200 hover:text-white transition-colors"
-                  aria-label="Previous track"
-                >
-                  <SkipBack className="w-5 h-5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="w-12 h-12 rounded-full bg-[#FFB300] hover:bg-amber-400 text-black flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer"
-                  aria-label={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5 fill-black" />
-                  ) : (
-                    <Play className="w-5 h-5 fill-black ml-0.5" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="p-2 text-purple-200 hover:text-white transition-colors"
-                  aria-label="Next track"
-                >
-                  <SkipForward className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Volume */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsMuted(!isMuted)}
-                  className="text-purple-200 hover:text-white"
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setVolume(v);
-                    setIsMuted(v === 0);
-                    if (audioRef.current) audioRef.current.volume = v;
-                  }}
-                  className="w-20 accent-purple-400 h-1 bg-white/20 rounded-lg cursor-pointer"
-                />
-              </div>
-
-              {/* Purchase / Price Tag */}
-              <div className="flex items-center gap-2">
-                {currentTrack.is_free ? (
-                  <span className="text-xs font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-400 px-3 py-1 rounded-full">
-                    Free Stream
-                  </span>
-                ) : (
-                  <span className="text-xs font-bold text-amber-300 bg-amber-500/20 border border-amber-400 px-3 py-1 rounded-full flex items-center gap-1">
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>{currentTrack.price_rwf} RWF Lifetime</span>
-                  </span>
-                )}
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* 3. Category Filter Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {GENRES.map((genre) => (
-          <button
-            key={genre}
-            onClick={() => setSelectedGenre(genre)}
-            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer shrink-0 ${
-              selectedGenre === genre
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-            }`}
-          >
-            {genre}
-          </button>
-        ))}
-      </div>
-
-      {/* 4. Tracks Grid (Responsive across small phones, tablets, laptops, desktop) */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold text-gray-900">
-          {selectedGenre === 'All' ? 'Pan-African Catalog' : `${selectedGenre} Hits`} ({filteredTracks.length})
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredTracks.map((track) => {
-            const isCurrent = currentTrack.id === track.id;
-            const isTrackPlaying = isCurrent && isPlaying;
-
-            return (
-              <div
-                key={track.id}
-                className={`bg-white rounded-2xl p-4 border transition-all duration-200 hover:shadow-md flex flex-col justify-between space-y-3 group ${
-                  isCurrent ? 'border-purple-600 ring-1 ring-purple-600' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  {/* Square Artwork 1:1 */}
-                  <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-gray-100 shadow-sm">
-                    <img
-                      src={track.artwork_url}
-                      alt={track.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handlePlayTrack(track)}
-                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    >
-                      {isTrackPlaying ? (
-                        <Pause className="w-6 h-6 text-[#FFB300] fill-current" />
-                      ) : (
-                        <Play className="w-6 h-6 text-[#FFB300] fill-current ml-0.5" />
-                      )}
-                    </button>
+        {!loading && !error && allTracks.length > 0 && !searchQuery && (
+          <div className="space-y-10">
+            {feedData?.fromArtistsYouFollow && feedData.fromArtistsYouFollow.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                      <Users className="w-5 h-5 text-purple-600" />
+                      <span>From Artists You Follow</span>
+                    </h2>
                   </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-purple-600 truncate">{track.genre}</p>
-                    <h3 className="text-sm font-bold text-gray-900 truncate mt-0.5">
-                      {track.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">
-                      {track.artist_name}
-                    </p>
-                  </div>
+                  <Link
+                    to="/follows"
+                    className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                  >
+                    <span>View all</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1 font-mono">
-                      <Clock className="w-3 h-3" />
-                      {formatTime(track.duration_seconds)}
-                    </span>
-                    <span>•</span>
-                    <span>{(track.plays_count || 0).toLocaleString()} plays</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {track.is_free ? (
-                      <span className="text-emerald-600 font-bold">FREE</span>
-                    ) : (
-                      <span className="text-amber-600 font-bold">{track.price_rwf} RWF</span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => toggleLike(track.id)}
-                      className={`p-1 text-gray-400 hover:text-rose-500 transition-colors ${
-                        likedTrackIds.has(track.id) ? 'text-rose-500' : ''
-                      }`}
-                      aria-label="Like track"
-                    >
-                      <Heart className="w-3.5 h-3.5 fill-current" />
-                    </button>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {feedData.fromArtistsYouFollow.slice(0, 4).map((track) => (
+                    <MusicTrackCard
+                      key={track.id}
+                      track={track}
+                      allTracks={feedData.fromArtistsYouFollow}
+                      isFollowedInitial={true}
+                      onFollowToggled={() => fetchMusicFeed()}
+                    />
+                  ))}
                 </div>
               </div>
-            );
-          })}
-        </div>
+            )}
+
+            {feedData?.trendingAcrossAfrica && feedData.trendingAcrossAfrica.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-purple-600 fill-current" />
+                  <span>Top Played Tracks</span>
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {feedData.trendingAcrossAfrica.map((track) => (
+                    <MusicTrackCard
+                      key={track.id}
+                      track={track}
+                      allTracks={feedData.trendingAcrossAfrica}
+                      onFollowToggled={() => fetchMusicFeed()}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedCountry !== 'All' &&
+              feedData?.popularInCountry &&
+              feedData.popularInCountry.length > 0 && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                    <Globe2 className="w-5 h-5 text-indigo-600" />
+                    <span>
+                      Popular in{' '}
+                      {feedData.countries?.find((c) => c.code === selectedCountry)?.name || selectedCountry}
+                    </span>
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {feedData.popularInCountry.map((track) => (
+                      <MusicTrackCard
+                        key={track.id}
+                        track={track}
+                        allTracks={feedData.popularInCountry}
+                        onFollowToggled={() => fetchMusicFeed()}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {feedData?.newReleases && feedData.newReleases.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  <span>New Releases</span>
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {feedData.newReleases.map((track) => (
+                    <MusicTrackCard
+                      key={track.id}
+                      track={track}
+                      allTracks={feedData.newReleases}
+                      onFollowToggled={() => fetchMusicFeed()}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

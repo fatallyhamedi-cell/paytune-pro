@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterStats {
   total_users: number;
@@ -43,22 +43,16 @@ export const useMasterStats = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
 
       const [statsRes, revRes, actRes, topRes] = await Promise.allSettled([
-        axios.get("/api/master/stats", { headers }),
-        axios.get(`/api/master/revenue?period=${revenuePeriod}`, { headers }),
-        axios.get("/api/master/activity", { headers }),
-        axios.get("/api/master/top-content", { headers })
+        api.get("/api/master/stats"),
+        api.get(`/api/master/revenue?period=${revenuePeriod}`),
+        api.get("/api/master/activity"),
+        api.get("/api/master/top-content")
       ]);
 
       if (statsRes.status === "fulfilled") {
@@ -75,11 +69,11 @@ export const useMasterStats = () => {
       }
     } catch (err: any) {
       console.error("useMasterStats error:", err);
-      setError(err.message || "Failed to load dashboard metrics");
+      setError(err.response?.data?.error || err.message || "Failed to load dashboard metrics");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, revenuePeriod]);
+  }, [revenuePeriod]);
 
   useEffect(() => {
     fetchStats();
@@ -88,7 +82,7 @@ export const useMasterStats = () => {
   const changeRevenuePeriod = async (period: "day" | "week" | "month" | "year") => {
     setRevenuePeriod(period);
     try {
-      const res = await axios.get(`/api/master/revenue?period=${period}`, { headers: getHeaders() });
+      const res = await api.get(`/api/master/revenue?period=${period}`);
       setRevenue(res.data);
     } catch (e) {
       console.error("Failed to update revenue period", e);

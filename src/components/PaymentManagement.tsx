@@ -49,6 +49,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [confirmRefundPayment, setConfirmRefundPayment] = useState<MasterPayment | null>(null);
 
   // Aggregate summary metrics
   const totalGross = useMemo(() => payments.reduce((acc, p) => acc + (p.amount_rwf || 0), 0), [payments]);
@@ -214,9 +215,11 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
             <p className="text-lg font-bold text-white">
               {providerStats.mtn.total.toLocaleString()} <span className="text-xs text-neutral-400">RWF</span>
             </p>
-            <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-[#FFB300] h-full rounded-full" style={{ width: `${providerStats.mtn.pct}%` }} />
-            </div>
+            <progress
+              value={providerStats.mtn.pct}
+              max={100}
+              className="w-full h-1.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-[#FFB300] [&::-moz-progress-bar]:bg-[#FFB300]"
+            />
             <span className="text-[10px] text-neutral-400">{providerStats.mtn.count} transactions</span>
           </div>
 
@@ -232,9 +235,11 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
             <p className="text-lg font-bold text-white">
               {providerStats.airtel.total.toLocaleString()} <span className="text-xs text-neutral-400">RWF</span>
             </p>
-            <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-red-500 h-full rounded-full" style={{ width: `${providerStats.airtel.pct}%` }} />
-            </div>
+            <progress
+              value={providerStats.airtel.pct}
+              max={100}
+              className="w-full h-1.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-red-500 [&::-moz-progress-bar]:bg-red-500"
+            />
             <span className="text-[10px] text-neutral-400">{providerStats.airtel.count} transactions</span>
           </div>
 
@@ -250,9 +255,11 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
             <p className="text-lg font-bold text-white">
               {providerStats.stripe.total.toLocaleString()} <span className="text-xs text-neutral-400">RWF</span>
             </p>
-            <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${providerStats.stripe.pct}%` }} />
-            </div>
+            <progress
+              value={providerStats.stripe.pct}
+              max={100}
+              className="w-full h-1.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-indigo-500 [&::-moz-progress-bar]:bg-indigo-500"
+            />
             <span className="text-[10px] text-neutral-400">{providerStats.stripe.count} transactions</span>
           </div>
         </div>
@@ -425,11 +432,7 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
                       {p.status === "completed" || (p as any).status === "paid" ? (
                         <button
                           id={`btn-refund-${p.id}`}
-                          onClick={() => {
-                            if (window.confirm(`Issue refund of ${p.amount_rwf} RWF for customer ${p.user_name}?`)) {
-                              onRefund(p.id);
-                            }
-                          }}
+                          onClick={() => setConfirmRefundPayment(p)}
                           className="px-2 py-1 rounded bg-neutral-800 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 text-[11px] font-medium transition-colors cursor-pointer"
                           title="Refund Transaction"
                         >
@@ -446,6 +449,35 @@ export const PaymentManagement: React.FC<PaymentManagementProps> = ({
           </table>
         </div>
       </div>
+      {confirmRefundPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-2xl bg-[#1A1A1A] border border-neutral-800 p-6 shadow-2xl text-xs space-y-4 text-center">
+            <h3 className="text-sm font-bold text-white">Confirm Refund</h3>
+            <p className="text-neutral-400">
+              Issue refund of {Number(confirmRefundPayment.amount_rwf || 0).toLocaleString()} RWF for customer {confirmRefundPayment.user_name || "Guest"}?
+            </p>
+            <div className="flex justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmRefundPayment(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onRefund(confirmRefundPayment.id);
+                  setConfirmRefundPayment(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
+              >
+                Confirm Refund
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

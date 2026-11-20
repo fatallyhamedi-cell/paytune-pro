@@ -91,6 +91,10 @@ export async function uploadDirect(
     }
   }
 
+  if (!uploadSuccess || !publicUrl) {
+    throw new Error(`Upload to storage bucket '${bucket}' failed. Please check file size, format, and network connection.`);
+  }
+
   if (onProgress) onProgress(100);
   return publicUrl;
 }

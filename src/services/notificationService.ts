@@ -1,7 +1,7 @@
-import { getTableData, saveTableData, dispatchRealtimeEvent } from '../config/supabase_mock';
+import { randomUUID } from 'crypto';
+import { supabaseAdmin } from '../config/supabase';
 import { NotificationItem, NotificationPreferences } from '../types/dashboard';
 
-// Optional reference to server-side Socket.IO instance for instant push
 let serverIO: any = null;
 
 export function setNotificationIO(ioInstance: any) {
@@ -16,86 +16,144 @@ export interface CreateNotificationParams {
   userId?: string | null;
   artistId?: string | null;
   recipientType: 'user' | 'artist' | 'master';
-  type: string; // 'new_video' | 'new_follower' | 'new_purchase' | 'new_comment' | 'super_thanks' | 'membership' | 'withdrawal' | 'live_stream' | 'copyright' | 'system'
+  type: string;
   title: string;
   message: string;
   link: string;
   relatedId?: string | null;
 }
 
-/**
- * Fetch or initialize default notification preferences
- */
-export function getNotificationPreferences(
-  userId?: string | null,
-  artistId?: string | null
-): NotificationPreferences {
-  const prefsTable: any[] = getTableData('notification_preferences') || [];
-  let found = prefsTable.find((p) => {
-    if (artistId && p.artist_id === artistId) return true;
-    if (userId && p.user_id === userId) return true;
-    return false;
-  });
+function mapNotificationType(raw: string): string {
+  const map: Record<string, string> = {
+    new_follower: 'new_follower',
+    new_comment: 'new_comment',
+    comment_reply: 'comment_reply',
+    new_video: 'artist_update',
+    new_purchase: 'payment_update',
+    wallet_credit: 'monetization_update',
+    super_thanks: 'payment_update',
+    payment_failed: 'payment_update',
+    membership: 'membership_update',
+    live_stream: 'livestream_started',
+    withdrawal: 'payment_update',
+    copyright: 'system_announcement',
+    system: 'system_announcement'
+  };
+  return map[raw] || 'other';
+}
 
-  if (!found) {
-    found = {
-      id: `pref-${userId || artistId || 'default'}`,
-      user_id: userId || null,
-      artist_id: artistId || null,
-      email_new_video: true,
-      email_new_follower: true,
-      email_new_purchase: true,
-      email_new_comment: true,
-      email_super_thanks: true,
-      email_membership: true,
-      email_withdrawal: true,
-      email_marketing: false,
-      push_enabled: true
-    };
+async function resolveChannelOwnerUserId(creatorOrArtistId?: string | null): Promise<string | null> {
+  if (!creatorOrArtistId) return null;
+  const { data: channel } = await supabaseAdmin
+    .from('creator_channels')
+    .select('owner_user_id, created_by_user_id')
+    .eq('id', creatorOrArtistId)
+    .maybeSingle();
+  if (channel?.owner_user_id || channel?.created_by_user_id) {
+    return channel.owner_user_id || channel.created_by_user_id;
   }
 
-  return found;
+  const { data: artist } = await supabaseAdmin
+    .from('artist_profiles')
+    .select('primary_contact_user_id, created_by_user_id')
+    .eq('id', creatorOrArtistId)
+    .maybeSingle();
+  return artist?.primary_contact_user_id || artist?.created_by_user_id || null;
+}
+
+async function resolveMasterAdminUserIds(): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from('user_role_assignments')
+    .select('user_id')
+    .in('role', ['master_admin', 'admin'])
+    .eq('is_active', true);
+  return (data || []).map((r: any) => r.user_id).filter(Boolean);
 }
 
 /**
- * Save notification preferences
+ * Fetch or initialize notification preferences from user_notification_preferences
  */
-export function saveNotificationPreferences(
+export async function getNotificationPreferences(
+  userId?: string | null,
+  _artistId?: string | null
+): Promise<NotificationPreferences> {
+  if (userId) {
+    const { data } = await supabaseAdmin
+      .from('user_notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data) {
+      return {
+        id: data.user_id,
+        user_id: data.user_id,
+        artist_id: _artistId || null,
+        email_new_video: Boolean(data.new_content_notifications),
+        email_new_follower: Boolean(data.follows_notifications),
+        email_new_purchase: Boolean(data.payment_notifications),
+        email_new_comment: Boolean(data.comments_notifications),
+        email_super_thanks: Boolean(data.monetization_notifications),
+        email_membership: Boolean(data.monetization_notifications),
+        email_withdrawal: Boolean(data.payment_notifications),
+        email_marketing: Boolean(data.marketing_email_notifications),
+        push_enabled: Boolean(data.push_notifications)
+      };
+    }
+  }
+
+  return {
+    id: userId || 'default',
+    user_id: userId || null,
+    artist_id: _artistId || null,
+    email_new_video: true,
+    email_new_follower: true,
+    email_new_purchase: true,
+    email_new_comment: true,
+    email_super_thanks: true,
+    email_membership: true,
+    email_withdrawal: true,
+    email_marketing: false,
+    push_enabled: true
+  };
+}
+
+/**
+ * Save notification preferences to user_notification_preferences
+ */
+export async function saveNotificationPreferences(
   userId: string | null,
   artistId: string | null,
   updates: Partial<NotificationPreferences>
-): NotificationPreferences {
-  const prefsTable: any[] = getTableData('notification_preferences') || [];
-  const index = prefsTable.findIndex((p) => {
-    if (artistId && p.artist_id === artistId) return true;
-    if (userId && p.user_id === userId) return true;
-    return false;
-  });
-
-  const existing = getNotificationPreferences(userId, artistId);
-  const updated: NotificationPreferences = {
-    ...existing,
-    ...updates,
-    user_id: userId || existing.user_id,
-    artist_id: artistId || existing.artist_id
-  };
-
-  if (index >= 0) {
-    prefsTable[index] = updated;
-  } else {
-    prefsTable.push(updated);
+): Promise<NotificationPreferences> {
+  if (!userId) {
+    throw new Error('userId is required to update notification preferences');
   }
 
-  saveTableData('notification_preferences', prefsTable);
-  dispatchRealtimeEvent('notification_preferences', 'UPDATE', updated);
-  return updated;
+  const payload: Record<string, any> = {
+    user_id: userId,
+    updated_at: new Date().toISOString()
+  };
+
+  if (typeof updates.push_enabled === 'boolean') payload.push_notifications = updates.push_enabled;
+  if (typeof updates.email_new_video === 'boolean') payload.new_content_notifications = updates.email_new_video;
+  if (typeof updates.email_new_follower === 'boolean') payload.follows_notifications = updates.email_new_follower;
+  if (typeof updates.email_new_purchase === 'boolean') payload.payment_notifications = updates.email_new_purchase;
+  if (typeof updates.email_new_comment === 'boolean') payload.comments_notifications = updates.email_new_comment;
+  if (typeof updates.email_super_thanks === 'boolean') payload.monetization_notifications = updates.email_super_thanks;
+  if (typeof updates.email_marketing === 'boolean') payload.marketing_email_notifications = updates.email_marketing;
+
+  await supabaseAdmin
+    .from('user_notification_preferences')
+    .upsert(payload, { onConflict: 'user_id' });
+
+  return getNotificationPreferences(userId, artistId);
 }
 
 /**
- * Core notification dispatcher.
- * Checks preferences, saves record, emits Supabase Realtime and Socket.IO events.
+ * Core notification dispatcher using PostgreSQL public.notifications and Socket.IO.
  */
-export function createNotification(params: CreateNotificationParams): NotificationItem | null {
+export async function createNotification(params: CreateNotificationParams): Promise<NotificationItem | null> {
   const {
     userId,
     artistId,
@@ -107,128 +165,140 @@ export function createNotification(params: CreateNotificationParams): Notificati
     relatedId
   } = params;
 
-  // Check preferences if targeting specific user or artist
-  if (userId || artistId) {
-    const prefs = getNotificationPreferences(userId, artistId);
-    if (!prefs.push_enabled) {
-      // User turned off all notifications
-      return null;
-    }
-
-    if (type === 'new_video' && !prefs.email_new_video) return null;
-    if (type === 'new_follower' && !prefs.email_new_follower) return null;
-    if (type === 'new_purchase' && !prefs.email_new_purchase) return null;
-    if (type === 'new_comment' && !prefs.email_new_comment) return null;
-    if (type === 'super_thanks' && !prefs.email_super_thanks) return null;
-    if (type === 'membership' && !prefs.email_membership) return null;
-    if (type === 'withdrawal' && !prefs.email_withdrawal) return null;
-  }
-
-  const notification: NotificationItem = {
-    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    user_id: userId || null,
-    artist_id: artistId || null,
-    recipient_type: recipientType,
-    type,
-    title,
-    message,
-    link: link.startsWith('/') ? link : `/${link}`,
-    is_read: false,
-    related_id: relatedId || null,
-    created_at: new Date().toISOString()
-  };
-
-  // 1. Persist to notifications table
-  const allNotifications = getTableData('notifications') || [];
-  allNotifications.unshift(notification);
-  saveTableData('notifications', allNotifications);
-
-  // 2. Dispatch Supabase Realtime event
-  dispatchRealtimeEvent('notifications', 'INSERT', notification);
-
-  // 3. Emit via Socket.IO if active on server
-  if (serverIO) {
-    serverIO.emit('notification:new', notification);
-    if (userId) {
-      serverIO.to(`user:${userId}`).emit('notification:new', notification);
-    }
-    if (artistId) {
-      serverIO.to(`artist:${artistId}`).emit('notification:new', notification);
-    }
+  try {
+    let targetUserIds: string[] = [];
     if (recipientType === 'master') {
-      serverIO.to('role:master').emit('notification:new', notification);
+      targetUserIds = await resolveMasterAdminUserIds();
+    } else if (userId) {
+      targetUserIds = [userId];
+    } else if (artistId) {
+      const ownerId = await resolveChannelOwnerUserId(artistId);
+      if (ownerId) targetUserIds = [ownerId];
     }
+
+    const actionUrl = link.startsWith('/') ? link : `/${link}`;
+    const now = new Date().toISOString();
+    const mappedType = mapNotificationType(type);
+
+    let firstInserted: NotificationItem | null = null;
+
+    for (const recipientUserId of targetUserIds) {
+      const prefs = await getNotificationPreferences(recipientUserId, artistId);
+      if (!prefs.push_enabled) continue;
+      if (type === 'new_video' && !prefs.email_new_video) continue;
+      if (type === 'new_follower' && !prefs.email_new_follower) continue;
+      if (type === 'new_purchase' && !prefs.email_new_purchase) continue;
+      if (type === 'new_comment' && !prefs.email_new_comment) continue;
+      if (type === 'super_thanks' && !prefs.email_super_thanks) continue;
+      if (type === 'membership' && !prefs.email_membership) continue;
+      if (type === 'withdrawal' && !prefs.email_withdrawal) continue;
+
+      const notificationId = randomUUID();
+      const row = {
+        id: notificationId,
+        recipient_user_id: recipientUserId,
+        notification_type: mappedType,
+        title,
+        message,
+        is_read: false,
+        action_url: actionUrl,
+        metadata: {
+          legacy_type: type,
+          recipient_type: recipientType,
+          artist_id: artistId || null,
+          related_id: relatedId || null
+        },
+        created_at: now,
+        updated_at: now
+      };
+
+      const { error } = await supabaseAdmin.from('notifications').insert(row);
+      if (error) {
+        console.warn('[NotificationService] Insert warning:', error.message);
+      }
+
+      const item: NotificationItem = {
+        id: notificationId,
+        user_id: recipientUserId,
+        artist_id: artistId || null,
+        recipient_type: recipientType,
+        type,
+        title,
+        message,
+        link: actionUrl,
+        is_read: false,
+        related_id: relatedId || null,
+        created_at: now
+      };
+
+      if (!firstInserted) firstInserted = item;
+
+      if (serverIO) {
+        serverIO.to(`user:${recipientUserId}`).emit('notification:new', item);
+      }
+    }
+
+    if (serverIO) {
+      if (artistId) serverIO.to(`artist:${artistId}`).emit('notification:new', firstInserted || { ...params, created_at: now });
+      if (recipientType === 'master') serverIO.to('role:master').emit('notification:new', firstInserted || { ...params, created_at: now });
+    }
+
+    return firstInserted;
+  } catch (err) {
+    console.warn('[NotificationService] createNotification error:', err);
+    return null;
   }
-
-  return notification;
 }
 
-// -------------------------------------------------------------
-// Specialized Trigger Point Helper Functions
-// -------------------------------------------------------------
+export async function notifySubscribersNewVideo(video: { id: string; title: string; artist_id: string; is_short?: boolean }) {
+  try {
+    const { data: artist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('artist_name')
+      .eq('id', video.artist_id)
+      .maybeSingle();
 
-/**
- * 1. TRIGGER: New Video Upload / Release
- * Recipients: All subscribers/followers of the releasing artist
- */
-export function notifySubscribersNewVideo(video: { id: string; title: string; artist_id: string; is_short?: boolean }) {
-  const artists = getTableData('artists') || [];
-  const artist = artists.find((a: any) => a.id === video.artist_id);
-  const artistName = artist?.full_name || artist?.name || 'Artist';
+    const artistName = artist?.artist_name || 'Artist';
+    const { data: follows } = await supabaseAdmin
+      .from('artist_follows')
+      .select('user_id')
+      .eq('artist_id', video.artist_id);
 
-  const subscriptions = getTableData('artist_subscriptions') || [];
-  const subscriberIds = subscriptions
-    .filter((s: any) => s.artist_id === video.artist_id)
-    .map((s: any) => s.user_id);
+    const subscriberIds = Array.from(new Set<string>((follows || []).map((f: any) => String(f.user_id || '')).filter(Boolean)));
+    const link = video.is_short ? `/shorts?id=${video.id}` : `/watch/${video.id}`;
 
-  // Also include user follows if stored in profiles or follows table
-  const follows = getTableData('follows') || [];
-  follows.forEach((f: any) => {
-    if (f.artist_id === video.artist_id && !subscriberIds.includes(f.user_id)) {
-      subscriberIds.push(f.user_id);
+    for (const uid of subscriberIds) {
+      await createNotification({
+        userId: uid,
+        artistId: null,
+        recipientType: 'user',
+        type: 'new_video',
+        title: `New Release from ${artistName}`,
+        message: `${artistName} just published "${video.title}".`,
+        link,
+        relatedId: video.id
+      });
     }
-  });
-
-  const link = video.is_short ? `/shorts?id=${video.id}` : `/watch/${video.id}`;
-
-  subscriberIds.forEach((uid: string) => {
-    createNotification({
-      userId: uid,
-      artistId: null,
-      recipientType: 'user',
-      type: 'new_video',
-      title: `New Release from ${artistName}`,
-      message: `${artistName} just published "${video.title}". Stream it now on PAYTUNE!`,
-      link,
-      relatedId: video.id
-    });
-  });
+  } catch (err) {
+    console.warn('[NotificationService] notifySubscribersNewVideo error:', err);
+  }
 }
 
-/**
- * 2. TRIGGER: New Subscriber / Follower
- * Recipient: The artist
- */
 export function notifyArtistNewSubscriber(artistId: string, followerUser: { id?: string; full_name?: string; name?: string; email?: string }) {
-  const followerName = followerUser.full_name || followerUser.name || followerUser.email || 'A music lover';
-
-  createNotification({
+  const followerName = followerUser.full_name || followerUser.name || followerUser.email || 'A listener';
+  void createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'new_follower',
-    title: 'New Channel Subscriber! 🎉',
-    message: `${followerName} just subscribed to your artist channel.`,
-    link: `/artist/subscribers`,
+    title: 'New Channel Follower',
+    message: `${followerName} started following your channel.`,
+    link: '/artist/subscribers',
     relatedId: followerUser.id || null
   });
 }
 
-/**
- * 3. TRIGGER: Purchase / Content Unlock
- * Recipients: Artist, Buyer User, and Master Admin
- */
-export function notifyOnPurchaseCompleted(params: {
+export async function notifyOnPurchaseCompleted(params: {
   purchaseId: string;
   userId: string;
   userName?: string;
@@ -242,7 +312,7 @@ export function notifyOnPurchaseCompleted(params: {
   const {
     purchaseId,
     userId,
-    userName = 'A fan',
+    userName = 'A supporter',
     artistId,
     videoTitle,
     videoId,
@@ -251,54 +321,50 @@ export function notifyOnPurchaseCompleted(params: {
     artistShare
   } = params;
 
-  const artists = getTableData('artists') || [];
-  const artist = artists.find((a: any) => a.id === artistId);
-  const artistName = artist?.full_name || 'Artist';
+  const { data: artist } = await supabaseAdmin
+    .from('artist_profiles')
+    .select('artist_name')
+    .eq('id', artistId)
+    .maybeSingle();
 
-  const shareText = artistShare ? ` (Your 70% share: ${artistShare.toLocaleString()} ${currency})` : '';
+  const artistName = artist?.artist_name || 'Artist';
+  const shareText = artistShare ? ` (70% creator share: ${artistShare.toLocaleString()} ${currency})` : '';
 
-  // Notify Artist
-  createNotification({
+  await createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'new_purchase',
-    title: 'New Content Sale! 💰',
+    title: 'New Content Sale',
     message: `${userName} purchased "${videoTitle}" for ${amount.toLocaleString()} ${currency}.${shareText}`,
-    link: `/artist/earnings`,
+    link: '/artist/earnings',
     relatedId: purchaseId
   });
 
-  // Notify Buyer User
-  createNotification({
+  await createNotification({
     userId,
     artistId: null,
     recipientType: 'user',
     type: 'new_purchase',
-    title: 'Purchase Confirmed ✅',
-    message: `You unlocked "${videoTitle}" by ${artistName}. Enjoy your high-definition stream!`,
+    title: 'Purchase Confirmed',
+    message: `You unlocked "${videoTitle}" by ${artistName}.`,
     link: `/watch/${videoId}`,
     relatedId: purchaseId
   });
 
-  // Notify Master Admin
-  createNotification({
+  await createNotification({
     userId: null,
     artistId: null,
     recipientType: 'master',
     type: 'new_purchase',
     title: 'Platform Sale Processed',
     message: `Payment of ${amount.toLocaleString()} ${currency} verified for "${videoTitle}".`,
-    link: `/master/financials`,
+    link: '/master/financials',
     relatedId: purchaseId
   });
 }
 
-/**
- * 4. TRIGGER: Comment or Reply Added
- * Recipients: Video Artist & Parent Comment Author (if reply)
- */
-export function notifyOnNewComment(params: {
+export async function notifyOnNewComment(params: {
   commentId: string;
   videoId: string;
   videoTitle: string;
@@ -307,30 +373,23 @@ export function notifyOnNewComment(params: {
   commentText: string;
   parentId?: string | null;
 }) {
-  const {
-    commentId,
-    videoId,
-    videoTitle,
-    artistId,
-    authorUser,
-    commentText,
-    parentId
-  } = params;
-
+  const { commentId, videoId, videoTitle, artistId, authorUser, commentText, parentId } = params;
   const snippet = commentText.length > 60 ? `${commentText.substring(0, 60)}...` : commentText;
 
-  // If this is a reply to another comment
   if (parentId) {
-    const allComments = getTableData('comments') || [];
-    const parentComment = allComments.find((c: any) => c.id === parentId);
+    const { data: parentComment } = await supabaseAdmin
+      .from('comments')
+      .select('user_id')
+      .eq('id', parentId)
+      .maybeSingle();
 
-    if (parentComment && parentComment.user_id && parentComment.user_id !== authorUser.id) {
-      createNotification({
+    if (parentComment?.user_id && parentComment.user_id !== authorUser.id) {
+      await createNotification({
         userId: parentComment.user_id,
         artistId: null,
         recipientType: 'user',
-        type: 'new_comment',
-        title: 'New Reply to Your Comment 💬',
+        type: 'comment_reply',
+        title: 'New Reply to Your Comment',
         message: `${authorUser.name} replied: "${snippet}"`,
         link: `/watch/${videoId}`,
         relatedId: commentId
@@ -338,24 +397,19 @@ export function notifyOnNewComment(params: {
     }
   }
 
-  // Notify the video artist (unless the artist themselves commented)
-  createNotification({
+  await createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'new_comment',
-    title: 'New Fan Comment 💬',
+    title: 'New Comment',
     message: `${authorUser.name} commented on "${videoTitle}": "${snippet}"`,
     link: `/watch/${videoId}`,
     relatedId: commentId
   });
 }
 
-/**
- * 5. TRIGGER: Super Thanks / Live Stream Tip / Cash Gift
- * Recipients: Artist and Gifting User
- */
-export function notifyOnSuperThanks(params: {
+export async function notifyOnSuperThanks(params: {
   donorUser: { id: string; name: string };
   artistId: string;
   videoOrStreamTitle: string;
@@ -365,135 +419,114 @@ export function notifyOnSuperThanks(params: {
   currency?: string;
   message?: string;
 }) {
-  const {
-    donorUser,
-    artistId,
-    videoOrStreamTitle,
-    videoId,
-    streamId,
-    amount,
-    currency = 'RWF',
-    message = ''
-  } = params;
+  const { donorUser, artistId, videoOrStreamTitle, videoId, streamId, amount, currency = 'RWF', message = '' } = params;
+  const { data: artist } = await supabaseAdmin
+    .from('artist_profiles')
+    .select('artist_name')
+    .eq('id', artistId)
+    .maybeSingle();
 
-  const artists = getTableData('artists') || [];
-  const artist = artists.find((a: any) => a.id === artistId);
-  const artistName = artist?.full_name || 'Artist';
-
-  const link = streamId ? `/live/watch/${streamId}` : `/watch/${videoId}`;
+  const artistName = artist?.artist_name || 'Artist';
+  const link = streamId ? `/live/${streamId}` : `/watch/${videoId}`;
   const customMsg = message ? ` Message: "${message}"` : '';
 
-  // Notify Artist
-  createNotification({
+  await createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'super_thanks',
-    title: 'Super Thanks Received! ⭐',
-    message: `${donorUser.name} sent you a ${amount.toLocaleString()} ${currency} Super Thanks on "${videoOrStreamTitle}"!${customMsg}`,
-    link: `/artist/earnings`,
+    title: 'Super Thanks Received',
+    message: `${donorUser.name} sent ${amount.toLocaleString()} ${currency} Super Thanks on "${videoOrStreamTitle}".${customMsg}`,
+    link: '/artist/earnings',
     relatedId: videoId || streamId || null
   });
 
-  // Notify User
-  createNotification({
-    userId: donorUser.id,
-    artistId: null,
-    recipientType: 'user',
-    type: 'super_thanks',
-    title: 'Super Thanks Delivered ⭐',
-    message: `Your ${amount.toLocaleString()} ${currency} Super Thanks was delivered to ${artistName}. Thank you for supporting East African creators!`,
-    link,
-    relatedId: videoId || streamId || null
-  });
+  if (donorUser.id && donorUser.id !== 'guest') {
+    await createNotification({
+      userId: donorUser.id,
+      artistId: null,
+      recipientType: 'user',
+      type: 'super_thanks',
+      title: 'Super Thanks Delivered',
+      message: `Your ${amount.toLocaleString()} ${currency} Super Thanks was delivered to ${artistName}.`,
+      link,
+      relatedId: videoId || streamId || null
+    });
+  }
 }
 
-/**
- * 6. TRIGGER: Channel Membership Joined / Tier Subscribed
- * Recipients: Artist and Member User
- */
-export function notifyOnMembershipJoined(params: {
+export async function notifyOnMembershipJoined(params: {
   memberUser: { id: string; name: string };
   artistId: string;
   tierName: string;
   tierPrice: number;
   currency?: string;
 }) {
-  const {
-    memberUser,
-    artistId,
-    tierName,
-    tierPrice,
-    currency = 'RWF'
-  } = params;
+  const { memberUser, artistId, tierName, tierPrice, currency = 'RWF' } = params;
+  const { data: artist } = await supabaseAdmin
+    .from('artist_profiles')
+    .select('artist_name')
+    .eq('id', artistId)
+    .maybeSingle();
 
-  const artists = getTableData('artists') || [];
-  const artist = artists.find((a: any) => a.id === artistId);
-  const artistName = artist?.full_name || 'Artist';
+  const artistName = artist?.artist_name || 'Artist';
 
-  // Notify Artist
-  createNotification({
+  await createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'membership',
-    title: 'New Channel Member! 🌟',
-    message: `${memberUser.name} joined your "${tierName}" membership tier (${tierPrice.toLocaleString()} ${currency}/mo)!`,
-    link: `/artist/membership`,
+    title: 'New Channel Member',
+    message: `${memberUser.name} joined your "${tierName}" tier (${tierPrice.toLocaleString()} ${currency}/mo).`,
+    link: '/artist/membership',
     relatedId: null
   });
 
-  // Notify User
-  createNotification({
+  await createNotification({
     userId: memberUser.id,
     artistId: null,
     recipientType: 'user',
     type: 'membership',
-    title: 'Membership Activated 🌟',
-    message: `You are now an official "${tierName}" member of ${artistName}! Enjoy your exclusive badges, backstage posts, and perks.`,
+    title: 'Membership Activated',
+    message: `You are now a "${tierName}" member of ${artistName}.`,
     link: `/channel/${artistId}`,
     relatedId: null
   });
 }
 
-/**
- * 7. TRIGGER: Live Stream Started
- * Recipients: All subscribers/followers of the artist
- */
-export function notifySubscribersLiveStream(params: {
+export async function notifySubscribersLiveStream(params: {
   streamId: string;
   streamTitle: string;
   artistId: string;
 }) {
   const { streamId, streamTitle, artistId } = params;
+  const { data: artist } = await supabaseAdmin
+    .from('artist_profiles')
+    .select('artist_name')
+    .eq('id', artistId)
+    .maybeSingle();
+  const artistName = artist?.artist_name || 'Artist';
 
-  const artists = getTableData('artists') || [];
-  const artist = artists.find((a: any) => a.id === artistId);
-  const artistName = artist?.full_name || 'Artist';
+  const { data: follows } = await supabaseAdmin
+    .from('artist_follows')
+    .select('user_id')
+    .eq('artist_id', artistId);
 
-  const subscriptions = getTableData('artist_subscriptions') || [];
-  const subscriberIds = subscriptions
-    .filter((s: any) => s.artist_id === artistId)
-    .map((s: any) => s.user_id);
-
-  subscriberIds.forEach((uid: string) => {
-    createNotification({
+  const subscriberIds = Array.from(new Set<string>((follows || []).map((f: any) => String(f.user_id || '')).filter(Boolean)));
+  for (const uid of subscriberIds) {
+    await createNotification({
       userId: uid,
       artistId: null,
       recipientType: 'user',
       type: 'live_stream',
-      title: `🔴 ${artistName} is LIVE!`,
-      message: `Join the live broadcast now: "${streamTitle}"`,
-      link: `/live/watch/${streamId}`,
+      title: `${artistName} is Live`,
+      message: `Join the live broadcast: "${streamTitle}"`,
+      link: `/live/${streamId}`,
       relatedId: streamId
     });
-  });
+  }
 }
 
-/**
- * 8. TRIGGER: Withdrawal Request Created
- * Recipient: Master Administrator
- */
 export function notifyWithdrawalRequested(params: {
   withdrawalId: string;
   artistId: string;
@@ -502,24 +535,19 @@ export function notifyWithdrawalRequested(params: {
   phone: string;
   provider: string;
 }) {
-  const { withdrawalId, artistId, artistName, amount, phone, provider } = params;
-
-  createNotification({
+  const { withdrawalId, artistName, amount, phone, provider } = params;
+  void createNotification({
     userId: null,
     artistId: null,
     recipientType: 'master',
     type: 'withdrawal',
-    title: 'New Payout Request 💳',
+    title: 'New Payout Request',
     message: `${artistName} submitted a withdrawal request for ${amount.toLocaleString()} RWF via ${provider} (${phone}).`,
-    link: `/master/withdrawals`,
+    link: '/master/withdrawals',
     relatedId: withdrawalId
   });
 }
 
-/**
- * 9. TRIGGER: Withdrawal Processed / Approved / Rejected
- * Recipient: The Artist
- */
 export function notifyWithdrawalStatus(params: {
   withdrawalId: string;
   artistId: string;
@@ -533,7 +561,7 @@ export function notifyWithdrawalStatus(params: {
   const { withdrawalId, artistId, amount, status, phone, tx, reason } = params;
 
   if (status === 'approved') {
-    createNotification({
+    void createNotification({
       userId: null,
       artistId,
       recipientType: 'artist',
@@ -544,52 +572,44 @@ export function notifyWithdrawalStatus(params: {
       relatedId: withdrawalId
     });
   } else if (status === 'completed') {
-    const ref = tx || `TXN-${Date.now()}`;
-    createNotification({
+    const ref = tx || 'Settled';
+    void createNotification({
       userId: null,
       artistId,
       recipientType: 'artist',
       type: 'withdrawal',
       title: 'Withdrawal Completed',
-      message: `Money sent to ${phone || 'your phone'}. Reference: ${ref}`,
+      message: `Disbursement sent to ${phone || 'your payout destination'}. Reference: ${ref}`,
       link: '/artist/earnings',
       relatedId: withdrawalId
     });
-  } else if (status === 'rejected' || status === 'failed') {
-    createNotification({
+  } else {
+    void createNotification({
       userId: null,
       artistId,
       recipientType: 'artist',
       type: 'withdrawal',
-      title: 'Withdrawal Failed',
-      message: reason || 'Withdrawal failed. Please verify your momo details.',
+      title: 'Withdrawal Rejected',
+      message: reason || 'Withdrawal could not be processed. Please verify your payout details.',
       link: '/artist/settings',
       relatedId: withdrawalId
     });
   }
 }
 
-/**
- * 10. TRIGGER: Artist Account Approved / Verified by Master Admin
- * Recipient: The Artist
- */
 export function notifyArtistApproved(artistId: string, artistName: string) {
-  createNotification({
+  void createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'system',
-    title: 'Artist Profile Approved! 🏆',
-    message: `Congratulations ${artistName}! Your creator channel has been approved and verified by PAYTUNE. You can now upload music videos and monetize.`,
-    link: `/artist/overview`,
+    title: 'Artist Profile Approved',
+    message: `${artistName}, your creator channel has been approved and verified by PAYTUNE.`,
+    link: '/artist/overview',
     relatedId: artistId
   });
 }
 
-/**
- * 11. TRIGGER: Copyright Notice / DMCA Strike
- * Recipient: Target Artist
- */
 export function notifyCopyrightNotice(params: {
   artistId: string;
   videoTitle: string;
@@ -597,15 +617,14 @@ export function notifyCopyrightNotice(params: {
   reason: string;
 }) {
   const { artistId, videoTitle, videoId, reason } = params;
-
-  createNotification({
+  void createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'copyright',
-    title: 'Copyright Notice Received ⚠️',
-    message: `A copyright claim or DMCA notice was filed regarding "${videoTitle}". Reason: ${reason}`,
-    link: `/artist/copyright`,
+    title: 'Copyright Notice Received',
+    message: `A copyright notice was filed regarding "${videoTitle}". Reason: ${reason}`,
+    link: '/artist/copyright',
     relatedId: videoId
   });
 }
@@ -618,15 +637,14 @@ export function notifyOnCopyrightClaim(params: {
   policy?: string;
 }) {
   const { claimId, artistId, videoTitle, claimantName, policy } = params;
-
-  createNotification({
+  void createNotification({
     userId: null,
     artistId,
     recipientType: 'artist',
     type: 'copyright',
-    title: `⚠️ Content ID Claim: "${videoTitle}"`,
+    title: `Content ID Claim: "${videoTitle}"`,
     message: `A copyright claim was identified on "${videoTitle}" by ${claimantName || 'Rights Holder'}. Policy: ${policy || 'monetize'}.`,
-    link: `/artist/dashboard?tab=copyright`,
-    relatedId: claimId
+    link: '/artist/dashboard?tab=copyright',
+    relatedId: claimId || null
   });
 }

@@ -8,6 +8,8 @@ import {
   getVideoDetails,
   getRelatedVideos,
   toggleVideoLike,
+  rateVideo,
+  sendVideoSuperThanks,
   recordVideoView,
   saveVideoProgress,
   getVideoProgress,
@@ -19,6 +21,7 @@ import { authenticate, optionalAuthenticate } from '../middleware/auth';
 const router = Router();
 
 // 1. Specific collection endpoints must precede :id parameter
+router.get('/feed', optionalAuthenticate, getPersonalizedFeed);
 router.get('/feed/personalized', optionalAuthenticate, getPersonalizedFeed);
 router.get('/personalized', optionalAuthenticate, getPersonalizedFeed);
 router.get('/trending', getTrendingVideos);
@@ -33,6 +36,8 @@ router.get('/:id', optionalAuthenticate, getVideoDetails);
 router.get('/:id/related', getRelatedVideos);
 router.post('/:id/like', authenticate, toggleVideoLike);
 router.delete('/:id/like', authenticate, toggleVideoLike);
+router.post('/:id/rate', authenticate, rateVideo);
+router.post('/:id/super-thanks', authenticate, sendVideoSuperThanks);
 router.post('/:id/view', optionalAuthenticate, recordVideoView);
 router.post('/:id/progress', optionalAuthenticate, saveVideoProgress);
 router.get('/:id/progress', optionalAuthenticate, getVideoProgress);

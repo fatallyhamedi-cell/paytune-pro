@@ -46,6 +46,7 @@ export default function CoverBannerEditor({
   const [successMsg, setSuccessMsg] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const bannerImgRef = useRef<HTMLImageElement | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; startFocalX: number; startFocalY: number }>({
     x: 0,
     y: 0,
@@ -92,9 +93,7 @@ export default function CoverBannerEditor({
     if (artistId) formData.append('artist_id', artistId);
 
     try {
-      const res = await api.post('/upload/banner', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/upload/banner', formData);
 
       if (res.data?.url) {
         setImageUrl(res.data.url);
@@ -258,21 +257,23 @@ export default function CoverBannerEditor({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`relative rounded-xl overflow-hidden shadow-md select-none bg-neutral-900 transition-all ${
+          className={`relative rounded-xl overflow-hidden shadow-md select-none touch-none bg-neutral-900 transition-all ${
             deviceContainerClasses[deviceMode]
           } ${imageUrl ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-pointer'}`}
-          style={{ touchAction: 'none' }}
         >
           {imageUrl ? (
             <img
+              ref={(el) => {
+                bannerImgRef.current = el;
+                if (el) {
+                  el.style.objectPosition = `${focalX}% ${focalY}%`;
+                  el.style.transform = `scale(${zoom})`;
+                }
+              }}
               src={imageUrl}
               alt="Channel Banner Preview"
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover pointer-events-none transition-transform duration-75"
-              style={{
-                objectPosition: `${focalX}% ${focalY}%`,
-                transform: `scale(${zoom})`,
-              }}
             />
           ) : (
             <div

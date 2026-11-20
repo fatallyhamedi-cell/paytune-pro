@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
+import { api } from "../lib/api";
 import {
   Play,
   Flame,
@@ -87,7 +87,7 @@ export default function Home() {
     queryKey: ["videos", "personalized-feed", user?.id],
     queryFn: async () => {
       try {
-        const res = await axios.get("/api/videos/feed/personalized");
+        const res = await api.get("/api/videos/feed/personalized");
         return res.data;
       } catch (err) {
         console.warn("Failed to fetch personalized feed:", err);
@@ -136,7 +136,7 @@ export default function Home() {
       params.append("limit", String(PAGE_LIMIT));
       params.append("offset", "0");
 
-      const res = await axios.get(`/api/videos?${params.toString()}`);
+      const res = await api.get(`/api/videos?${params.toString()}`);
       const list = Array.isArray(res.data) ? res.data : (res.data?.videos || []);
       return list as VideoItem[];
     }
@@ -166,7 +166,7 @@ export default function Home() {
       params.append("limit", String(PAGE_LIMIT));
       params.append("offset", String(nextOffset));
 
-      const res = await axios.get(`/api/videos?${params.toString()}`);
+      const res = await api.get(`/api/videos?${params.toString()}`);
       const nextItems: VideoItem[] = Array.isArray(res.data) ? res.data : (res.data?.videos || []);
 
       if (nextItems.length === 0) {
@@ -189,7 +189,7 @@ export default function Home() {
   const handleDismissVideo = async (videoId: string | number) => {
     setDismissedLocalIds((prev) => [...prev, String(videoId)]);
     try {
-      await axios.post("/api/user/dismiss-video", { video_id: videoId });
+      await api.post("/api/user/dismiss-video", { video_id: videoId });
     } catch {}
   };
 

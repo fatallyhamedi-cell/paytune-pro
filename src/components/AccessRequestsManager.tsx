@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import {
   PhoneCall,
   CheckCircle2,
@@ -70,7 +70,7 @@ export const AccessRequestsManager: React.FC = () => {
   const fetchRequests = async () => {
     try {
       setRefreshing(true);
-      const res = await axios.get('/api/access-requests/list');
+      const res = await api.get('/api/access-requests/list');
       if (res.data?.requests) {
         setRequests(res.data.requests);
       }
@@ -84,7 +84,7 @@ export const AccessRequestsManager: React.FC = () => {
 
   const fetchVideos = async () => {
     try {
-      const res = await axios.get('/api/videos?type=paid&limit=50');
+      const res = await api.get('/api/videos?type=paid&limit=50');
       if (Array.isArray(res.data)) {
         setVideosList(res.data);
         if (res.data.length > 0 && !grantVideoId) {
@@ -103,7 +103,7 @@ export const AccessRequestsManager: React.FC = () => {
     setProcessingId(id);
     setFeedback(null);
     try {
-      const res = await axios.post(`/api/access-requests/${id}/approve`, {
+      const res = await api.post(`/api/access-requests/${id}/approve`, {
         decisionNote: decisionNote || 'Approved by Master Administrator'
       });
       setFeedback({
@@ -126,7 +126,7 @@ export const AccessRequestsManager: React.FC = () => {
     setProcessingId(id);
     setFeedback(null);
     try {
-      const res = await axios.post(`/api/access-requests/${id}/reject`, {
+      const res = await api.post(`/api/access-requests/${id}/reject`, {
         decisionNote: decisionNote || 'Declined by Master Administrator'
       });
       setFeedback({
@@ -153,7 +153,7 @@ export const AccessRequestsManager: React.FC = () => {
     setFeedback(null);
     try {
       // 1. Submit request
-      const submitRes = await axios.post('/api/access-requests/submit', {
+      const submitRes = await api.post('/api/access-requests/submit', {
         phone: grantPhone.trim(),
         videoId: grantVideoId,
         name: grantName.trim() || 'VIP Viewer',
@@ -163,7 +163,7 @@ export const AccessRequestsManager: React.FC = () => {
       const reqId = submitRes.data?.request?.id;
       if (reqId) {
         // 2. Immediately approve
-        await axios.post(`/api/access-requests/${reqId}/approve`, {
+        await api.post(`/api/access-requests/${reqId}/approve`, {
           decisionNote: 'Granted directly by Master Administrator'
         });
       }

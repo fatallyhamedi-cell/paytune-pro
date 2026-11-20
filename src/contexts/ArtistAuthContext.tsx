@@ -1,23 +1,27 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import api from '../services/api';
+import { supabase } from '../lib/supabase';
 
 export interface Artist {
   id: string;
   user_id?: string;
+  channel_id?: string | null;
   email: string;
   full_name: string;
+  artist_name?: string;
+  artist_handle?: string;
+  artist_type?: string;
   avatar_url: string | null;
   banner_url?: string | null;
   bio?: string | null;
   phone: string;
-  phone_verified: boolean;
   is_approved: boolean;
   approval_status: 'pending' | 'approved' | 'rejected' | string;
   rejection_reason?: string;
   currency_code: string;
   country_code?: string;
   momo_code?: string;
-  momo_provider?: string;
+  momo_provider?: string | null;
   total_earnings?: number;
   pending_balance?: number;
   total_views?: number;
@@ -33,8 +37,6 @@ export interface ArtistAuthContextType {
   isArtistAuthenticated: boolean;
   artistToken: string | null;
   register: (data: any) => Promise<any>;
-  verifyPhone: (id: string, code: string) => Promise<any>;
-  resendOTP: (id: string) => Promise<any>;
   login: (email: string, password: string) => Promise<any>;
   logout: () => void;
   refreshArtist: () => Promise<void>;
@@ -44,6 +46,20 @@ export interface ArtistAuthContextType {
 }
 
 export const ArtistAuthContext = createContext<ArtistAuthContextType | undefined>(undefined);
+
+function clearArtistKeys() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('artist_token');
+  localStorage.removeItem('artist');
+  localStorage.removeItem('artist_id');
+  localStorage.removeItem('token');
+  localStorage.removeItem('role');
+  localStorage.removeItem('user_role');
+  localStorage.removeItem('paytune_artist_token');
+  localStorage.removeItem('paytune_artist_data');
+  localStorage.removeItem('paytune_auth_token');
+  localStorage.removeItem('paytune_custom_session');
+}
 
 export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [artist, setArtist] = useState<Artist | null>(() => {
@@ -56,63 +72,99 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const cached = localStorage.getItem('artist') || localStorage.getItem('paytune_artist_data');
-    const token = localStorage.getItem('artist_token') || localStorage.getItem('token');
-    if (token && cached) {
-      try {
-        setArtist(JSON.parse(cached));
-      } catch {
-        localStorage.removeItem('artist');
+  const persistArtistSession = useCallback((token: string, artistData: Artist) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('artist_token', token);
+      localStorage.setItem('token', token);
+      localStorage.setItem('paytune_artist_token', token);
+      localStorage.setItem('paytune_auth_token', token);
+      localStorage.setItem('artist', JSON.stringify(artistData));
+      localStorage.setItem('paytune_artist_data', JSON.stringify(artistData));
+      localStorage.setItem('artist_id', artistData.id);
+      localStorage.setItem('role', 'artist');
+
+      const userId = artistData.user_id || artistData.id;
+      const customSession = {
+        access_token: token,
+        token_type: 'bearer',
+        expires_in: 86400 * 7,
+        expires_at: Math.floor(Date.now() / 1000) + 86400 * 7,
+        refresh_token: '',
+        user: {
+          id: userId,
+          email: artistData.email,
+          phone: artistData.phone || '',
+          role: 'authenticated',
+          app_metadata: { provider: 'email' },
+          user_metadata: {
+            full_name: artistData.full_name || artistData.artist_name,
+            email: artistData.email,
+            role: 'artist',
+            artistId: artistData.id,
+            channelId: artistData.channel_id || null,
+          },
+        },
+      };
+      localStorage.setItem('paytune_custom_session', JSON.stringify(customSession));
+    }
+
+    setArtist(artistData);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('paytune-auth-changed'));
+    }
+  }, []);
+
+  const syncFromServer = useCallback(async () => {
+    const token =
+      localStorage.getItem('artist_token') ||
+      localStorage.getItem('paytune_artist_token') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('paytune_auth_token');
+
+    if (!token) {
+      setArtist(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await api.get('/auth/artist/me');
+      if (res.data?.artist) {
+        setArtist(res.data.artist);
+        localStorage.setItem('artist', JSON.stringify(res.data.artist));
+        localStorage.setItem('paytune_artist_data', JSON.stringify(res.data.artist));
+        localStorage.setItem('artist_id', res.data.artist.id);
       }
-      // Silently refresh profile
-      api.get('/auth/artist/me')
-        .then((res) => {
-          if (res.data?.artist) {
-            setArtist(res.data.artist);
-            localStorage.setItem('artist', JSON.stringify(res.data.artist));
-            localStorage.setItem('artist_id', res.data.artist.id);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else {
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401 || status === 403 || status === 404) {
+        // Not an active/valid artist token (e.g., ordinary user session or expired token)
+        setArtist(null);
+        localStorage.removeItem('artist');
+        localStorage.removeItem('paytune_artist_data');
+        localStorage.removeItem('artist_id');
+        localStorage.removeItem('artist_token');
+        localStorage.removeItem('paytune_artist_token');
+      }
+    } finally {
       setLoading(false);
     }
   }, []);
 
+  useEffect(() => {
+    syncFromServer();
+    const handleSync = () => {
+      syncFromServer();
+    };
+    window.addEventListener('paytune-auth-changed', handleSync);
+    return () => window.removeEventListener('paytune-auth-changed', handleSync);
+  }, [syncFromServer]);
+
   const register = async (data: any) => {
     const res = await api.post('/auth/artist/register', data);
-    return res.data;
-  };
-
-  const verifyPhone = async (id: string, code: string) => {
-    const res = await api.post('/auth/artist/verify-phone', { artistId: id, code });
-    if (res.data?.success) {
-      if (res.data.token) {
-        localStorage.setItem('artist_token', res.data.token);
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('paytune_artist_token', res.data.token);
-        localStorage.setItem('role', 'artist');
-      }
-      if (res.data.artist) {
-        setArtist(res.data.artist);
-        localStorage.setItem('artist', JSON.stringify(res.data.artist));
-        localStorage.setItem('artist_id', res.data.artist.id);
-      } else {
-        setArtist((prev) => {
-          if (!prev) return null;
-          const updated = { ...prev, phone_verified: true };
-          localStorage.setItem('artist', JSON.stringify(updated));
-          return updated;
-        });
-      }
+    if (res.data?.success && res.data?.token && res.data?.artist) {
+      persistArtistSession(res.data.token, res.data.artist);
     }
-    return res.data;
-  };
-
-  const resendOTP = async (id: string) => {
-    const res = await api.post('/auth/artist/resend-otp', { artistId: id });
     return res.data;
   };
 
@@ -120,56 +172,37 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
     const res = await api.post('/auth/artist/login', { email, password });
     const { token, artist: artistData } = res.data;
 
-    if (token) {
-      localStorage.setItem('artist_token', token);
-      localStorage.setItem('token', token);
-      localStorage.setItem('paytune_artist_token', token);
-      localStorage.setItem('role', 'artist');
-    }
-    if (artistData) {
-      localStorage.setItem('artist', JSON.stringify(artistData));
-      localStorage.setItem('artist_id', artistData.id);
-      localStorage.setItem('paytune_artist_data', JSON.stringify(artistData));
-      setArtist(artistData);
+    if (token && artistData) {
+      persistArtistSession(token, artistData);
     }
     return res.data;
   };
 
   const logout = () => {
-    localStorage.removeItem('artist_token');
-    localStorage.removeItem('artist');
-    localStorage.removeItem('artist_id');
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('user_role');
-    localStorage.removeItem('paytune_artist_token');
-    localStorage.removeItem('paytune_artist_data');
+    clearArtistKeys();
     setArtist(null);
-    window.location.href = '/artist/login';
+    supabase.auth.signOut().catch(() => {});
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('paytune-auth-changed'));
+      window.location.href = '/artist/login';
+    }
   };
 
   const refreshArtist = async () => {
-    try {
-      const res = await api.get('/auth/artist/me');
-      if (res.data?.artist) {
-        setArtist(res.data.artist);
-        localStorage.setItem('artist', JSON.stringify(res.data.artist));
-        localStorage.setItem('artist_id', res.data.artist.id);
-      }
-    } catch {}
+    await syncFromServer();
   };
 
-  const artistToken = localStorage.getItem('artist_token') || localStorage.getItem('token');
+  const artistToken =
+    (typeof window !== 'undefined' &&
+      (localStorage.getItem('artist_token') ||
+        localStorage.getItem('paytune_artist_token') ||
+        localStorage.getItem('token'))) ||
+    null;
   const isAuthenticated = !!artist;
   const isArtistAuthenticated = !!(artistToken && artist);
 
   const loginArtist = (token: string, artistData: Artist) => {
-    localStorage.setItem('artist_token', token);
-    localStorage.setItem('token', token);
-    localStorage.setItem('artist', JSON.stringify(artistData));
-    localStorage.setItem('artist_id', artistData.id);
-    localStorage.setItem('role', 'artist');
-    setArtist(artistData);
+    persistArtistSession(token, artistData);
   };
 
   const logoutArtist = () => {
@@ -181,22 +214,22 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   return (
-    <ArtistAuthContext.Provider value={{
-      artist,
-      loading,
-      isAuthenticated,
-      isArtistAuthenticated,
-      artistToken,
-      register,
-      verifyPhone,
-      resendOTP,
-      login,
-      logout,
-      refreshArtist,
-      loginArtist,
-      logoutArtist,
-      refreshArtistProfile
-    }}>
+    <ArtistAuthContext.Provider
+      value={{
+        artist,
+        loading,
+        isAuthenticated,
+        isArtistAuthenticated,
+        artistToken,
+        register,
+        login,
+        logout,
+        refreshArtist,
+        loginArtist,
+        logoutArtist,
+        refreshArtistProfile,
+      }}
+    >
       {children}
     </ArtistAuthContext.Provider>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { 
   PlaySquare, 
+  Music2,
   Flame, 
   ListMusic, 
   Radio, 
@@ -13,6 +14,7 @@ interface ChannelTabsProps {
   activeTab: ChannelTabType;
   onTabChange: (tab: ChannelTabType) => void;
   videoCount?: number;
+  tracksCount?: number;
   shortsCount?: number;
   playlistCount?: number;
   tierCount?: number;
@@ -29,12 +31,14 @@ export default function ChannelTabs({
   activeTab,
   onTabChange,
   videoCount,
+  tracksCount,
   shortsCount,
   playlistCount,
   tierCount
 }: ChannelTabsProps) {
   const tabs: TabConfig[] = [
     { id: 'videos', label: 'Videos', icon: PlaySquare, badge: videoCount },
+    { id: 'tracks', label: 'Audio Tracks', icon: Music2, badge: tracksCount },
     { id: 'shorts', label: 'Shorts', icon: Flame, badge: shortsCount },
     { id: 'playlists', label: 'Playlists', icon: ListMusic, badge: playlistCount },
     { id: 'live', label: 'Live', icon: Radio },

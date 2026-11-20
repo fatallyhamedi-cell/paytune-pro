@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../lib/api';
 import {
   ArrowLeft,
   AlertCircle,
@@ -44,6 +44,9 @@ export interface VideoDetail {
   rating_count: number;
   uploaded_at: string;
   category: string;
+  content_type?: string;
+  series_id?: string | null;
+  episode_number?: number | null;
   userOwns: boolean;
   userLiked?: boolean;
   userSubscribed?: boolean;
@@ -72,7 +75,7 @@ export default function Watch() {
 
   // Feature 4: Optimistic Follow State
   const [isFollowing, setIsFollowing] = useState(false);
-  const [followersCount, setFollowersCount] = useState(14200);
+  const [followersCount, setFollowersCount] = useState(0);
 
   // Feature 5: Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -107,7 +110,7 @@ export default function Watch() {
     setError(null);
     console.log(`[Watch.tsx] Fetching video details for ID: ${id}`);
 
-    axios
+    api
       .get(`/api/videos/${id}`)
       .then((res) => {
         const data = res.data;
@@ -117,7 +120,7 @@ export default function Watch() {
         setLikesCount(Number(data.likes || 0));
         setIsFollowing(Boolean(data.userSubscribed));
         setUserRating(Number(data.userRating || 0));
-        const subCount = data.artists?.subscribers_count || 14200;
+        const subCount = Number(data.artists?.subscribers_count ?? 0);
         setFollowersCount(subCount);
       })
       .catch((err) => {
@@ -129,7 +132,7 @@ export default function Watch() {
       });
 
     // Fetch saved watch progress
-    axios
+    api
       .get(`/api/videos/${id}/progress`)
       .then((res) => {
         const pos = Number(res.data?.positionSeconds || res.data?.position_seconds || 0);
@@ -146,7 +149,7 @@ export default function Watch() {
     const sec = Math.floor(seconds);
     if (Math.abs(sec - lastProgressRef.current) >= 5 && id) {
       lastProgressRef.current = sec;
-      axios
+      api
         .post(`/api/videos/${id}/progress`, { positionSeconds: sec })
         .catch(() => {});
     }
@@ -156,14 +159,13 @@ export default function Watch() {
   useEffect(() => {
     if (!id) return;
     setLoadingRelated(true);
-    axios
+    api
       .get(`/api/videos/${id}/related`)
       .then((res) => {
         setRelatedVideos(Array.isArray(res.data) ? res.data : []);
       })
       .catch(() => {
-        // Fallback to trending
-        axios.get('/api/videos/trending').then((t) => {
+        api.get('/api/videos/trending').then((t) => {
           setRelatedVideos(Array.isArray(t.data) ? t.data : []);
         }).catch(() => setRelatedVideos([]));
       })
@@ -180,26 +182,21 @@ export default function Watch() {
       const previousLiked = isLiked;
       const previousLikesCount = likesCount;
 
-      // Optimistic update
       const newLikedState = !previousLiked;
       const newCount = newLikedState ? previousLikesCount + 1 : Math.max(0, previousLikesCount - 1);
-      console.log(`[Watch.tsx] Optimistic like: was ${previousLiked} -> now ${newLikedState}, count: ${newCount}`);
       setIsLiked(newLikedState);
       setLikesCount(newCount);
 
       try {
         if (newLikedState) {
-          const res = await axios.post(`/api/videos/${video.id}/like`);
-          console.log('[Watch.tsx] Like POST response:', res.data);
+          const res = await api.post(`/api/videos/${video.id}/like`);
           if (res.data?.likes !== undefined) setLikesCount(res.data.likes);
         } else {
-          const res = await axios.delete(`/api/videos/${video.id}/like`);
-          console.log('[Watch.tsx] Like DELETE response:', res.data);
+          const res = await api.delete(`/api/videos/${video.id}/like`);
           if (res.data?.likes !== undefined) setLikesCount(res.data.likes);
         }
       } catch (err: any) {
         console.error('[Watch.tsx] Failed to toggle like, reverting:', err);
-        // Revert on error
         setIsLiked(previousLiked);
         setLikesCount(previousLikesCount);
         showToast('Failed to update like status');
@@ -216,30 +213,25 @@ export default function Watch() {
       const previousFollowing = isFollowing;
       const previousCount = followersCount;
 
-      // Optimistic update
       const newFollowingState = !previousFollowing;
       const newCount = newFollowingState ? previousCount + 1 : Math.max(0, previousCount - 1);
-      console.log(`[Watch.tsx] Optimistic follow: was ${previousFollowing} -> now ${newFollowingState}, count: ${newCount}`);
       setIsFollowing(newFollowingState);
       setFollowersCount(newCount);
 
       try {
         if (newFollowingState) {
-          const res = await axios.post(`/api/artists/${artistId}/follow`);
-          console.log('[Watch.tsx] Follow POST response:', res.data);
+          const res = await api.post(`/api/artists/${artistId}/follow`);
           if (res.data?.followers_count !== undefined) {
             setFollowersCount(res.data.followers_count);
           }
         } else {
-          const res = await axios.delete(`/api/artists/${artistId}/follow`);
-          console.log('[Watch.tsx] Follow DELETE response:', res.data);
+          const res = await api.delete(`/api/artists/${artistId}/follow`);
           if (res.data?.followers_count !== undefined) {
             setFollowersCount(res.data.followers_count);
           }
         }
       } catch (err: any) {
         console.error('[Watch.tsx] Failed to toggle follow, reverting:', err);
-        // Revert on error
         setIsFollowing(previousFollowing);
         setFollowersCount(previousCount);
         showToast('Failed to update follow status');
@@ -248,24 +240,24 @@ export default function Watch() {
   };
 
   // FEATURE 5 — SHARE BUTTON
-  const handleShare = () => {
+  const handleShare = async () => {
     try {
       const currentUrl = window.location.href;
-      console.log('[Watch.tsx] Sharing video URL:', currentUrl);
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(currentUrl).then(() => {
-          showToast('Link copied to clipboard!');
-        }).catch(() => {
-          showToast('Link copied to clipboard!');
-        });
-      } else {
-        // Fallback prompt
-        window.prompt('Copy video link:', currentUrl);
+        await navigator.clipboard.writeText(currentUrl);
         showToast('Link copied to clipboard!');
+      } else {
+        const tempInput = document.createElement('input');
+        tempInput.value = currentUrl;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        showToast(copied ? 'Link copied to clipboard!' : `Share URL: ${currentUrl}`);
       }
     } catch (err) {
       console.error('[Watch.tsx] Share error:', err);
-      showToast('Link copied to clipboard!');
+      showToast('Unable to copy link automatically. Copy from browser address bar.');
     }
   };
 
@@ -274,11 +266,21 @@ export default function Watch() {
     requireAuth(async () => {
       if (!video) return;
       setIsSubmittingRating(true);
-      console.log(`[Watch.tsx] Submitting rating: ${stars} stars for video: ${video.id}`);
 
       try {
-        await axios.post(`/api/videos/${video.id}/rate`, { rating: stars });
+        const res = await api.post(`/api/videos/${video.id}/rate`, { rating: stars });
         setUserRating(stars);
+        if (res.data?.rating_avg !== undefined) {
+          setVideo((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  rating_avg: Number(res.data.rating_avg),
+                  rating_count: Number(res.data.rating_count ?? prev.rating_count),
+                }
+              : null
+          );
+        }
         setIsRatingModalOpen(false);
         showToast('Thank you for rating!');
       } catch (err: any) {
@@ -296,22 +298,24 @@ export default function Watch() {
       if (!video) return;
 
       const isAllowed = video.is_free || video.userOwns;
-      console.log(`[Watch.tsx] Download requested. is_free: ${video.is_free}, userOwns: ${video.userOwns}, allowed: ${isAllowed}`);
-
       if (!isAllowed) {
-        alert('You must purchase this video to download it.');
+        showToast('Purchase this video to unlock offline download.');
         setIsPaymentModalOpen(true);
         return;
       }
 
       const downloadUrl = video.video_url || video.preview_url;
       if (!downloadUrl) {
-        alert('Download link unavailable.');
+        showToast('Download link is currently unavailable.');
         return;
       }
 
-      console.log('[Watch.tsx] Opening download source:', downloadUrl);
-      window.open(downloadUrl, '_blank');
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${video.title || 'paytune-video'}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       showToast('Starting download...');
     }, 'Please sign in to download this video.');
   };
@@ -348,7 +352,7 @@ export default function Watch() {
     );
   }
 
-  const artistName = video.artists?.full_name || video.artist_name || 'Bruce Melodie';
+  const artistName = video.artists?.full_name || video.artist_name || 'PAYTUNE Creator';
   const artistAvatar = video.artists?.profile_image || '';
 
   return (
@@ -377,13 +381,22 @@ export default function Watch() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Main Content Column */}
           <div className="lg:col-span-8 space-y-4">
-            {/* FEATURE 1: VIDEO PLAYER */}
+            {/* FEATURE 1: CUSTOM VIDEO PLAYER WITH WATERMARK & PAYWALL STRIP */}
             <VideoPlayer
               src={video.userOwns || video.is_free ? video.video_url : (video.preview_url || video.video_url)}
               videoId={video.id}
               video={video}
               poster={video.thumbnail_url}
               savedProgress={savedProgress}
+              hasNext={relatedVideos.length > 0}
+              onNext={() => {
+                if (relatedVideos.length > 0) {
+                  navigate(`/watch/${relatedVideos[0].id}`);
+                }
+              }}
+              isSubscribed={isFollowing}
+              onToggleSubscribe={handleFollow}
+              onShare={handleShare}
               onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
               onProgressUpdate={handleProgressUpdate}
               onEnded={() => {
@@ -463,7 +476,7 @@ export default function Watch() {
                       <CheckCircle className="w-3.5 h-3.5 text-purple-600 fill-purple-600/20" />
                     </div>
                     <p className="text-xs text-gray-500">
-                      {(followersCount || 14200).toLocaleString()} followers
+                      {Number(followersCount || 0).toLocaleString()} followers
                     </p>
                   </div>
                 </Link>
@@ -551,12 +564,13 @@ export default function Watch() {
             <CommentSection videoId={video.id} />
           </div>
 
-          {/* Right Column: Up Next & Related Videos */}
+          {/* Right Column: Dynamic Dark Sidebar */}
           <div className="lg:col-span-4 space-y-4">
             <UpNextSidebar
               currentVideoId={video.id}
               artistName={artistName}
               category={video.category}
+              contentType={video.content_type}
               relatedVideos={relatedVideos}
               loadingRelated={loadingRelated}
               autoplay={autoplay}

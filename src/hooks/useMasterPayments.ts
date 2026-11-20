@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterPayment {
   id: string;
@@ -32,18 +32,11 @@ export const useMasterPayments = () => {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/payments", {
-        headers,
+      const res = await api.get("/api/master/payments", {
         params: {
           method: methodFilter,
           from: dateFrom,
@@ -56,27 +49,24 @@ export const useMasterPayments = () => {
       }
     } catch (err: any) {
       console.error("useMasterPayments error:", err);
-      setError(err.message || "Failed to load transactions");
+      setError(err.response?.data?.error || err.message || "Failed to load transactions");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, methodFilter, dateFrom, dateTo]);
+  }, [methodFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
 
   const refundPayment = async (id: string) => {
-    const headers = getHeaders();
-    const res = await axios.post(`/api/master/payments/${id}/refund`, {}, { headers });
+    const res = await api.post(`/api/master/payments/${id}/refund`, {});
     fetchPayments();
     return res.data;
   };
 
   const exportCSV = async () => {
-    const headers = getHeaders();
-    const res = await axios.get("/api/master/payments/export", {
-      headers,
+    const res = await api.get("/api/master/payments/export", {
       responseType: "blob"
     });
     const url = window.URL.createObjectURL(new Blob([res.data]));

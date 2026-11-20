@@ -40,8 +40,6 @@ import {
 import {
   registerArtist,
   loginArtist,
-  verifyArtistPhone,
-  resendArtistOtp,
   detectArtistCountry
 } from '../controllers/artistAuthController';
 import { optionalAuthenticate, authenticate } from '../middleware/auth';
@@ -56,48 +54,49 @@ const upload = multer({
 // ==========================================
 export const artistStudioRouter = Router();
 
-// Artist Authentication & Verification
-artistStudioRouter.post('/register', registerArtist);
+// Artist Authentication
+artistStudioRouter.post('/register', optionalAuthenticate, registerArtist);
 artistStudioRouter.post('/login', loginArtist);
-artistStudioRouter.post('/verify-phone', optionalAuthenticate, verifyArtistPhone);
-artistStudioRouter.post('/resend-otp', optionalAuthenticate, resendArtistOtp);
 artistStudioRouter.get('/geo/detect', detectArtistCountry);
 
 // Dashboard & Overview
-artistStudioRouter.get('/dashboard', optionalAuthenticate, getArtistDashboard);
-artistStudioRouter.get('/:artistId/dashboard', optionalAuthenticate, getArtistDashboard);
+artistStudioRouter.get('/dashboard', authenticate, getArtistDashboard);
+artistStudioRouter.get('/:artistId/dashboard', authenticate, getArtistDashboard);
 
 // Earnings & Breakdown
-artistStudioRouter.get('/earnings', optionalAuthenticate, getArtistEarnings);
-artistStudioRouter.get('/earnings/breakdown', optionalAuthenticate, getEarningsBreakdown);
+artistStudioRouter.get('/earnings', authenticate, getArtistEarnings);
+artistStudioRouter.get('/earnings/breakdown', authenticate, getEarningsBreakdown);
 
 // Videos Management
-artistStudioRouter.get('/videos', optionalAuthenticate, getMyVideos);
+artistStudioRouter.get('/videos', authenticate, getMyVideos);
 artistStudioRouter.post(
-  '/video/upload', 
-  optionalAuthenticate, 
-  upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), 
+  '/video/upload',
+  authenticate,
+  upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
   uploadVideo
 );
 artistStudioRouter.post(
-  '/short/upload', 
-  optionalAuthenticate, 
-  upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), 
+  '/short/upload',
+  authenticate,
+  upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
   uploadVideo
 );
-artistStudioRouter.put('/video/:id', optionalAuthenticate, updateArtistVideo);
-artistStudioRouter.delete('/video/:id', optionalAuthenticate, deleteArtistVideo);
-artistStudioRouter.post('/video/:id/regenerate-link', optionalAuthenticate, regenerateVideoLink);
-artistStudioRouter.get('/video/:id/analytics', optionalAuthenticate, getVideoAnalytics);
+artistStudioRouter.put('/video/:id', authenticate, updateArtistVideo);
+artistStudioRouter.put('/videos/:id', authenticate, updateArtistVideo);
+artistStudioRouter.delete('/video/:id', authenticate, deleteArtistVideo);
+artistStudioRouter.delete('/videos/:id', authenticate, deleteArtistVideo);
+artistStudioRouter.post('/video/:id/regenerate-link', authenticate, regenerateVideoLink);
+artistStudioRouter.get('/video/:id/analytics', authenticate, getVideoAnalytics);
 
 // Studio Analytics
-artistStudioRouter.get('/analytics', optionalAuthenticate, getArtistAnalytics);
+artistStudioRouter.get('/analytics', authenticate, getArtistAnalytics);
 
-// Subscribers & Community
-artistStudioRouter.get('/subscribers', optionalAuthenticate, getArtistSubscribers);
-artistStudioRouter.get('/top-fans', optionalAuthenticate, getTopFans);
-artistStudioRouter.get('/comments', optionalAuthenticate, getArtistComments);
-artistStudioRouter.put('/comments/:id/hide', optionalAuthenticate, hideComment);
+// Subscribers, Followers & Community
+artistStudioRouter.get('/subscribers', authenticate, getArtistSubscribers);
+artistStudioRouter.get('/followers', authenticate, getArtistSubscribers);
+artistStudioRouter.get('/top-fans', authenticate, getTopFans);
+artistStudioRouter.get('/comments', authenticate, getArtistComments);
+artistStudioRouter.put('/comments/:id/hide', authenticate, hideComment);
 
 // Withdrawals & Payouts
 artistStudioRouter.get('/withdrawals', authenticate, getArtistWithdrawals);
@@ -105,17 +104,18 @@ artistStudioRouter.post('/withdraw/request', authenticate, requestWithdrawal);
 artistStudioRouter.post('/withdraw', authenticate, requestWithdrawal);
 
 // Profile & Studio Settings
-artistStudioRouter.get('/settings', optionalAuthenticate, getArtistSettings);
-artistStudioRouter.put('/settings', optionalAuthenticate, updateArtistProfile);
-artistStudioRouter.put('/profile', optionalAuthenticate, updateArtistProfile);
-artistStudioRouter.put('/settings/notifications', optionalAuthenticate, updateNotificationSettings);
-artistStudioRouter.post('/change-password', optionalAuthenticate, changePassword);
+artistStudioRouter.get('/settings', authenticate, getArtistSettings);
+artistStudioRouter.get('/profile', authenticate, getArtistSettings);
+artistStudioRouter.put('/settings', authenticate, updateArtistProfile);
+artistStudioRouter.put('/profile', authenticate, updateArtistProfile);
+artistStudioRouter.put('/settings/notifications', authenticate, updateNotificationSettings);
+artistStudioRouter.post('/change-password', authenticate, changePassword);
 
 // Live Streaming
-artistStudioRouter.get('/live', optionalAuthenticate, getArtistStreams);
-artistStudioRouter.post('/live/create', optionalAuthenticate, createLiveStream);
-artistStudioRouter.put('/live/:id/start', optionalAuthenticate, startLiveStream);
-artistStudioRouter.put('/live/:id/end', optionalAuthenticate, endLiveStream);
+artistStudioRouter.get('/live', authenticate, getArtistStreams);
+artistStudioRouter.post('/live/create', authenticate, createLiveStream);
+artistStudioRouter.put('/live/:id/start', authenticate, startLiveStream);
+artistStudioRouter.put('/live/:id/end', authenticate, endLiveStream);
 
 
 // ==========================================
@@ -123,10 +123,13 @@ artistStudioRouter.put('/live/:id/end', optionalAuthenticate, endLiveStream);
 // ==========================================
 export const publicArtistRouter = Router();
 
+import { getArtistTracks } from '../controllers/musicController';
+
 publicArtistRouter.get('/', listArtists);
 publicArtistRouter.get('/:id', getArtistById);
 publicArtistRouter.get('/:id/videos', getArtistVideos);
 publicArtistRouter.get('/:id/shorts', getArtistShorts);
+publicArtistRouter.get('/:id/tracks', getArtistTracks);
 publicArtistRouter.get('/:id/playlists', getArtistPlaylists);
 publicArtistRouter.get('/:id/live', getArtistLiveStreams);
 publicArtistRouter.get('/:id/membership', getArtistMembershipTiers);

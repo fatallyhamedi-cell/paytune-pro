@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { useAuth } from './useAuth';
 
 export interface ArtistProfile {
@@ -40,28 +40,34 @@ export function useArtist(artistIdOrUsername: string | undefined) {
 
   // Fetch Artist details and subscription status
   const fetchArtist = useCallback(async () => {
-    const cleanId = (!artistIdOrUsername || artistIdOrUsername === "undefined" || artistIdOrUsername === "null") 
-      ? "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d" 
+    const cleanId = (!artistIdOrUsername || artistIdOrUsername === "undefined" || artistIdOrUsername === "null")
+      ? ""
       : artistIdOrUsername;
+
+    if (!cleanId) {
+      setArtist(null);
+      setError("Artist channel identifier is required.");
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await axios.get<ArtistProfile>(`/api/artists/${cleanId}`);
+      const res = await api.get<ArtistProfile>(`/api/artists/${cleanId}`);
       const rawData = res.data;
       const data: ArtistProfile = {
         ...rawData,
-        profile_image: (rawData as any).avatar_url || rawData.profile_image,
-        banner_image: (rawData as any).banner_url || rawData.banner_image,
+        profile_image: (rawData as any).avatar_url || rawData.profile_image || '',
+        banner_image: (rawData as any).banner_url || rawData.banner_image || '',
       };
       setArtist(data);
       setSubscriberCount(data.subscriber_count ?? data.subscribers_count ?? 0);
 
-      // Check user subscribe status if logged in
       if (user) {
         try {
-          const subRes = await axios.get<{ subscribed: boolean }>(`/api/artists/${data.id}/subscribe-status`);
+          const subRes = await api.get<{ subscribed: boolean }>(`/api/artists/${data.id}/subscribe-status`);
           setSubscribed(!!subRes.data.subscribed);
         } catch {
           setSubscribed(false);
@@ -70,24 +76,10 @@ export function useArtist(artistIdOrUsername: string | undefined) {
         setSubscribed(false);
       }
     } catch (err: any) {
-      // Graceful fallback to avoid breaking UI on 404 or transient error
-      setArtist({
-        id: cleanId,
-        full_name: "PAYTUNE Artist",
-        username: "artist",
-        profile_image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80",
-        bio: "Official PAYTUNE creator and music artist.",
-        banner_image: "",
-        social_links: {},
-        is_verified: true,
-        subscriber_count: 100,
-        subscribers_count: 100,
-        video_count: 1,
-        total_views: 0,
-        join_date: new Date().toISOString(),
-        membership_tiers: []
-      });
-      setError(null);
+      setArtist(null);
+      setSubscriberCount(0);
+      setSubscribed(false);
+      setError(err?.response?.data?.error || err?.message || "Failed to load artist channel.");
     } finally {
       setLoading(false);
     }
@@ -115,7 +107,7 @@ export function useArtist(artistIdOrUsername: string | undefined) {
     setSubscriberCount(newCount);
 
     try {
-      const res = await axios.post<{ subscribed: boolean; subscriber_count: number }>(
+      const res = await api.post<{ subscribed: boolean; subscriber_count: number }>(
         `/api/artists/${artist.id}/subscribe`
       );
       if (typeof res.data.subscribed === 'boolean') {
@@ -139,7 +131,7 @@ export function useArtist(artistIdOrUsername: string | undefined) {
   // Submit report
   const reportArtist = async (reason: string, details: string) => {
     if (!artist) throw new Error("Artist profile not loaded");
-    const res = await axios.post(`/api/artists/${artist.id}/report`, {
+    const res = await api.post(`/api/artists/${artist.id}/report`, {
       reason,
       details
     });

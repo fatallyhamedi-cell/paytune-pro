@@ -107,8 +107,7 @@ export const ShortsPlayer: React.FC<ShortsPlayerProps> = ({
     <div
       ref={containerRef}
       onClick={handleContainerClick}
-      className="relative w-full h-full max-w-[450px] mx-auto bg-neutral-950 overflow-hidden select-none cursor-pointer flex items-center justify-center rounded-none sm:rounded-2xl sm:shadow-2xl border-0 sm:border sm:border-white/10"
-      style={{ aspectRatio: '9/16' }}
+      className="relative w-full h-full max-w-[450px] aspect-[9/16] mx-auto bg-neutral-950 overflow-hidden select-none cursor-pointer flex items-center justify-center rounded-none sm:rounded-2xl sm:shadow-2xl border-0 sm:border sm:border-white/10"
     >
       {/* HTML5 Video Element */}
       <video
@@ -123,6 +122,14 @@ export const ShortsPlayer: React.FC<ShortsPlayerProps> = ({
         preload={isActive ? "auto" : "metadata"}
         className="w-full h-full object-cover pointer-events-none"
       />
+
+      {/* Permanent PayTune Watermark Overlay */}
+      <div className="absolute top-4 right-4 z-20 pointer-events-none select-none flex items-center gap-1.5 opacity-60">
+        <span className="w-2.5 h-2.5 rounded-xs bg-[#8B5CF6] shadow-md" />
+        <span className="text-white font-black text-sm tracking-wider drop-shadow-lg">
+          PayTune
+        </span>
+      </div>
 
       {/* Video Overlay controls & metadata */}
       <ShortsOverlay

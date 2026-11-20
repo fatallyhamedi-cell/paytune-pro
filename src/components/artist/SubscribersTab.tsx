@@ -16,7 +16,7 @@ import {
   ShieldAlert,
   Loader2
 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 
 interface SubscribersTabProps {
   artist: any;
@@ -35,14 +35,16 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
   // Comment reply state
   const [replyText, setReplyText] = useState<{ [commentId: string]: string }>({});
   const [replySuccess, setReplySuccess] = useState<string | null>(null);
+  const [replySubmitting, setReplySubmitting] = useState<string | null>(null);
+  const [replyError, setReplyError] = useState<{ [commentId: string]: string }>({});
 
   const fetchCommunityData = async () => {
     try {
       setLoading(true);
       const [subsRes, fansRes, commsRes] = await Promise.all([
-        axios.get('/api/artist/subscribers').catch(() => ({ data: null })),
-        axios.get('/api/artist/top-fans').catch(() => ({ data: [] })),
-        axios.get('/api/artist/comments').catch(() => ({ data: [] }))
+        api.get('/api/artist/subscribers').catch(() => ({ data: null })),
+        api.get('/api/artist/top-fans').catch(() => ({ data: [] })),
+        api.get('/api/artist/comments').catch(() => ({ data: [] }))
       ]);
 
       if (subsRes?.data) setSubscribersData(subsRes.data);
@@ -61,7 +63,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
 
   const handleToggleHideComment = async (commentId: string, currentHidden: boolean) => {
     try {
-      await axios.put(`/api/artist/comments/${commentId}/hide`, { hidden: !currentHidden });
+      await api.put(`/api/artist/comments/${commentId}/hide`, { hidden: !currentHidden });
       setComments(prev =>
         prev.map(c => (c.id === commentId ? { ...c, is_hidden: !currentHidden } : c))
       );
@@ -70,35 +72,53 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
     }
   };
 
-  const handleSendReply = (commentId: string) => {
+  const handleSendReply = async (comment: any) => {
+    const commentId = comment.id;
     const text = replyText[commentId]?.trim();
-    if (!text) return;
+    if (!text || replySubmitting === commentId) return;
 
-    setComments(prev =>
-      prev.map(c => {
-        if (c.id === commentId) {
-          const replies = c.replies || [];
-          return {
-            ...c,
-            replies: [
-              ...replies,
-              {
-                id: `reply-${Date.now()}`,
-                author: artist?.full_name || 'Bruce Melodie',
-                text,
-                created_at: new Date().toISOString(),
-                is_artist: true
-              }
-            ]
-          };
-        }
-        return c;
-      })
-    );
+    setReplySubmitting(commentId);
+    setReplyError(prev => ({ ...prev, [commentId]: '' }));
+    try {
+      const res = await api.post(`/api/videos/${comment.video_id}/comments`, {
+        text,
+        comment_text: text,
+        parent_comment_id: commentId
+      });
+      const created = res.data?.comment || res.data;
+      setComments(prev =>
+        prev.map(c => {
+          if (c.id === commentId) {
+            const replies = c.replies || [];
+            return {
+              ...c,
+              replies: [
+                ...replies,
+                {
+                  id: created?.id || `reply-${Date.now()}`,
+                  author: created?.author_name || artist?.full_name || 'Creator',
+                  text: created?.comment_text || created?.text || text,
+                  created_at: created?.created_at || new Date().toISOString(),
+                  is_artist: true
+                }
+              ]
+            };
+          }
+          return c;
+        })
+      );
 
-    setReplyText(prev => ({ ...prev, [commentId]: '' }));
-    setReplySuccess(commentId);
-    setTimeout(() => setReplySuccess(null), 3000);
+      setReplyText(prev => ({ ...prev, [commentId]: '' }));
+      setReplySuccess(commentId);
+      setTimeout(() => setReplySuccess(null), 3000);
+    } catch (err: any) {
+      setReplyError(prev => ({
+        ...prev,
+        [commentId]: err.response?.data?.error || err.response?.data?.message || 'Failed to publish reply.'
+      }));
+    } finally {
+      setReplySubmitting(null);
+    }
   };
 
   const subscribersList = subscribersData?.subscribers || [];
@@ -122,11 +142,11 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
           <div className="space-y-1">
             <h3 className="text-2xl sm:text-3xl font-black text-white">
-              {(subscribersData?.total_subscribers || artist?.subscriber_count || 14800).toLocaleString()}
+              {(subscribersData?.total_subscribers ?? artist?.subscriber_count ?? 0).toLocaleString()}
             </h3>
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>{subscribersData?.monthly_growth_rate || '+12.8%'} this month</span>
+              <span>{subscribersData?.monthly_growth_rate || '0%'} this month</span>
             </div>
           </div>
         </div>
@@ -142,7 +162,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
           <div className="space-y-1">
             <h3 className="text-2xl sm:text-3xl font-black text-white">
-              +{(subscribersData?.new_subscribers_this_month || 840).toLocaleString()}
+              +{(subscribersData?.new_subscribers_this_month ?? 0).toLocaleString()}
             </h3>
             <p className="text-xs text-gray-400">Joined in the last 30 days</p>
           </div>
@@ -159,11 +179,11 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
           <div className="space-y-1">
             <h3 className="text-2xl sm:text-3xl font-black text-white">
-              {(topFans[0]?.total_spent_rwf || 45000).toLocaleString()}{' '}
+              {(topFans[0]?.total_spent_rwf ?? 0).toLocaleString()}{' '}
               <span className="text-xs font-bold text-gray-400">RWF</span>
             </h3>
             <p className="text-xs text-[#FFB300] font-medium truncate">
-              {topFans[0]?.name || 'Christian R.'} ({topFans[0]?.badge || 'VIP Diamond'})
+              {topFans[0]?.name || 'No supporters yet'}{topFans[0]?.badge ? ` (${topFans[0].badge})` : ''}
             </p>
           </div>
         </div>
@@ -179,7 +199,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
           </div>
           <div className="space-y-1">
             <h3 className="text-2xl sm:text-3xl font-black text-white">
-              {comments.length || 28}
+              {comments.length}
             </h3>
             <p className="text-xs text-emerald-400 font-semibold">100% active moderation</p>
           </div>
@@ -280,12 +300,16 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                       <tr key={sub.id} className="hover:bg-white/[0.02] transition-colors">
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-black shrink-0">
-                              <img 
-                                src={sub.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"} 
-                                alt={sub.name} 
-                                className="w-full h-full object-cover" 
-                              />
+                            <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-black shrink-0 flex items-center justify-center text-xs font-bold text-purple-300">
+                              {sub.avatar_url ? (
+                                <img
+                                  src={sub.avatar_url}
+                                  alt={sub.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                (sub.name || 'F').charAt(0).toUpperCase()
+                              )}
                             </div>
                             <div>
                               <p className="font-bold text-white">{sub.name}</p>
@@ -360,12 +384,16 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                         }`}>
                           #{fan.rank}
                         </div>
-                        <div className="w-11 h-11 rounded-full overflow-hidden border border-white/10 bg-black">
-                          <img 
-                            src={fan.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"} 
-                            alt={fan.name} 
-                            className="w-full h-full object-cover" 
-                          />
+                        <div className="w-11 h-11 rounded-full overflow-hidden border border-white/10 bg-black flex items-center justify-center text-sm font-bold text-purple-300">
+                          {fan.avatar_url ? (
+                            <img
+                              src={fan.avatar_url}
+                              alt={fan.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            (fan.name || 'F').charAt(0).toUpperCase()
+                          )}
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-full bg-purple-600/10 text-[#FFB300] text-[10px] font-black uppercase tracking-wider border border-purple-600/20">
@@ -405,7 +433,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-white">{comment.user_name}</span>
+                          <span className="text-xs font-bold text-white">{comment.author_name || comment.user_name || 'Fan'}</span>
                           <span className="text-[10px] text-gray-500">•</span>
                           <span className="text-[11px] text-[#FFB300] font-semibold">{comment.video_title}</span>
                           {comment.is_hidden && (
@@ -414,7 +442,7 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-300 leading-relaxed">{comment.comment}</p>
+                        <p className="text-xs text-gray-300 leading-relaxed">{comment.comment_text || comment.comment || ''}</p>
                         <span className="text-[10px] text-gray-500 block">
                           {new Date(comment.created_at).toLocaleString()}
                         </span>
@@ -456,17 +484,29 @@ export const SubscribersTab: React.FC<SubscribersTabProps> = ({ artist }) => {
                         placeholder="Write a public artist reply..."
                         value={replyText[comment.id] || ''}
                         onChange={(e) => setReplyText({ ...replyText, [comment.id]: e.target.value })}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendReply(comment.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendReply(comment)}
+                        disabled={replySubmitting === comment.id}
                         className="flex-1 px-3 py-1.5 rounded-xl bg-[#1C1C1C] border border-white/5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#FFB300]"
                       />
                       <button
-                        onClick={() => handleSendReply(comment.id)}
-                        className="p-2 rounded-xl bg-[#FFB300] text-black hover:bg-[#ffc107] transition-all"
+                        onClick={() => handleSendReply(comment)}
+                        disabled={replySubmitting === comment.id || !replyText[comment.id]?.trim()}
+                        className="p-2 rounded-xl bg-[#FFB300] text-black hover:bg-[#ffc107] disabled:opacity-50 transition-all"
                         title="Post reply"
                       >
-                        <Send className="w-3.5 h-3.5" />
+                        {replySubmitting === comment.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
                       </button>
                     </div>
+
+                    {replyError[comment.id] && (
+                      <p className="text-[11px] text-rose-400 font-semibold">
+                        {replyError[comment.id]}
+                      </p>
+                    )}
 
                     {replySuccess === comment.id && (
                       <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">

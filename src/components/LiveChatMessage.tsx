@@ -32,10 +32,7 @@ export const LiveChatMessage: React.FC<LiveChatMessageProps> = ({
     return (
       <div 
         id={`chat-super-thanks-${message.id}`}
-        className="p-3.5 rounded-2xl relative overflow-hidden transition-all shadow-md group border border-[#FFC107]"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.22) 0%, rgba(255, 143, 0, 0.15) 100%)'
-        }}
+        className="p-3.5 rounded-2xl relative overflow-hidden transition-all shadow-md group border border-amber-400 bg-gradient-to-br from-amber-500/20 to-orange-500/15"
       >
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-2">
@@ -43,10 +40,9 @@ export const LiveChatMessage: React.FC<LiveChatMessageProps> = ({
               {message.user_name || 'Supporter'}
             </span>
             <span 
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider text-black uppercase shadow-xs"
-              style={{ background: 'linear-gradient(135deg, #FFB300 0%, #FF8F00 100%)' }}
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black tracking-wider text-black uppercase shadow-xs bg-gradient-to-br from-amber-400 to-orange-500"
             >
-              <Sparkles className="w-3 h-3 fill-black text-black animate-spin" style={{ animationDuration: '4s' }} />
+              <Sparkles className="w-3 h-3 fill-black text-black" />
               RWF {Number(message.super_chat_amount).toLocaleString()}
             </span>
           </div>

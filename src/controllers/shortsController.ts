@@ -1,459 +1,420 @@
 import { Request, Response } from 'express';
-import { supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
-import { getDbStore, notifyMutation } from '../config/supabase_mock';
+import { rawSupabaseAdmin, supabaseAdmin } from '../config/supabase';
 
-// Helper to format artist information
-function getArtistsDictionary(): Record<string, any> {
-  const store = getDbStore();
-  const map: Record<string, any> = {};
-  if (store && Array.isArray(store.artists)) {
-    store.artists.forEach((a: any) => {
-      map[a.id] = a;
-      if (a.user_id) map[a.user_id] = a;
-    });
-  }
-  return map;
-}
+const db = () => rawSupabaseAdmin || supabaseAdmin;
 
-// Normalizer for vertical short format
-function normalizeShort(v: any, artistsMap: Record<string, any>, currentUserId?: string) {
-  const artist = v.artists || artistsMap[v.artist_id] || {
-    id: v.artist_id || 'artist-1',
-    full_name: v.artist_name || 'PAYTUNE Artist',
-    username: 'paytune',
-    profile_image: '',
-    is_verified: true,
-    subscriber_count: 14200
-  };
+async function enrichShorts(videos: any[], currentUserId?: string) {
+  if (!videos || videos.length === 0) return [];
+  const client = db();
 
-  const store = getDbStore();
-  
-  // Check if current user liked this video
-  let isLiked = false;
-  if (currentUserId && store && Array.isArray(store.user_likes)) {
-    isLiked = store.user_likes.some((l: any) => l.video_id === v.id && l.user_id === currentUserId);
-  }
+  const videoIds = videos.map((v) => v.id);
+  const artistIds = Array.from(new Set(videos.map((v) => v.artist_profile_id).filter(Boolean)));
+  const channelIds = Array.from(new Set(videos.map((v) => v.creator_channel_id).filter(Boolean)));
 
-  // Check if current user is subscribed to artist
-  let isSubscribed = false;
-  if (currentUserId && store && Array.isArray(store.subscriptions)) {
-    isSubscribed = store.subscriptions.some((s: any) => s.artist_id === artist.id && s.user_id === currentUserId);
-  }
+  const [
+    { data: artists },
+    { data: channels },
+    { data: reactions },
+    { data: comments },
+    { data: analytics },
+    { data: follows },
+  ] = await Promise.all([
+    artistIds.length > 0
+      ? client.from('artist_profiles').select('id, artist_name, artist_handle, avatar_path, verification_status, approval_status').in('id', artistIds)
+      : Promise.resolve({ data: [] as any[] }),
+    channelIds.length > 0
+      ? client.from('creator_channels').select('id, channel_name, channel_handle, avatar_path, verification_status, approval_status').in('id', channelIds)
+      : Promise.resolve({ data: [] as any[] }),
+    client.from('content_reactions').select('content_id, user_id').eq('reaction_type', 'like').in('content_id', videoIds),
+    client.from('comments').select('content_id').in('content_id', videoIds),
+    client.from('video_daily_analytics').select('video_id, valid_views, total_view_events').in('video_id', videoIds),
+    currentUserId && artistIds.length > 0
+      ? client.from('artist_follows').select('artist_id').eq('user_id', currentUserId).in('artist_id', artistIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
-  // Get comments count
-  let commentsCount = 0;
-  if (store && Array.isArray(store.comments)) {
-    commentsCount = store.comments.filter((c: any) => c.video_id === v.id).length;
-  }
-  if (commentsCount === 0) commentsCount = Math.floor((v.likes || 120) * 0.12) + 5;
+  const artistMap = new Map((artists || []).map((a: any) => [a.id, a]));
+  const channelMap = new Map((channels || []).map((c: any) => [c.id, c]));
+  const followedSet = new Set((follows || []).map((f: any) => f.artist_id));
 
-  return {
-    id: String(v.id),
-    title: v.title || 'Untitled Short',
-    description: v.description || '',
-    artist_id: String(artist.id || v.artist_id || ''),
-    artist_name: artist.full_name || v.artist_name || 'PAYTUNE Artist',
-    artist_username: artist.username ? `@${artist.username.replace(/^@/, '')}` : '@artist',
-    artist_avatar: artist.profile_image || '',
-    artist_verified: !!artist.is_verified,
-    subscribers_count: Number(artist.subscriber_count || artist.subscribers_count || 0),
-    thumbnail_url: v.thumbnail_url || '',
-    video_url: v.video_url || v.preview_url || '',
-    vertical_url: v.vertical_url || v.video_url || v.preview_url || '',
-    duration: Math.min(50, Number(v.duration || 30)),
-    views: Number(v.views || 0),
-    likes: Number(v.likes || 0),
-    comments_count: commentsCount,
-    shares_count: Number(v.shares_count || 0),
-    created_at: v.uploaded_at || v.created_at || new Date().toISOString(),
-    uploaded_at: v.uploaded_at || v.created_at || new Date().toISOString(),
-    song_title: v.song_title || `${v.title?.replace(/[^a-zA-Z0-9 ]/g, '') || 'Original Sound'} • ${artist.full_name || 'PAYTUNE'}`,
-    is_short: true,
-    is_free: true,
-    is_liked: isLiked,
-    is_subscribed: isSubscribed,
-    category: 'Shorts'
-  };
+  const likesCountMap: Record<string, number> = {};
+  const userLikedSet = new Set<string>();
+  (reactions || []).forEach((r: any) => {
+    likesCountMap[r.content_id] = (likesCountMap[r.content_id] || 0) + 1;
+    if (currentUserId && r.user_id === currentUserId) {
+      userLikedSet.add(r.content_id);
+    }
+  });
+
+  const commentsCountMap: Record<string, number> = {};
+  (comments || []).forEach((c: any) => {
+    commentsCountMap[c.content_id] = (commentsCountMap[c.content_id] || 0) + 1;
+  });
+
+  const viewsMap: Record<string, number> = {};
+  (analytics || []).forEach((a: any) => {
+    viewsMap[a.video_id] = (viewsMap[a.video_id] || 0) + Number(a.valid_views || a.total_view_events || 0);
+  });
+
+  return videos.map((v: any) => {
+    const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
+    const artist: any = artistMap.get(v.artist_profile_id) || {};
+    const channel: any = channelMap.get(v.creator_channel_id) || {};
+    const artistName = artist.artist_name || channel.channel_name || meta.artist_name || 'Creator';
+    const handle = artist.artist_handle || channel.channel_handle || '';
+
+    return {
+      id: String(v.id),
+      title: v.title || '',
+      description: v.description || '',
+      artist_id: String(v.artist_profile_id || v.creator_channel_id || ''),
+      artist_name: artistName,
+      artist_username: handle ? `@${String(handle).replace(/^@/, '')}` : '',
+      artist_avatar: artist.avatar_path || channel.avatar_path || '',
+      artist_verified:
+        artist.verification_status === 'verified' ||
+        channel.verification_status === 'verified' ||
+        artist.approval_status === 'approved',
+      subscribers_count: Number(meta.subscribers_count || 0),
+      thumbnail_url: meta.thumbnail_url || '',
+      video_url: meta.video_url || '',
+      vertical_url: meta.video_url || '',
+      duration: Number(v.duration_seconds || 0),
+      views: viewsMap[v.id] || Number(meta.view_count ?? meta.views ?? 0),
+      likes: likesCountMap[v.id] || 0,
+      comments_count: commentsCountMap[v.id] || 0,
+      shares_count: Number(meta.shares_count || 0),
+      created_at: v.published_at || v.created_at,
+      uploaded_at: v.published_at || v.created_at,
+      song_title: meta.song_title || v.title || '',
+      is_short: true,
+      is_free: true,
+      is_liked: userLikedSet.has(v.id),
+      is_subscribed: followedSet.has(v.artist_profile_id),
+      category: 'Shorts',
+    };
+  });
 }
 
 /**
  * GET /api/shorts/feed
- * Query params: limit (default 20), offset (default 0), sort (new, trending, following, foryou)
  */
 export const getShortsFeed = async (req: Request, res: Response) => {
-  const {
-    limit = '20',
-    offset = '0',
-    sort = 'trending'
-  } = req.query;
-
+  const { limit = '20', offset = '0', sort = 'trending' } = req.query;
   const numLimit = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 20));
   const numOffset = Math.max(0, parseInt(String(offset), 10) || 0);
   const currentUserId = (req as any).user?.id;
-  const artistsMap = getArtistsDictionary();
 
   try {
-    let allShorts: any[] = [];
+    const client = db();
+    const { data, count, error } = await client
+      .from('videos')
+      .select('*', { count: 'exact' })
+      .eq('video_type', 'short')
+      .eq('visibility', 'public')
+      .eq('publication_status', 'published')
+      .order('published_at', { ascending: false })
+      .range(numOffset, numOffset + numLimit - 1);
 
-    // 1. Try fetching from Supabase
-    try {
-      let query = supabaseAdmin
-        .from('videos')
-        .select('*, artists(id, full_name, username, profile_image, is_verified, subscriber_count)')
-        .eq('is_active', true)
-        .or('category.eq.Shorts,category.ilike.%Short%');
+    if (error) throw error;
 
-      if (sort === 'new') {
-        query = query.order('uploaded_at', { ascending: false });
-      } else {
-        query = query.order('views', { ascending: false });
-      }
+    const items = await enrichShorts(data || [], currentUserId);
 
-      const { data, error } = await query;
-      if (!error && Array.isArray(data) && data.length > 0) {
-        allShorts = data.map((v: any) => normalizeShort(v, artistsMap, currentUserId));
-      }
-    } catch {
-      // ignore
+    if (sort === 'following' && currentUserId) {
+      items.sort((a, b) => (b.is_subscribed ? 1 : 0) - (a.is_subscribed ? 1 : 0));
+    } else if (sort !== 'new') {
+      items.sort((a, b) => (b.views + b.likes * 3) - (a.views + a.likes * 3));
     }
 
-    // 2. Blend or fallback with local high-fidelity mock store
-    const store = getDbStore();
-    const localShorts = (store?.videos || [])
-      .filter((v: any) => v.is_active !== false && (v.is_short === true || v.category === 'Shorts' || v.category === 'Reels' || String(v.id).startsWith('short-')))
-      .map((v: any) => normalizeShort(v, artistsMap, currentUserId));
+    const total = count ?? items.length;
+    const hasMore = numOffset + items.length < total;
 
-    // Combine avoiding duplicate IDs
-    const seenIds = new Set<string>();
-    const combined: any[] = [];
-
-    // Prioritize vertical formatted shorts first
-    for (const item of [...localShorts, ...allShorts]) {
-      if (!seenIds.has(item.id)) {
-        seenIds.add(item.id);
-        combined.push(item);
-      }
-    }
-
-    // Sort order
-    if (sort === 'new') {
-      combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (sort === 'following' && currentUserId) {
-      combined.sort((a, b) => (b.is_subscribed ? 1 : 0) - (a.is_subscribed ? 1 : 0));
-    } else {
-      // Trending: views & likes
-      combined.sort((a, b) => (b.views + b.likes * 3) - (a.views + a.likes * 3));
-    }
-
-    const paginated = combined.slice(numOffset, numOffset + numLimit);
-    const hasMore = numOffset + numLimit < combined.length;
-
-    // Return structured payload with both items array and pagination keys
     return res.json({
-      items: paginated,
-      shorts: paginated, // backwards compatibility
-      total: combined.length,
+      items,
+      shorts: items,
+      total,
       nextOffset: hasMore ? numOffset + numLimit : null,
-      hasMore: hasMore
+      hasMore,
     });
   } catch (error: any) {
     console.error('getShortsFeed error:', error);
-    const store = getDbStore();
-    const fallback = (store?.videos || [])
-      .filter((v: any) => v.category === 'Shorts' || v.is_short || String(v.id).startsWith('short-'))
-      .map((v: any) => normalizeShort(v, artistsMap, currentUserId));
-
-    return res.json({
-      items: fallback.slice(numOffset, numOffset + numLimit),
-      shorts: fallback.slice(numOffset, numOffset + numLimit),
-      total: fallback.length,
-      nextOffset: null,
-      hasMore: false
-    });
+    return res.status(500).json({ error: error.message || 'Failed to load shorts feed' });
   }
 };
 
 /**
  * GET /api/shorts/:id
- * Returns single short details
  */
 export const getShortById = async (req: Request, res: Response) => {
   const { id } = req.params;
   const currentUserId = (req as any).user?.id;
-  const artistsMap = getArtistsDictionary();
 
   try {
-    const store = getDbStore();
-    let video = store?.videos?.find((v: any) => String(v.id) === id);
+    const client = db();
+    const { data: video, error } = await client
+      .from('videos')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (!video) {
-      try {
-        const { data } = await supabaseAdmin
-          .from('videos')
-          .select('*, artists(*)')
-          .eq('id', id)
-          .maybeSingle();
-        if (data) video = data;
-      } catch {
-        // ignore
-      }
-    }
-
-    if (!video) {
-      // Default to first short if not found
-      video = store?.videos?.find((v: any) => v.category === 'Shorts' || v.is_short) || store?.videos?.[0];
-    }
-
+    if (error) throw error;
     if (!video) {
       return res.status(404).json({ error: 'Short video not found' });
     }
 
-    const normalized = normalizeShort(video, artistsMap, currentUserId);
-    res.json(normalized);
+    const [normalized] = await enrichShorts([video], currentUserId);
+    return res.json(normalized);
   } catch (error: any) {
     console.error('getShortById error:', error);
-    res.status(500).json({ error: 'Failed to retrieve short' });
+    return res.status(500).json({ error: error.message || 'Failed to retrieve short' });
   }
 };
 
 /**
  * POST /api/shorts/:id/like
- * Toggle like on a short
  */
 export const toggleShortLike = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
-  const userId = user?.id || 'guest-user-session';
-  const store = getDbStore();
-
-  if (!store) {
-    return res.status(500).json({ error: 'Database store unavailable' });
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required to like a short.' });
   }
 
-  if (!store.user_likes) store.user_likes = [];
-  if (!store.videos) store.videos = [];
-
-  const video = store.videos.find((v: any) => String(v.id) === id);
-  const existingLikeIndex = store.user_likes.findIndex(
-    (l: any) => String(l.video_id) === id && String(l.user_id) === userId
-  );
-
-  let liked = false;
-  let currentLikes = video ? Number(video.likes || 0) : 0;
-
-  if (existingLikeIndex >= 0) {
-    // Unlike
-    store.user_likes.splice(existingLikeIndex, 1);
-    liked = false;
-    currentLikes = Math.max(0, currentLikes - 1);
-  } else {
-    // Like
-    store.user_likes.push({
-      id: `like-${Date.now()}`,
-      video_id: id,
-      user_id: userId,
-      created_at: new Date().toISOString()
-    });
-    liked = true;
-    currentLikes += 1;
-  }
-
-  if (video) {
-    video.likes = currentLikes;
-  }
-
-  // Also update remote Supabase if possible
   try {
-    supabaseAdmin.from('videos').update({ likes: currentLikes }).eq('id', id).then(() => {}).catch(() => {});
-  } catch {
-    // ignore
+    const client = db();
+    const { data: existing } = await client
+      .from('content_reactions')
+      .select('id')
+      .eq('content_type', 'short')
+      .eq('content_id', id)
+      .eq('user_id', user.id)
+      .eq('reaction_type', 'like')
+      .maybeSingle();
+
+    if (existing) {
+      await client.from('content_reactions').delete().eq('id', existing.id);
+    } else {
+      await client.from('content_reactions').insert({
+        content_type: 'short',
+        content_id: id,
+        user_id: user.id,
+        reaction_type: 'like',
+      });
+    }
+
+    const { count } = await client
+      .from('content_reactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('content_type', 'short')
+      .eq('content_id', id)
+      .eq('reaction_type', 'like');
+
+    return res.json({
+      success: true,
+      liked: !existing,
+      likes: count || 0,
+    });
+  } catch (error: any) {
+    console.error('toggleShortLike error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to toggle like' });
   }
-
-  notifyMutation(store);
-
-  res.json({
-    success: true,
-    liked,
-    likes: currentLikes
-  });
 };
 
 /**
  * POST /api/shorts/:id/view
- * Record video view and log to shorts_analytics table
  */
 export const recordShortView = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const {
-    watched_seconds = 0,
-    completed = false,
-    device_type = 'mobile',
-    country = 'RW'
-  } = req.body || {};
-
+  const { watched_seconds = 0, completed = false, device_type = 'web', country = null } = req.body || {};
   const user = (req as any).user;
-  const userId = user?.id || null;
-  const store = getDbStore();
 
-  if (!store) {
-    return res.status(500).json({ error: 'Database unavailable' });
+  try {
+    const client = db();
+    const { data: video } = await client.from('videos').select('id, metadata').eq('id', id).maybeSingle();
+    if (!video) {
+      return res.status(404).json({ error: 'Short not found' });
+    }
+
+    await client.from('video_view_events').insert({
+      video_id: id,
+      viewer_user_id: user?.id || null,
+      watch_duration_seconds: Number(watched_seconds) || 0,
+      validation_status: 'valid',
+      traffic_source: 'shorts_feed',
+      metadata: {
+        completed: Boolean(completed),
+        device_type: String(device_type).slice(0, 50),
+        country: country ? String(country).slice(0, 8) : null,
+      },
+    });
+
+    const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
+    const newViews = Number(meta.view_count ?? meta.views ?? 0) + 1;
+    await client
+      .from('videos')
+      .update({ metadata: { ...meta, view_count: newViews, views: newViews }, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    return res.json({ success: true, views: newViews });
+  } catch (error: any) {
+    console.error('recordShortView error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to record view' });
   }
-
-  if (!store.shorts_analytics) store.shorts_analytics = [];
-  if (!store.videos) store.videos = [];
-
-  const video = store.videos.find((v: any) => String(v.id) === id);
-  const newViews = (video ? Number(video.views || 0) : 0) + 1;
-  if (video) {
-    video.views = newViews;
-  }
-
-  // Insert into analytics table
-  const analyticsRecord = {
-    id: `sa-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    short_id: id,
-    user_id: userId,
-    watched_seconds: Number(watched_seconds) || 0,
-    completed: Boolean(completed),
-    device_type: String(device_type).substring(0, 50),
-    country: String(country).substring(0, 10),
-    watched_at: new Date().toISOString()
-  };
-
-  store.shorts_analytics.push(analyticsRecord);
-
-  // Persist to Supabase analytics table
-  supabaseAdmin
-    .from('shorts_analytics')
-    .insert(analyticsRecord)
-    .then(() => {})
-    .catch(() => {});
-
-  notifyMutation(store);
-
-  res.json({
-    success: true,
-    views: newViews
-  });
 };
 
 /**
  * POST /api/shorts/:id/subscribe
- * Subscribe to the artist who created this short
  */
 export const toggleShortSubscribe = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = (req as any).user;
-  const userId = user?.id || 'guest-user-session';
-  const store = getDbStore();
-
-  if (!store) {
-    return res.status(500).json({ error: 'Database unavailable' });
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required to follow creators.' });
   }
 
-  if (!store.subscriptions) store.subscriptions = [];
-  if (!store.artists) store.artists = [];
+  try {
+    const client = db();
+    const { data: video } = await client
+      .from('videos')
+      .select('artist_profile_id')
+      .eq('id', id)
+      .maybeSingle();
 
-  // Find video to locate artist
-  const video = store.videos?.find((v: any) => String(v.id) === id);
-  const artistId = video?.artist_id || 'artist-1';
-  const artist = store.artists.find((a: any) => a.id === artistId);
+    if (!video?.artist_profile_id) {
+      return res.status(404).json({ error: 'Creator profile not found for this short.' });
+    }
 
-  const existingSubIndex = store.subscriptions.findIndex(
-    (s: any) => String(s.artist_id) === artistId && String(s.user_id) === userId
-  );
+    const artistId = video.artist_profile_id;
+    const { data: existing } = await client
+      .from('artist_follows')
+      .select('id')
+      .eq('artist_id', artistId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  let subscribed = false;
-  let subCount = artist ? Number(artist.subscriber_count || artist.subscribers_count || 0) : 0;
+    if (existing) {
+      await client.from('artist_follows').delete().eq('id', existing.id);
+    } else {
+      await client.from('artist_follows').insert({ artist_id: artistId, user_id: user.id });
+    }
 
-  if (existingSubIndex >= 0) {
-    // Unsubscribe
-    store.subscriptions.splice(existingSubIndex, 1);
-    subscribed = false;
-    subCount = Math.max(0, subCount - 1);
-  } else {
-    // Subscribe
-    store.subscriptions.push({
-      id: `sub-${Date.now()}`,
+    const { count } = await client
+      .from('artist_follows')
+      .select('id', { count: 'exact', head: true })
+      .eq('artist_id', artistId);
+
+    return res.json({
+      success: true,
+      subscribed: !existing,
+      followed: !existing,
+      subscribers_count: count || 0,
+      followers_count: count || 0,
       artist_id: artistId,
-      user_id: userId,
-      created_at: new Date().toISOString()
     });
-    subscribed = true;
-    subCount += 1;
+  } catch (error: any) {
+    console.error('toggleShortSubscribe error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to toggle follow' });
   }
-
-  if (artist) {
-    artist.subscriber_count = subCount;
-    artist.subscribers_count = subCount;
-  }
-
-  notifyMutation(store);
-
-  res.json({
-    success: true,
-    subscribed,
-    followed: subscribed,
-    subscribers_count: subCount,
-    followers_count: subCount,
-    artist_id: artistId
-  });
 };
 
 export const toggleShortFollow = toggleShortSubscribe;
 
 /**
  * GET /api/shorts/:id/comments
- * Fetch comments for a specific short
  */
 export const getShortComments = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const store = getDbStore();
+  try {
+    const client = db();
+    const { data: comments, error } = await client
+      .from('comments')
+      .select('id, content_id, user_id, comment_text, likes_count, created_at')
+      .eq('content_id', id)
+      .eq('moderation_status', 'approved')
+      .order('created_at', { ascending: false });
 
-  let comments: any[] = [];
-  if (store && Array.isArray(store.comments)) {
-    comments = store.comments.filter((c: any) => String(c.video_id) === id);
+    if (error) throw error;
+
+    const userIds = Array.from(new Set((comments || []).map((c: any) => c.user_id).filter(Boolean)));
+    const { data: profiles } = userIds.length > 0
+      ? await client.from('profiles').select('user_id, display_name, username, avatar_storage_path').in('user_id', userIds)
+      : { data: [] as any[] };
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+
+    return res.json(
+      (comments || []).map((c: any) => {
+        const p: any = profileMap.get(c.user_id) || {};
+        return {
+          id: c.id,
+          video_id: c.content_id,
+          user_id: c.user_id,
+          user_name: p.display_name || p.username || 'Listener',
+          user_avatar: p.avatar_storage_path || '',
+          content: c.comment_text,
+          created_at: c.created_at,
+          likes: Number(c.likes_count || 0),
+        };
+      })
+    );
+  } catch (error: any) {
+    console.error('getShortComments error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to load comments' });
   }
-
-  res.json(comments);
 };
 
 /**
  * POST /api/shorts/:id/comments
- * Post a new comment on a short
  */
 export const postShortComment = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { content } = req.body || {};
   const user = (req as any).user;
 
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required to comment.' });
+  }
   if (!content || !String(content).trim()) {
     return res.status(400).json({ error: 'Comment content is required' });
   }
 
-  const store = getDbStore();
-  if (!store) {
-    return res.status(500).json({ error: 'Store unavailable' });
+  try {
+    const client = db();
+    const { data: inserted, error } = await client
+      .from('comments')
+      .insert({
+        content_type: 'short',
+        content_id: id,
+        user_id: user.id,
+        comment_text: String(content).trim(),
+        moderation_status: 'approved',
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const { data: profile } = await client
+      .from('profiles')
+      .select('display_name, username, avatar_storage_path')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    return res.status(201).json({
+      success: true,
+      comment: {
+        id: inserted.id,
+        video_id: inserted.content_id,
+        user_id: inserted.user_id,
+        user_name: profile?.display_name || profile?.username || user.user_metadata?.full_name || 'User',
+        user_avatar: profile?.avatar_storage_path || '',
+        content: inserted.comment_text,
+        created_at: inserted.created_at,
+        likes: 0,
+      },
+    });
+  } catch (error: any) {
+    console.error('postShortComment error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to post comment' });
   }
-
-  if (!store.comments) store.comments = [];
-
-  const newComment = {
-    id: `c-${Date.now()}`,
-    video_id: id,
-    user_id: user?.id || 'guest-user',
-    user_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Kigali Fan',
-    user_avatar: user?.user_metadata?.avatar_url || '',
-    content: String(content).trim(),
-    created_at: new Date().toISOString(),
-    likes: 0
-  };
-
-  store.comments.unshift(newComment);
-  notifyMutation(store);
-
-  res.json({
-    success: true,
-    comment: newComment
-  });
 };

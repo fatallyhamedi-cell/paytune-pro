@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 import {
   BarChart3,
   TrendingUp,
@@ -30,14 +30,11 @@ export const MasterReports: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    const headers = { Authorization: `Bearer ${token}` };
-
     Promise.allSettled([
-      axios.get("/api/master/reports/sales", { headers }),
-      axios.get("/api/master/reports/artists", { headers }),
-      axios.get("/api/master/reports/users", { headers }),
-      axios.get("/api/master/reports/withdrawals", { headers })
+      api.get("/api/master/reports/sales"),
+      api.get("/api/master/reports/artists"),
+      api.get("/api/master/reports/users"),
+      api.get("/api/master/reports/withdrawals")
     ]).then(([sales, artists, users, withdrawals]) => {
       if (sales.status === "fulfilled") setSalesReport(sales.value.data);
       if (artists.status === "fulfilled") setArtistReport(artists.value.data);
@@ -49,10 +46,15 @@ export const MasterReports: React.FC = () => {
 
   const pieColors = ["#FFB300", "#3B82F6", "#10B981", "#EC4899"];
 
-  const providerData = [
-    { name: "MTN Mobile Money", value: 78 },
-    { name: "Airtel Money", value: 22 }
-  ];
+  const rawByProvider = withdrawalReport?.by_provider || salesReport?.by_provider || {};
+  const providerEntries = Object.entries(rawByProvider)
+    .map(([name, val]) => ({ name, rawValue: Number(val) || 0 }))
+    .filter((entry) => entry.rawValue > 0);
+  const providerTotal = providerEntries.reduce((sum, entry) => sum + entry.rawValue, 0);
+  const providerData = providerEntries.map((entry) => ({
+    name: entry.name,
+    value: providerTotal > 0 ? Math.round((entry.rawValue / providerTotal) * 100) : 0
+  }));
 
   return (
     <div id="master-reports-module" className="space-y-6">
@@ -127,40 +129,48 @@ export const MasterReports: React.FC = () => {
         {/* Payout Distribution Pie Chart */}
         <div className="p-5 rounded-2xl bg-[#161616] border border-neutral-800 flex flex-col justify-between">
           <h3 className="text-sm font-bold text-white mb-2">MoMo Provider Distribution</h3>
-          <div className="h-52 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={providerData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {providerData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center justify-between text-neutral-300">
-              <span className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#FFB300]" /> MTN Mobile Money
-              </span>
-              <span className="font-bold">78%</span>
+          {providerData.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center py-12 text-xs text-neutral-500 text-center">
+              No provider payout data recorded yet.
             </div>
-            <div className="flex items-center justify-between text-neutral-300">
-              <span className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" /> Airtel Money
-              </span>
-              <span className="font-bold">22%</span>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="h-52 w-full flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={providerData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {providerData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-1 text-xs">
+                {providerData.map((entry, index) => (
+                  <div key={entry.name} className="flex items-center justify-between text-neutral-300">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: pieColors[index % pieColors.length] }}
+                      />
+                      {entry.name}
+                    </span>
+                    <span className="font-bold">{entry.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

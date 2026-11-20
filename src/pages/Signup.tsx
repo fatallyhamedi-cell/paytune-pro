@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { PlaySquare, Mail, Lock, User, AtSign, Loader2, AlertCircle } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { api } from "../lib/api";
 import { useTheme } from "../hooks/useTheme";
 
 export default function Signup() {
@@ -22,30 +22,30 @@ export default function Signup() {
     setError("");
 
     try {
-      // 1. Create Supabase Auth User
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+      const res = await api.post("/api/auth/register", {
+        email: formData.email.trim(),
         password: formData.password,
+        fullName: formData.fullName.trim(),
+        username: formData.username.trim(),
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Could not create account");
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || "Could not create account");
+      }
 
-      // 2. Create Profile in public.profiles
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([{
-          id: authData.user.id,
-          full_name: formData.fullName,
-          username: formData.username,
-        }]);
-
-      if (profileError) throw profileError;
-
-      alert("Sign up successful! Please check your email for verification.");
-      navigate("/login");
+      navigate("/login", {
+        state: {
+          message:
+            res.data?.message ||
+            "Sign up successful! Please check your email for verification.",
+        },
+      });
     } catch (err: any) {
-      setError(err.message || "Registration failed. Please try again.");
+      setError(
+        err?.response?.data?.message ||
+          err.message ||
+          "Registration failed. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }

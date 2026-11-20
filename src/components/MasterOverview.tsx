@@ -26,6 +26,7 @@ import {
   CartesianGrid
 } from "recharts";
 import { MasterStats, RevenueData, ActivityItem } from "../hooks/useMasterStats";
+import { api } from "../lib/api";
 
 interface MasterOverviewProps {
   stats: MasterStats | null;
@@ -59,13 +60,9 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
   React.useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const token = localStorage.getItem("master_token") || localStorage.getItem("paytune_token");
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch("/api/master/analytics", { headers });
-        if (res.ok) {
-          const data = await res.json();
-          setAnalytics(data);
+        const res = await api.get("/api/master/analytics");
+        if (res.data) {
+          setAnalytics(res.data);
         }
       } catch (e) {
         console.warn("Analytics fetch error:", e);
@@ -78,7 +75,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
   const chartData = (revenue?.labels || []).map((label, idx) => ({
     name: label,
     revenue: revenue?.values?.[idx] || 0,
-    gross: revenue?.gross_values?.[idx] || (revenue?.values?.[idx] || 0) * 3.3
+    gross: revenue?.gross_values?.[idx] || 0
   }));
 
   return (
@@ -186,7 +183,7 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
             </div>
           </div>
           <p className="mt-2 text-2xl font-black tracking-tight text-white">
-            {stats ? Number(stats.total_volume || stats.total_revenue * 3.3).toLocaleString() : "0"}{" "}
+            {stats ? Number(stats.total_volume || 0).toLocaleString() : "0"}{" "}
             <span className="text-xs font-bold text-blue-400">RWF</span>
           </p>
           <div className="mt-2 flex items-center text-xs text-neutral-400">
@@ -465,19 +462,25 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                 <div key={v.id || i} className="flex items-center justify-between text-xs py-1.5 border-b border-neutral-800/50 last:border-0">
                   <div className="flex items-center space-x-2.5 min-w-0">
                     <span className="font-mono text-neutral-500 font-bold w-4 text-center">{i + 1}</span>
-                    <img
-                      src={v.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120"}
-                      alt={v.title}
-                      className="w-10 h-7 object-cover rounded"
-                      referrerPolicy="no-referrer"
-                    />
+                    {v.thumbnail_url ? (
+                      <img
+                        src={v.thumbnail_url}
+                        alt={v.title}
+                        className="w-10 h-7 object-cover rounded"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-10 h-7 rounded bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-neutral-500">
+                        V
+                      </div>
+                    )}
                     <div className="truncate">
                       <p className="font-semibold text-white truncate">{v.title}</p>
                       <p className="text-[10px] text-neutral-400 truncate">{v.artist_name}</p>
                     </div>
                   </div>
                   <span className="font-bold text-purple-400 ml-2 whitespace-nowrap">
-                    {Number(v.earnings || v.views * 300).toLocaleString()} RWF
+                    {Number(v.earnings || 0).toLocaleString()} RWF
                   </span>
                 </div>
               ))}
@@ -500,12 +503,18 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                 <div key={a.id || i} className="flex items-center justify-between text-xs py-1.5 border-b border-neutral-800/50 last:border-0">
                   <div className="flex items-center space-x-2.5 min-w-0">
                     <span className="font-mono text-neutral-500 font-bold w-4 text-center">{i + 1}</span>
-                    <img
-                      src={a.profile_image || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"}
-                      alt={a.full_name}
-                      className="w-7 h-7 rounded-full object-cover border border-neutral-700"
-                      referrerPolicy="no-referrer"
-                    />
+                    {a.profile_image ? (
+                      <img
+                        src={a.profile_image}
+                        alt={a.full_name}
+                        className="w-7 h-7 rounded-full object-cover border border-neutral-700"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[10px] font-bold text-purple-400 shrink-0">
+                        {(a.full_name || 'A').charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div className="truncate">
                       <p className="font-semibold text-white truncate">{a.full_name}</p>
                       <p className="text-[10px] text-neutral-400">{a.video_count} videos</p>
@@ -591,11 +600,17 @@ export const MasterOverview: React.FC<MasterOverviewProps> = ({
                     </td>
                     <td className="py-2.5 px-3">
                       <div className="flex items-center space-x-2.5">
-                        <img
-                          src={v.thumbnail_url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120"}
-                          alt={v.title}
-                          className="w-10 h-7 object-cover rounded bg-neutral-800"
-                        />
+                        {v.thumbnail_url ? (
+                          <img
+                            src={v.thumbnail_url}
+                            alt={v.title}
+                            className="w-10 h-7 object-cover rounded bg-neutral-800"
+                          />
+                        ) : (
+                          <div className="w-10 h-7 rounded bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-neutral-500">
+                            V
+                          </div>
+                        )}
                         <span className="font-semibold text-gray-900 dark:text-white truncate max-w-xs">
                           {v.title}
                         </span>

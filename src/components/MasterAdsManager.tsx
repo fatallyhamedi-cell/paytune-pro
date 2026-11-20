@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 import {
   Megaphone,
   Plus,
@@ -185,21 +185,20 @@ export function MasterAdsManager() {
   const [assignmentScope, setAssignmentScope] = useState<"global" | "single">("global");
   const [selectedVideoId, setSelectedVideoId] = useState("");
   const [assignmentPriority, setAssignmentPriority] = useState(5);
-
-  const authHeaders = {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("paytune_token") || localStorage.getItem("master_token") || "master_token"}`
-    }
-  };
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const [adsRes, assignmentsRes, analyticsRes, videosRes] = await Promise.all([
-        axios.get("/api/ads/master/list", authHeaders).catch(() => ({ data: { ads: [] } })),
-        axios.get("/api/ads/master/assignments", authHeaders).catch(() => ({ data: { assignments: [] } })),
-        axios.get(`/api/ads/master/analytics?range=${dateRange}`, authHeaders).catch(() => ({ data: null })),
-        axios.get("/api/videos").catch(() => ({ data: { videos: [] } }))
+        api.get("/api/ads/master/list").catch(() => ({ data: { ads: [] } })),
+        api.get("/api/ads/master/assignments").catch(() => ({ data: { assignments: [] } })),
+        api.get(`/api/ads/master/analytics?range=${dateRange}`).catch(() => ({ data: null })),
+        api.get("/api/videos").catch(() => ({ data: { videos: [] } }))
       ]);
 
       setAds(adsRes.data?.ads || []);
@@ -209,7 +208,7 @@ export function MasterAdsManager() {
       }
 
       // Filter available videos (only free, non-short videos qualify for ads)
-      const rawVideos = videosRes.data?.videos || [];
+      const rawVideos = Array.isArray(videosRes.data) ? videosRes.data : (videosRes.data?.videos || []);
       const freeEligible = rawVideos.filter(
         (v: any) => v.is_free === true && !v.is_short && v.category !== "Shorts"
       );
@@ -240,7 +239,7 @@ export function MasterAdsManager() {
     }
 
     try {
-      const res = await axios.post(
+      const res = await api.post(
         "/api/ads/master/create",
         {
           title: newAdTitle,
@@ -260,8 +259,7 @@ export function MasterAdsManager() {
           frequency_cap: newAdFrequencyCap,
           pacing: newAdPacing,
           vast_tag_url: newAdVastTag
-        },
-        authHeaders
+        }
       );
 
       if (res.data?.success) {
@@ -295,7 +293,7 @@ export function MasterAdsManager() {
   // 2. Action Handlers for Campaign Management Table
   const handlePauseCampaign = async (id: string, title: string) => {
     try {
-      const res = await axios.post(`/api/ads/campaigns/${id}/pause`, {}, authHeaders);
+      const res = await api.post(`/api/ads/campaigns/${id}/pause`, {});
       if (res.data?.success) {
         showNotice("success", `Campaign "${title}" paused.`);
         fetchData();
@@ -307,7 +305,7 @@ export function MasterAdsManager() {
 
   const handleResumeCampaign = async (id: string, title: string) => {
     try {
-      const res = await axios.post(`/api/ads/campaigns/${id}/resume`, {}, authHeaders);
+      const res = await api.post(`/api/ads/campaigns/${id}/resume`, {});
       if (res.data?.success) {
         showNotice("success", `Campaign "${title}" resumed.`);
         fetchData();
@@ -317,10 +315,9 @@ export function MasterAdsManager() {
     }
   };
 
-  const handleEndCampaign = async (id: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to end campaign "${title}"?`)) return;
+  const executeEndCampaign = async (id: string, title: string) => {
     try {
-      const res = await axios.post(`/api/ads/campaigns/${id}/end`, {}, authHeaders);
+      const res = await api.post(`/api/ads/campaigns/${id}/end`, {});
       if (res.data?.success) {
         showNotice("success", `Campaign "${title}" ended.`);
         fetchData();
@@ -330,10 +327,20 @@ export function MasterAdsManager() {
     }
   };
 
-  const handleDeleteCampaign = async (id: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete campaign "${title}" and all its placements?`)) return;
+  const handleEndCampaign = (id: string, title: string) => {
+    setConfirmAction({
+      title: "End Campaign",
+      message: `Are you sure you want to end campaign "${title}"?`,
+      onConfirm: () => {
+        setConfirmAction(null);
+        executeEndCampaign(id, title);
+      },
+    });
+  };
+
+  const executeDeleteCampaign = async (id: string, title: string) => {
     try {
-      const res = await axios.delete(`/api/ads/master/${id}`, authHeaders);
+      const res = await api.delete(`/api/ads/master/${id}`);
       if (res.data?.success) {
         showNotice("success", `Campaign "${title}" removed.`);
         fetchData();
@@ -341,6 +348,17 @@ export function MasterAdsManager() {
     } catch {
       showNotice("error", "Failed to delete campaign");
     }
+  };
+
+  const handleDeleteCampaign = (id: string, title: string) => {
+    setConfirmAction({
+      title: "Delete Campaign",
+      message: `Are you sure you want to delete campaign "${title}" and all its placements?`,
+      onConfirm: () => {
+        setConfirmAction(null);
+        executeDeleteCampaign(id, title);
+      },
+    });
   };
 
   // 3. Create Placement Assignment
@@ -357,15 +375,14 @@ export function MasterAdsManager() {
     }
 
     try {
-      const res = await axios.post(
+      const res = await api.post(
         "/api/ads/master/assignments",
         {
           ad_id: selectedAdId,
           scope: assignmentScope,
           video_id: assignmentScope === "single" ? selectedVideoId : null,
           priority: assignmentPriority
-        },
-        authHeaders
+        }
       );
 
       if (res.data?.success) {
@@ -386,10 +403,9 @@ export function MasterAdsManager() {
   const handleToggleAssignmentStatus = async (assign: AdAssignment) => {
     const nextStatus = assign.status === "active" ? "paused" : "active";
     try {
-      const res = await axios.put(
+      const res = await api.put(
         `/api/ads/master/assignments/${assign.id}`,
-        { status: nextStatus },
-        authHeaders
+        { status: nextStatus }
       );
       if (res.data?.success) {
         showNotice("success", `Placement status set to ${nextStatus}`);
@@ -400,11 +416,9 @@ export function MasterAdsManager() {
     }
   };
 
-  // 5. Delete Assignment
-  const handleDeleteAssignment = async (assignId: string) => {
-    if (!window.confirm("Remove this ad placement assignment?")) return;
+  const executeDeleteAssignment = async (assignId: string) => {
     try {
-      const res = await axios.delete(`/api/ads/master/assignments/${assignId}`, authHeaders);
+      const res = await api.delete(`/api/ads/master/assignments/${assignId}`);
       if (res.data?.success) {
         showNotice("success", "Placement removed.");
         fetchData();
@@ -412,6 +426,18 @@ export function MasterAdsManager() {
     } catch {
       showNotice("error", "Failed to delete placement");
     }
+  };
+
+  // 5. Delete Assignment
+  const handleDeleteAssignment = (assignId: string) => {
+    setConfirmAction({
+      title: "Remove Placement",
+      message: "Remove this ad placement assignment?",
+      onConfirm: () => {
+        setConfirmAction(null);
+        executeDeleteAssignment(assignId);
+      },
+    });
   };
 
   // Analytics Metrics
@@ -527,7 +553,9 @@ export function MasterAdsManager() {
           <div className="text-2xl font-black text-white mt-2">{totalImpressions.toLocaleString()}</div>
           <span className="text-[10px] text-neutral-500 mt-1 flex items-center justify-between">
             <span>Free video views</span>
-            <span className="text-blue-400 font-mono">eCPM: 5k RWF</span>
+            <span className="text-blue-400 font-mono">
+              {totalImpressions > 0 ? `eCPM: ${Math.round((totalSpent / totalImpressions) * 1000).toLocaleString()} RWF` : 'eCPM: 0 RWF'}
+            </span>
           </span>
         </div>
 
@@ -538,7 +566,7 @@ export function MasterAdsManager() {
               <MousePointerClick className="w-3.5 h-3.5 text-emerald-400" />
               Ad Clicks
             </span>
-            <div className="flex items-center text-[10px] text-neutral-500 cursor-help" title="Unique clicks / Total Impressions (Micro-test sample)">
+            <div className="flex items-center text-[10px] text-neutral-500 cursor-help" title="Unique clicks / Total Impressions">
               <HelpCircle className="w-3 h-3 text-neutral-400" />
             </div>
           </div>
@@ -549,12 +577,12 @@ export function MasterAdsManager() {
             </span>
           </div>
           <div className="text-[10px] text-emerald-400/90 mt-1 flex items-center gap-1">
-            <span>Micro-test sample active</span>
+            <span>Live CTR ratio</span>
           </div>
 
           {/* Hover tooltip explanation */}
           <div className="absolute bottom-full left-0 mb-2 w-52 p-2 bg-neutral-950 border border-neutral-700 rounded-lg text-[10px] text-neutral-300 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-30">
-            <strong>CTR Calculation:</strong> {totalClicks} clicks / {totalImpressions || 1} views. Small test datasets show higher conversion rates before scaling.
+            <strong>CTR Calculation:</strong> {totalClicks} clicks / {totalImpressions || 0} views.
           </div>
         </div>
 
@@ -701,39 +729,37 @@ export function MasterAdsManager() {
             </div>
 
             <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={analytics?.trend_data || [
-                    { day: "Mon", impressions: 1, clicks: 0, spend: 2500 },
-                    { day: "Tue", impressions: 2, clicks: 1, spend: 5000 },
-                    { day: "Wed", impressions: 3, clicks: 2, spend: 7500 },
-                    { day: "Thu", impressions: 4, clicks: 3, spend: 10000 },
-                    { day: "Fri", impressions: 4, clicks: 3, spend: 15000 },
-                    { day: "Sat", impressions: 4, clicks: 3, spend: 18000 },
-                    { day: "Sun", impressions: totalImpressions || 4, clicks: totalClicks || 3, spend: totalSpent || 22705 }
-                  ]}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorImps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
-                  <XAxis dataKey="day" stroke="#737373" fontSize={11} />
-                  <YAxis stroke="#737373" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#171717", borderColor: "#404040", borderRadius: "8px", fontSize: "12px" }}
-                  />
-                  <Area type="monotone" dataKey="impressions" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorImps)" name="Impressions" />
-                  <Area type="monotone" dataKey="clicks" stroke="#F59E0B" strokeWidth={2} fillOpacity={1} fill="url(#colorClicks)" name="Clicks" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {analytics?.trend_data && analytics.trend_data.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={analytics.trend_data}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorImps" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+                    <XAxis dataKey="day" stroke="#737373" fontSize={11} />
+                    <YAxis stroke="#737373" fontSize={11} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#171717", borderColor: "#404040", borderRadius: "8px", fontSize: "12px" }}
+                    />
+                    <Area type="monotone" dataKey="impressions" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorImps)" name="Impressions" />
+                    <Area type="monotone" dataKey="clicks" stroke="#F59E0B" strokeWidth={2} fillOpacity={1} fill="url(#colorClicks)" name="Clicks" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-neutral-500">
+                  No daily trend data recorded yet.
+                </div>
+              )}
             </div>
           </div>
 
@@ -746,9 +772,11 @@ export function MasterAdsManager() {
                 <span>Audience by Device</span>
               </h3>
               <div className="mt-4 space-y-3.5">
-                {Object.entries(analytics?.device_breakdown || { desktop: 3, mobile: 1 }).map(
-                  ([dev, count]) => {
-                    const pct = totalImpressions > 0 ? Math.round((Number(count) / totalImpressions) * 100) : 50;
+                {Object.keys(analytics?.device_breakdown || {}).length === 0 ? (
+                  <p className="text-xs text-neutral-500 py-4 text-center">No device impression telemetry recorded yet.</p>
+                ) : (
+                  Object.entries(analytics?.device_breakdown || {}).map(([dev, count]) => {
+                    const pct = totalImpressions > 0 ? Math.round((Number(count) / totalImpressions) * 100) : 0;
                     return (
                       <div key={dev} className="space-y-1.5">
                         <div className="flex justify-between text-xs">
@@ -758,15 +786,14 @@ export function MasterAdsManager() {
                           </span>
                           <span className="text-neutral-400 font-mono">{count} views ({pct}%)</span>
                         </div>
-                        <div className="w-full bg-neutral-800 h-2.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-purple-600 to-purple-400 h-full transition-all duration-700 ease-out"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                        <progress
+                          value={pct}
+                          max={100}
+                          className="w-full h-2.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-purple-500 [&::-moz-progress-bar]:bg-purple-500"
+                        />
                       </div>
                     );
-                  }
+                  })
                 )}
               </div>
             </div>
@@ -775,16 +802,18 @@ export function MasterAdsManager() {
             <div className="p-5 rounded-2xl bg-neutral-900 border border-neutral-800 shadow-md">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Globe className="w-4 h-4 text-emerald-400" />
-                <span>Audience by Country (Hover for Deep Telemetry)</span>
+                <span>Audience by Country</span>
               </h3>
               <div className="mt-4 space-y-3.5">
-                {Object.entries(analytics?.country_breakdown || { Rwanda: 3, Kenya: 1 }).map(
-                  ([country, count]) => {
-                    const pct = totalImpressions > 0 ? Math.round((Number(count) / totalImpressions) * 100) : 75;
+                {Object.keys(analytics?.country_breakdown || {}).length === 0 ? (
+                  <p className="text-xs text-neutral-500 py-4 text-center">No geographic telemetry recorded yet.</p>
+                ) : (
+                  Object.entries(analytics?.country_breakdown || {}).map(([country, count]) => {
+                    const pct = totalImpressions > 0 ? Math.round((Number(count) / totalImpressions) * 100) : 0;
                     const details = analytics?.country_details?.[country] || {
                       views: Number(count),
-                      clicks: country === "Rwanda" ? 2 : 0,
-                      spend_rwf: country === "Rwanda" ? 15200 : 2500
+                      clicks: 0,
+                      spend_rwf: 0
                     };
 
                     return (
@@ -796,30 +825,28 @@ export function MasterAdsManager() {
                       >
                         <div className="flex justify-between text-xs">
                           <span className="text-neutral-200 font-bold flex items-center gap-1.5">
-                            <span>{country === "Rwanda" ? "🇷🇼" : country === "Kenya" ? "🇰🇪" : "🌍"}</span>
                             <span>{country}</span>
                           </span>
                           <span className="text-neutral-400 font-mono">{count} views ({pct}%)</span>
                         </div>
-                        <div className="w-full bg-neutral-800 h-2.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-700 ease-out"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                        <progress
+                          value={pct}
+                          max={100}
+                          className="w-full h-2.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-emerald-500 [&::-moz-progress-bar]:bg-emerald-500"
+                        />
 
                         {/* Interactive Hover Tooltip */}
                         {hoveredCountry === country && (
                           <div className="p-2.5 bg-neutral-950 border border-neutral-700 rounded-xl text-[11px] text-neutral-300 shadow-2xl mt-1 space-y-0.5">
                             <p className="font-bold text-white">{country} Telemetry:</p>
                             <p className="text-neutral-400">
-                              👁️ {details.views} views • 🖱️ {details.clicks} clicks • 💰 {details.spend_rwf.toLocaleString()} RWF spent
+                              {details.views} views • {details.clicks} clicks • {details.spend_rwf.toLocaleString()} RWF spent
                             </p>
                           </div>
                         )}
                       </div>
                     );
-                  }
+                  })
                 )}
               </div>
             </div>
@@ -868,10 +895,10 @@ export function MasterAdsManager() {
                         </span>
                       </td>
                       <td className="px-3 py-2.5 font-mono text-purple-400 font-bold">
-                        +{imp.estimated_revenue || 25} RWF
+                        +{imp.estimated_revenue ?? 0} RWF
                       </td>
                       <td className="px-3 py-2.5 font-mono text-neutral-300 font-bold">
-                        {(imp.ecpm || 5000).toLocaleString()} RWF
+                        {(imp.ecpm ?? 0).toLocaleString()} RWF
                       </td>
                       <td className="px-3 py-2.5 text-right">
                         {imp.clicked ? (
@@ -957,8 +984,8 @@ export function MasterAdsManager() {
                     const clicks = c.metrics?.clicks ?? 0;
                     const ctr = c.metrics?.ctr ?? "0%";
                     const spent = c.spent_rwf || 0;
-                    const budget = c.budget_rwf || 100000;
-                    const pct = Math.min(100, Math.round((spent / budget) * 100));
+                    const budget = c.budget_rwf || 0;
+                    const pct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
                     const platformShare = Math.round(spent * 0.30);
                     const creatorShare = Math.round(spent * 0.70);
 
@@ -1004,9 +1031,11 @@ export function MasterAdsManager() {
                             <div className="font-mono font-black text-purple-400 text-xs">
                               {spent.toLocaleString()} RWF ({pct}%)
                             </div>
-                            <div className="w-24 bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-purple-600 h-full" style={{ width: `${pct}%` }} />
-                            </div>
+                            <progress
+                              value={pct}
+                              max={100}
+                              className="w-24 h-1.5 rounded-full overflow-hidden appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-purple-600 [&::-moz-progress-bar]:bg-purple-600"
+                            />
                           </div>
                         </td>
 
@@ -1429,56 +1458,6 @@ export function MasterAdsManager() {
                   onChange={(e) => setNewAdVideoUrl(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:border-purple-500 focus:outline-none"
                 />
-
-                {/* Quick Presets */}
-                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-neutral-500 font-bold">Presets:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewAdVideoUrl("https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4");
-                      setNewAdThumbnailUrl("https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80");
-                      setNewAdTitle("MTN 5G Unlimited Music Streaming");
-                      setNewAdAdvertiser("MTN Rwanda");
-                      setNewAdClickUrl("https://www.mtn.co.rw");
-                      setNewAdDuration(15);
-                      setNewAdBudget(250000);
-                    }}
-                    className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-purple-400 cursor-pointer"
-                  >
-                    MTN 5G (15s)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewAdVideoUrl("https://www.w3schools.com/html/mov_bbb.mp4");
-                      setNewAdThumbnailUrl("https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80");
-                      setNewAdTitle("Airtel Money Super Boost");
-                      setNewAdAdvertiser("Airtel Africa");
-                      setNewAdClickUrl("https://www.airtel.africa");
-                      setNewAdDuration(15);
-                      setNewAdBudget(180000);
-                    }}
-                    className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-purple-400 cursor-pointer"
-                  >
-                    Airtel Money (15s)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewAdVideoUrl("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4");
-                      setNewAdThumbnailUrl("https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=600&q=80");
-                      setNewAdTitle("Kigali Sounds Music Fest 2026");
-                      setNewAdAdvertiser("Kigali Arena Events");
-                      setNewAdClickUrl("https://kigalivibes.rw");
-                      setNewAdDuration(15);
-                      setNewAdBudget(300000);
-                    }}
-                    className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-purple-400 cursor-pointer"
-                  >
-                    Kigali Fest (15s)
-                  </button>
-                </div>
               </div>
 
               {/* Row 3: Click URL & Thumbnail URL */}
@@ -1487,7 +1466,7 @@ export function MasterAdsManager() {
                   <label className="block text-neutral-300 font-semibold mb-1">Click-Through URL</label>
                   <input
                     type="url"
-                    placeholder="https://www.mtn.co.rw"
+                    placeholder="https://advertiser.example.com"
                     value={newAdClickUrl}
                     onChange={(e) => setNewAdClickUrl(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:border-purple-500 focus:outline-none"
@@ -1497,7 +1476,7 @@ export function MasterAdsManager() {
                   <label className="block text-neutral-300 font-semibold mb-1">Thumbnail Cover URL</label>
                   <input
                     type="url"
-                    placeholder="https://images.unsplash.com/photo-..."
+                    placeholder="https://cdn.yourdomain.com/ad-cover.jpg"
                     value={newAdThumbnailUrl}
                     onChange={(e) => setNewAdThumbnailUrl(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:border-purple-500 focus:outline-none"
@@ -1777,6 +1756,31 @@ export function MasterAdsManager() {
               <span className="font-mono text-purple-400 font-bold">
                 Budget: {previewAd.budget_rwf?.toLocaleString()} RWF
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Action Confirmation Modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-2xl bg-[#1A1A1A] border border-neutral-800 p-6 shadow-2xl text-xs space-y-4 text-center">
+            <h3 className="text-sm font-bold text-white">{confirmAction.title}</h3>
+            <p className="text-neutral-400">{confirmAction.message}</p>
+            <div className="flex justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmAction.onConfirm}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

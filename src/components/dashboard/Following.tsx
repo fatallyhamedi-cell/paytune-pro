@@ -16,15 +16,22 @@ export const Following: React.FC = () => {
   } = useFollowing();
 
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const [confirmUnfollowArtist, setConfirmUnfollowArtist] = React.useState<{ artistId: string; name: string } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleUnfollow = async (e: React.MouseEvent, artistId: string, name: string) => {
+  const handleUnfollow = (e: React.MouseEvent, artistId: string, name: string) => {
     e.stopPropagation();
-    if (!confirm(`Unfollow ${name}?`)) return;
+    setConfirmUnfollowArtist({ artistId, name });
+  };
+
+  const executeUnfollow = async () => {
+    if (!confirmUnfollowArtist) return;
+    const { artistId, name } = confirmUnfollowArtist;
+    setConfirmUnfollowArtist(null);
     const ok = await unfollowArtist(artistId);
     if (ok) showToast(`Unfollowed ${name}`);
   };
@@ -259,6 +266,32 @@ export const Following: React.FC = () => {
           </div>
         )}
       </div>
+      {confirmUnfollowArtist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#181818] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white">Unfollow {confirmUnfollowArtist.name}?</h3>
+            <p className="text-xs text-gray-400">
+              You will stop seeing new release updates from this creator in your following feed.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmUnfollowArtist(null)}
+                className="px-4 py-2 text-xs text-gray-400 hover:text-white rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeUnfollow}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold text-xs rounded-xl"
+              >
+                Unfollow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

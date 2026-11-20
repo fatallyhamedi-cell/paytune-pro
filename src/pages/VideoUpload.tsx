@@ -24,10 +24,9 @@ import {
   Clock
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import { uploadDirect } from "../services/uploadDirect";
-import api from "../services/api";
+import { api } from "../lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,8 +43,8 @@ export default function VideoUpload() {
   const [isShort, setIsShort] = useState(false);
 
   // Form State
-  const [title, setTitle] = useState("My Afrobeat Single 2024");
-  const [description, setDescription] = useState("Check out my new track! New album coming soon...");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Afrobeat");
   const [isFreeVideo, setIsFreeVideo] = useState(false);
   const [priceRwf, setPriceRwf] = useState("2500");
@@ -147,15 +146,54 @@ export default function VideoUpload() {
     }
   };
 
-  // Simulating the extract frame button inside mock layout
   const [extracting, setExtracting] = useState(false);
+  const [frameNotice, setFrameNotice] = useState("");
   const handleExtractFrame = () => {
     if (!videoFile) return;
     setExtracting(true);
-    setTimeout(() => {
+    setFrameNotice("");
+    const videoEl = document.createElement("video");
+    videoEl.preload = "metadata";
+    videoEl.muted = true;
+    const objectUrl = URL.createObjectURL(videoFile);
+    videoEl.src = objectUrl;
+    videoEl.onloadeddata = () => {
+      videoEl.currentTime = Math.min(1, (videoEl.duration || 2) / 2);
+    };
+    videoEl.onseeked = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = videoEl.videoWidth || 1280;
+        canvas.height = videoEl.videoHeight || 720;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const file = new File([blob], "thumbnail.jpg", { type: "image/jpeg" });
+                setThumbnailFile(file);
+                setFrameNotice("Video frame captured as thumbnail.");
+              }
+              URL.revokeObjectURL(objectUrl);
+              setExtracting(false);
+            },
+            "image/jpeg",
+            0.85
+          );
+          return;
+        }
+      } catch {
+        setError("Could not extract frame from this video format.");
+      }
+      URL.revokeObjectURL(objectUrl);
       setExtracting(false);
-      alert("Frame extracted successfully as thumbnail replacement.");
-    }, 1200);
+    };
+    videoEl.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      setExtracting(false);
+      setError("Failed to read video frame.");
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,32 +202,6 @@ export default function VideoUpload() {
     
     setLoading(true);
     setError("");
-    
-    // Create payload matching strict existing backend constraints
-    const data = new FormData();
-    data.append("video", videoFile);
-    if (thumbnailFile) data.append("thumbnail", thumbnailFile);
-    data.append("title", title);
-    data.append("description", description);
-    
-    if (isShort) {
-      data.append("category", "Shorts");
-      data.append("is_short", "true");
-      data.append("is_free", "true");
-    } else if (isFreeVideo) {
-      data.append("category", category);
-      data.append("is_short", "false");
-      data.append("is_free", "true");
-      data.append("price_rwf", "0");
-      data.append("price_usd", "0");
-    } else {
-      data.append("category", category);
-      data.append("is_short", "false");
-      data.append("is_free", "false"); // Paid track
-      data.append("price_rwf", String(priceRwf));
-      data.append("price_usd", String(priceUsd));
-    }
-    data.append("visibility", visibility);
 
     try {
       setUploadProgress(10);
@@ -205,7 +217,12 @@ export default function VideoUpload() {
 
       setUploadProgress(90);
 
-      const response = await api.post("/artist/video/complete", {
+      const scheduledReleaseIso =
+        scheduleEnabled && scheduleDate
+          ? new Date(`${scheduleDate}T${scheduleTime || "00:00"}`).toISOString()
+          : null;
+
+      const response = await api.post("/api/artist/video/complete", {
         videoUrl,
         thumbnailUrl,
         title,
@@ -216,6 +233,7 @@ export default function VideoUpload() {
         is_free: isShort || isFreeVideo,
         is_short: isShort,
         visibility,
+        scheduled_release: scheduledReleaseIso,
         media_type: isShort ? "short" : (videoFile.type?.startsWith("audio") ? "audio" : "video"),
         ownership_declared: true,
         no_ai_declared: true,
@@ -223,8 +241,8 @@ export default function VideoUpload() {
       });
 
       setUploadProgress(100);
-      const videoId = response.data?.video?.id || "unique_link";
-      setSuccessLink(`paytune.com/v/${videoId}`);
+      const videoId = response.data?.video?.id;
+      setSuccessLink(videoId ? `paytune.com/v/${videoId}` : "");
       setSuccess(true);
       setTimeout(() => navigate("/artist/dashboard"), 3000);
     } catch (err: any) {
@@ -301,14 +319,13 @@ export default function VideoUpload() {
               <div className="flex-1 max-w-sm self-end">
                 <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 font-semibold mb-1 w-full truncate">
                   <span className="text-[#f59e0b] font-bold">Upload Progress: {videoFile ? `${loading ? uploadProgress : "100"}%` : "0%"}</span>
-                  <span>{videoFile ? `Uploading '${videoFile.name}' • Processing` : "Waiting for ingestion..."}</span>
+                  <span>{videoFile ? `Uploading '${videoFile.name}'` : "Ready for upload..."}</span>
                 </div>
-                <div className="w-full bg-[#111a30] rounded-full h-2.5 overflow-hidden border border-[#18233c]">
-                  <div 
-                    className="bg-[#f59e0b] h-full rounded-full transition-all duration-300 shadow-sm"
-                    style={{ width: videoFile ? `${loading ? uploadProgress : "100"}%` : "0%" }}
-                  />
-                </div>
+                <progress
+                  value={videoFile ? (loading ? uploadProgress : 100) : 0}
+                  max={100}
+                  className="w-full h-2.5 rounded-full overflow-hidden appearance-none border border-[#18233c] [&::-webkit-progress-bar]:bg-[#111a30] [&::-webkit-progress-value]:bg-[#f59e0b] [&::-moz-progress-bar]:bg-[#f59e0b]"
+                />
               </div>
             </div>
 
@@ -482,7 +499,7 @@ export default function VideoUpload() {
                             </button>
                           </div>
                           <p className="text-[8px] text-slate-500 font-extrabold max-w-[160px] leading-tight">
-                            Recommendations: 1280x720, JPG or PNG.
+                            {frameNotice || "Recommendations: 1280x720, JPG or PNG."}
                           </p>
                         </div>
                       </div>

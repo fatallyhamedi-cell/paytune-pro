@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 
-export type ChannelTabType = 'videos' | 'shorts' | 'playlists' | 'live' | 'membership' | 'about';
+export type ChannelTabType = 'videos' | 'tracks' | 'shorts' | 'playlists' | 'live' | 'membership' | 'about';
 export type VideoSortType = 'newest' | 'most_popular' | 'oldest';
 
 export function useChannelTabs(artistId: string | undefined, initialTab: ChannelTabType = 'videos') {
@@ -10,12 +10,14 @@ export function useChannelTabs(artistId: string | undefined, initialTab: Channel
   
   const [data, setData] = useState<{
     videos: any[];
+    tracks: any[];
     shorts: any[];
     playlists: any[];
     live: any[];
     membership: any[];
   }>({
     videos: [],
+    tracks: [],
     shorts: [],
     playlists: [],
     live: [],
@@ -37,21 +39,25 @@ export function useChannelTabs(artistId: string | undefined, initialTab: Channel
 
     try {
       if (tab === 'videos') {
-        const res = await axios.get(`/api/artists/${artistId}/videos`, {
+        const res = await api.get(`/api/artists/${artistId}/videos`, {
           params: { sort: currentSort, limit: 50 }
         });
         setData(prev => ({ ...prev, videos: Array.isArray(res.data) ? res.data : [] }));
+      } else if (tab === 'tracks') {
+        const res = await api.get(`/api/artists/${artistId}/tracks`);
+        const tracksList = res.data?.tracks || (Array.isArray(res.data) ? res.data : []);
+        setData(prev => ({ ...prev, tracks: tracksList }));
       } else if (tab === 'shorts') {
-        const res = await axios.get(`/api/artists/${artistId}/shorts`);
+        const res = await api.get(`/api/artists/${artistId}/shorts`);
         setData(prev => ({ ...prev, shorts: Array.isArray(res.data) ? res.data : [] }));
       } else if (tab === 'playlists') {
-        const res = await axios.get(`/api/artists/${artistId}/playlists`);
+        const res = await api.get(`/api/artists/${artistId}/playlists`);
         setData(prev => ({ ...prev, playlists: Array.isArray(res.data) ? res.data : [] }));
       } else if (tab === 'live') {
-        const res = await axios.get(`/api/artists/${artistId}/live`);
+        const res = await api.get(`/api/artists/${artistId}/live`);
         setData(prev => ({ ...prev, live: Array.isArray(res.data) ? res.data : [] }));
       } else if (tab === 'membership') {
-        const res = await axios.get(`/api/artists/${artistId}/membership`);
+        const res = await api.get(`/api/artists/${artistId}/membership`);
         setData(prev => ({ ...prev, membership: Array.isArray(res.data) ? res.data : [] }));
       }
     } catch (err: any) {

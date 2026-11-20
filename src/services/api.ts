@@ -13,10 +13,31 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const isMasterPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/master');
-  let token = isMasterPath
-    ? (localStorage.getItem('master_token') || localStorage.getItem('token') || localStorage.getItem('paytune_master_token'))
-    : (localStorage.getItem('master_token') || localStorage.getItem('token') || localStorage.getItem('artist_token') || localStorage.getItem('paytune_artist_token'));
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+    if (typeof (config.headers as any).delete === 'function') {
+      (config.headers as any).delete('Content-Type');
+    } else {
+      delete (config.headers as any)['Content-Type'];
+    }
+  }
+
+  const reqUrl = String(config.url || '');
+  const isMasterTarget =
+    reqUrl.includes('/master') ||
+    (typeof window !== 'undefined' && window.location.pathname.startsWith('/master'));
+  let token = isMasterTarget
+    ? (localStorage.getItem('master_token') || localStorage.getItem('paytune_master_token') || localStorage.getItem('token') || localStorage.getItem('paytune_auth_token'))
+    : (localStorage.getItem('artist_token') || localStorage.getItem('paytune_artist_token') || localStorage.getItem('paytune_auth_token') || localStorage.getItem('token'));
+
+  if (!token && typeof window !== 'undefined') {
+    try {
+      const rawSbSession = localStorage.getItem('paytune_supabase_auth');
+      if (rawSbSession) {
+        const parsed = JSON.parse(rawSbSession);
+        token = parsed?.access_token || parsed?.currentSession?.access_token || null;
+      }
+    } catch {}
+  }
 
   if (token) {
     token = String(token).replace(/^"|"$/g, '').replace(/\s/g, '');

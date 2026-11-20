@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
-import { supabaseAdmin } from '../config/supabase';
+import { supabaseAdmin, rawSupabaseAdmin, isSupabaseConfigured } from '../config/supabase';
 import { notifyOnNewComment } from '../services/notificationService';
+
+const db = () => rawSupabaseAdmin || supabaseAdmin;
 
 interface ThreadedComment {
   id: string;
   video_id: string;
-  user_id: string;
+  user_id: string | null;
   parent_comment_id: string | null;
   comment_text: string;
   likes: number;
@@ -21,73 +23,79 @@ interface ThreadedComment {
 
 /**
  * GET /api/comments/:videoId
- * Returns all comments with nested replies (up to 3 levels), user names, user avatars, likes count, isLiked.
+ * Returns threaded comments backed by public.comments and public.profiles
  */
 export const getComments = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
   const videoId = req.params.videoId || req.params.id;
   const user = (req as any).user;
-  const userId = user?.id;
+  const userId = user?.id ? String(user.id) : null;
+  const client = db();
 
   try {
-    // 1. Fetch video to determine artist ID
-    const { data: video } = await supabaseAdmin
+    const { data: video } = await client
       .from('videos')
-      .select('artist_id')
+      .select('id, created_by_user_id')
       .eq('id', videoId)
       .maybeSingle();
 
-    const artistId = video?.artist_id;
+    const creatorUserId = video?.created_by_user_id || null;
 
-    // 2. Fetch all comments for this video
-    const { data: rawComments, error } = await supabaseAdmin
-      .from('user_comments')
-      .select('*, profiles(id, full_name, username, profile_image)')
-      .eq('video_id', videoId)
+    const { data: rawComments, error } = await client
+      .from('comments')
+      .select('*')
+      .eq('content_id', videoId)
+      .in('moderation_status', ['approved', 'pending'])
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // 3. Fetch user's comment likes
-    let userCommentLikes = new Set<string>();
-    if (userId) {
-      const { data: likes } = await supabaseAdmin
-        .from('comment_likes')
-        .select('comment_id')
-        .eq('user_id', userId);
-      (likes || []).forEach((l: any) => userCommentLikes.add(String(l.comment_id)));
+    const userIds = Array.from(new Set((rawComments || []).map((c: any) => c.user_id).filter(Boolean)));
+    const profileMap = new Map<string, any>();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await client
+        .from('profiles')
+        .select('user_id, username, display_name, avatar_storage_path')
+        .in('user_id', userIds);
+
+      for (const p of profiles || []) {
+        profileMap.set(p.user_id, p);
+      }
     }
 
-    // 4. Format comments
     const allFormatted: ThreadedComment[] = (rawComments || []).map((c: any) => {
-      const profile = c.profiles || {};
-      const fullName = profile.full_name || "PAYTUNE Fan";
-      const isArtistComment = artistId && (c.user_id === artistId || profile.id === artistId);
+      const profile = c.user_id ? profileMap.get(c.user_id) || {} : {};
+      const meta = (c.metadata && typeof c.metadata === 'object' ? c.metadata : {}) as Record<string, any>;
+      const likedBy: string[] = Array.isArray(meta.liked_by) ? meta.liked_by : [];
+      const isArtistComment = Boolean(creatorUserId && c.user_id && c.user_id === creatorUserId);
 
       return {
         id: String(c.id),
-        video_id: String(c.video_id),
-        user_id: String(c.user_id),
+        video_id: String(c.content_id),
+        user_id: c.user_id ? String(c.user_id) : null,
         parent_comment_id: c.parent_comment_id ? String(c.parent_comment_id) : null,
-        comment_text: c.comment_text || c.text || "",
-        likes: Number(c.likes || 0),
-        is_liked: userCommentLikes.has(String(c.id)),
-        is_pinned: !!c.is_pinned,
+        comment_text: c.comment_text || '',
+        likes: Number(c.likes_count || 0),
+        is_liked: Boolean(userId && likedBy.includes(userId)),
+        is_pinned: Boolean(meta.is_pinned),
         created_at: c.created_at || new Date().toISOString(),
-        user_name: fullName,
-        user_username: profile.username || "user",
-        user_avatar: profile.profile_image || profile.avatar_url || "",
+        user_name: profile.display_name || profile.username || 'PAYTUNE Listener',
+        user_username: profile.username || 'user',
+        user_avatar: profile.avatar_storage_path || '',
         is_artist: isArtistComment,
-        replies: []
+        replies: [],
       };
     });
 
-    // 5. Build 3-level tree structure
     const commentMap = new Map<string, ThreadedComment>();
-    allFormatted.forEach(c => commentMap.set(c.id, c));
+    allFormatted.forEach((c) => commentMap.set(c.id, c));
 
     const topLevel: ThreadedComment[] = [];
-
-    allFormatted.forEach(c => {
+    allFormatted.forEach((c) => {
       if (!c.parent_comment_id) {
         topLevel.push(c);
       } else {
@@ -95,108 +103,111 @@ export const getComments = async (req: Request, res: Response) => {
         if (parent) {
           if (!parent.replies) parent.replies = [];
           parent.replies.push(c);
-          // Sort replies chronologically
           parent.replies.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         } else {
-          // If parent is deleted or not found, show at top level
           topLevel.push(c);
         }
       }
     });
 
-    // Sort top level: pinned comment first, then newest or highest likes
     topLevel.sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
       if (!a.is_pinned && b.is_pinned) return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
-    res.json(topLevel);
+    return res.json(topLevel);
   } catch (error: any) {
-    console.warn("getComments fallback to empty list:", error?.message || error);
-    res.json([]);
+    console.error('getComments error:', error);
+    return res.status(500).json({ error: error?.message || 'Failed to load comments' });
   }
 };
 
 /**
  * POST /api/comments/:videoId
- * Body: { text, parentCommentId? }. Requires authentication.
- * Requires user to have purchased the video (if paid video).
  */
 export const createComment = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
   const videoId = req.params.videoId || req.params.id;
   const user = (req as any).user;
-  const { text, comment_text, parentCommentId, parent_comment_id } = req.body;
+  const { text, comment_text, parentCommentId, parent_comment_id } = req.body || {};
 
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required to comment." });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required to comment.' });
   }
 
-  const content = (text || comment_text || "").trim();
+  const content = String(text || comment_text || '').trim();
   if (!content) {
-    return res.status(400).json({ error: "Comment text cannot be empty." });
+    return res.status(400).json({ error: 'Comment text cannot be empty.' });
   }
+
+  const client = db();
 
   try {
-    // 1. Check if video is free or if user purchased
-    const { data: video, error: vErr } = await supabaseAdmin
+    const { data: video, error: vErr } = await client
       .from('videos')
-      .select('id, is_free, price_rwf, artist_id')
+      .select('id, title, video_type, is_free, is_paywalled, created_by_user_id, artist_profile_id, creator_channel_id')
       .eq('id', videoId)
-      .single();
+      .maybeSingle();
 
     if (vErr || !video) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({ error: 'Video not found' });
     }
 
-    const isFree = video.is_free || !video.price_rwf;
-    if (!isFree) {
-      const { data: purchase } = await supabaseAdmin
-        .from('purchases')
+    if (!video.is_free || video.is_paywalled) {
+      const isCreator = video.created_by_user_id === user.id;
+      const { data: grant } = await client
+        .from('premium_content_access_grants')
         .select('id')
         .eq('user_id', user.id)
-        .eq('video_id', videoId)
+        .eq('content_id', videoId)
+        .is('revoked_at', null)
         .maybeSingle();
 
-      const { data: artistRecord } = await supabaseAdmin
-        .from('artists')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      const isArtist = artistRecord && artistRecord.id === video.artist_id;
-
-      if (!purchase && !isArtist) {
-        return res.status(403).json({ 
-          error: "You must purchase this video to join the discussion.",
-          requiresPurchase: true 
+      if (!grant && !isCreator) {
+        return res.status(403).json({
+          error: 'You must purchase this video to join the discussion.',
+          requiresPurchase: true,
         });
       }
     }
 
     const targetParentId = parentCommentId || parent_comment_id || null;
+    const nowIso = new Date().toISOString();
+    const contentType = video.video_type === 'short' ? 'short' : 'video';
 
-    // 2. Insert comment
-    const { data: comment, error } = await supabaseAdmin
-      .from('user_comments')
+    const { data: comment, error } = await client
+      .from('comments')
       .insert({
-        video_id: videoId,
+        content_type: contentType,
+        content_id: videoId,
         user_id: user.id,
-        comment_text: content,
         parent_comment_id: targetParentId,
-        likes: 0,
-        is_pinned: false,
-        created_at: new Date().toISOString()
+        comment_text: content,
+        moderation_status: 'approved',
+        likes_count: 0,
+        replies_count: 0,
+        metadata: { is_pinned: false, liked_by: [] },
+        created_at: nowIso,
+        updated_at: nowIso,
       })
-      .select('*, profiles(id, full_name, username, profile_image)')
+      .select('*')
       .single();
 
     if (error) throw error;
 
-    const profile = comment.profiles || user.user_metadata || {};
+    const { data: profile } = await client
+      .from('profiles')
+      .select('user_id, username, display_name, avatar_storage_path')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
     const formatted: ThreadedComment = {
       id: String(comment.id),
-      video_id: String(comment.video_id),
+      video_id: String(comment.content_id),
       user_id: String(comment.user_id),
       parent_comment_id: targetParentId ? String(targetParentId) : null,
       comment_text: content,
@@ -204,182 +215,202 @@ export const createComment = async (req: Request, res: Response) => {
       is_liked: false,
       is_pinned: false,
       created_at: comment.created_at,
-      user_name: profile.full_name || user.email?.split('@')[0] || "PAYTUNE Fan",
-      user_username: profile.username || "user",
-      user_avatar: profile.profile_image || profile.avatar_url || "",
-      is_artist: video.artist_id === user.id,
-      replies: []
+      user_name: profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'PAYTUNE Listener',
+      user_username: profile?.username || 'user',
+      user_avatar: profile?.avatar_storage_path || '',
+      is_artist: video.created_by_user_id === user.id,
+      replies: [],
     };
 
     try {
-      notifyOnNewComment({
+      await notifyOnNewComment({
         commentId: String(comment.id),
         videoId,
-        videoTitle: (video as any).title || 'Music Video',
-        artistId: video.artist_id,
-        authorUser: { id: user.id, name: profile.full_name || user.email || 'A fan' },
+        videoTitle: video.title || 'Music Video',
+        artistId: video.artist_profile_id || video.creator_channel_id,
+        authorUser: { id: user.id, name: formatted.user_name },
         commentText: content,
-        parentId: targetParentId
+        parentId: targetParentId,
       });
     } catch (notifErr) {
-      console.warn("Notification error for comment:", notifErr);
+      console.warn('Notification error for comment:', notifErr);
     }
 
-    res.status(201).json(formatted);
+    return res.status(201).json(formatted);
   } catch (error: any) {
-    console.error("createComment error:", error);
-    res.status(500).json({ error: error.message || "Failed to post comment" });
+    console.error('createComment error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to post comment' });
   }
 };
 
 /**
  * PUT or POST /api/comments/:commentId/like
- * Toggle like on comment
  */
 export const toggleCommentLike = async (req: Request, res: Response) => {
   const { commentId, id } = req.params;
   const targetId = commentId || id;
   const user = (req as any).user;
 
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required to like comments" });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required to like comments' });
   }
 
+  const client = db();
+
   try {
-    const { data: comment, error: cErr } = await supabaseAdmin
-      .from('user_comments')
-      .select('id, likes')
+    const { data: comment, error: cErr } = await client
+      .from('comments')
+      .select('id, likes_count, metadata')
       .eq('id', targetId)
-      .single();
-
-    if (cErr || !comment) {
-      return res.status(404).json({ error: "Comment not found" });
-    }
-
-    const { data: existing } = await supabaseAdmin
-      .from('comment_likes')
-      .select('id')
-      .eq('comment_id', targetId)
-      .eq('user_id', user.id)
       .maybeSingle();
 
-    let newLikes = Number(comment.likes || 0);
-
-    if (existing) {
-      await supabaseAdmin.from('comment_likes').delete().eq('id', existing.id);
-      newLikes = Math.max(0, newLikes - 1);
-      await supabaseAdmin.from('user_comments').update({ likes: newLikes }).eq('id', targetId);
-      return res.json({ liked: false, likes: newLikes });
-    } else {
-      await supabaseAdmin.from('comment_likes').insert({ comment_id: targetId, user_id: user.id });
-      newLikes = newLikes + 1;
-      await supabaseAdmin.from('user_comments').update({ likes: newLikes }).eq('id', targetId);
-      return res.json({ liked: true, likes: newLikes });
+    if (cErr || !comment) {
+      return res.status(404).json({ error: 'Comment not found' });
     }
+
+    const meta = (comment.metadata && typeof comment.metadata === 'object' ? comment.metadata : {}) as Record<string, any>;
+    const likedBy: string[] = Array.isArray(meta.liked_by) ? [...meta.liked_by] : [];
+    const uid = String(user.id);
+    const alreadyLiked = likedBy.includes(uid);
+
+    const nextLikedBy = alreadyLiked ? likedBy.filter((x) => x !== uid) : [...likedBy, uid];
+    const nextLikes = nextLikedBy.length;
+
+    const { error: updErr } = await client
+      .from('comments')
+      .update({
+        likes_count: nextLikes,
+        metadata: { ...meta, liked_by: nextLikedBy },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', targetId);
+
+    if (updErr) throw updErr;
+
+    return res.json({ liked: !alreadyLiked, likes: nextLikes });
   } catch (error: any) {
-    console.error("toggleCommentLike error:", error);
-    res.status(500).json({ error: error.message || "Failed to toggle like on comment" });
+    console.error('toggleCommentLike error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to toggle like on comment' });
   }
 };
 
 /**
  * DELETE /api/comments/:commentId
- * Delete own comment
  */
 export const deleteComment = async (req: Request, res: Response) => {
   const { commentId, id } = req.params;
   const targetId = commentId || id;
   const user = (req as any).user;
 
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
+  const client = db();
+
   try {
-    const { data: comment, error } = await supabaseAdmin
-      .from('user_comments')
-      .select('*, videos(artist_id)')
+    const { data: comment, error } = await client
+      .from('comments')
+      .select('*')
       .eq('id', targetId)
-      .single();
+      .maybeSingle();
 
     if (error || !comment) {
-      return res.status(404).json({ error: "Comment not found" });
+      return res.status(404).json({ error: 'Comment not found' });
     }
+
+    const { data: video } = await client
+      .from('videos')
+      .select('created_by_user_id')
+      .eq('id', comment.content_id)
+      .maybeSingle();
 
     const isOwner = comment.user_id === user.id;
-    const isMaster = user.role === 'master' || user.user_metadata?.role === 'master';
-    
-    let isArtist = false;
-    if (comment.videos?.artist_id) {
-      const { data: artistRec } = await supabaseAdmin
-        .from('artists')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (artistRec && artistRec.id === comment.videos.artist_id) {
-        isArtist = true;
-      }
+    const isMaster = ['master', 'master_admin', 'admin'].includes(String(user.role || ''));
+    const isCreator = Boolean(video && video.created_by_user_id === user.id);
+
+    if (!isOwner && !isMaster && !isCreator) {
+      return res.status(403).json({ error: 'Unauthorized to delete this comment.' });
     }
 
-    if (!isOwner && !isMaster && !isArtist) {
-      return res.status(403).json({ error: "Unauthorized to delete this comment." });
-    }
+    await client.from('comments').delete().eq('parent_comment_id', targetId);
+    const { error: delErr } = await client.from('comments').delete().eq('id', targetId);
+    if (delErr) throw delErr;
 
-    // Delete comment
-    await supabaseAdmin.from('user_comments').delete().eq('id', targetId);
-    // Also delete replies
-    await supabaseAdmin.from('user_comments').delete().eq('parent_comment_id', targetId);
-
-    res.json({ success: true, message: "Comment deleted successfully." });
+    return res.json({ success: true, message: 'Comment deleted successfully.' });
   } catch (error: any) {
-    console.error("deleteComment error:", error);
-    res.status(500).json({ error: error.message });
+    console.error('deleteComment error:', error);
+    return res.status(500).json({ error: error.message });
   }
 };
 
 /**
  * PUT /api/comments/:commentId/pin
- * Artist can pin/unpin a comment to top
  */
 export const pinComment = async (req: Request, res: Response) => {
   const { commentId, id } = req.params;
   const targetId = commentId || id;
   const user = (req as any).user;
 
-  if (!user) {
-    return res.status(401).json({ error: "Authentication required" });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
+  const client = db();
+
   try {
-    const { data: comment } = await supabaseAdmin
-      .from('user_comments')
-      .select('*, videos(artist_id)')
+    const { data: comment } = await client
+      .from('comments')
+      .select('*')
       .eq('id', targetId)
-      .single();
+      .maybeSingle();
 
     if (!comment) {
-      return res.status(404).json({ error: "Comment not found" });
+      return res.status(404).json({ error: 'Comment not found' });
     }
 
-    const currentPin = !!comment.is_pinned;
-    const newPin = !currentPin;
+    const { data: video } = await client
+      .from('videos')
+      .select('created_by_user_id')
+      .eq('id', comment.content_id)
+      .maybeSingle();
+
+    const isMaster = ['master', 'master_admin', 'admin'].includes(String(user.role || ''));
+    if (!isMaster && video?.created_by_user_id !== user.id) {
+      return res.status(403).json({ error: 'Only the video creator can pin comments.' });
+    }
+
+    const currentMeta = (comment.metadata && typeof comment.metadata === 'object' ? comment.metadata : {}) as Record<string, any>;
+    const newPin = !Boolean(currentMeta.is_pinned);
 
     if (newPin) {
-      // Unpin any other pinned comment on this video
-      await supabaseAdmin
-        .from('user_comments')
-        .update({ is_pinned: false })
-        .eq('video_id', comment.video_id);
+      const { data: siblingComments } = await client
+        .from('comments')
+        .select('id, metadata')
+        .eq('content_id', comment.content_id);
+
+      for (const s of siblingComments || []) {
+        const sMeta = (s.metadata && typeof s.metadata === 'object' ? s.metadata : {}) as Record<string, any>;
+        if (sMeta.is_pinned) {
+          await client
+            .from('comments')
+            .update({ metadata: { ...sMeta, is_pinned: false }, updated_at: new Date().toISOString() })
+            .eq('id', s.id);
+        }
+      }
     }
 
-    await supabaseAdmin
-      .from('user_comments')
-      .update({ is_pinned: newPin })
+    await client
+      .from('comments')
+      .update({
+        metadata: { ...currentMeta, is_pinned: newPin },
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', targetId);
 
-    res.json({ success: true, is_pinned: newPin });
+    return res.json({ success: true, is_pinned: newPin });
   } catch (error: any) {
-    console.error("pinComment error:", error);
-    res.status(500).json({ error: error.message });
+    console.error('pinComment error:', error);
+    return res.status(500).json({ error: error.message });
   }
 };

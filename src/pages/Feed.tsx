@@ -21,7 +21,23 @@ export default function FeedPage() {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         }).catch(() => api.get('/api/videos?limit=20'));
 
-        setFeedVideos(res.data?.videos || res.data || []);
+        const payload = res.data;
+        const resolved = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.videos)
+          ? payload.videos
+          : Array.isArray(payload?.items)
+          ? payload.items
+          : [
+              ...(Array.isArray(payload?.fromYourChannels) ? payload.fromYourChannels : []),
+              ...(Array.isArray(payload?.forYou) ? payload.forYou : []),
+            ];
+
+        const deduped = Array.from(
+          new Map(resolved.filter((v: any) => v?.id).map((v: any) => [String(v.id), v])).values()
+        ) as VideoData[];
+
+        setFeedVideos(deduped);
       } catch (err) {
         console.error('Failed to fetch feed:', err);
       } finally {

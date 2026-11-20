@@ -1,10 +1,21 @@
+import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../config/supabase';
-import { getDbStore, notifyMutation } from '../config/supabase_mock';
-import { EscrowTransaction, ArtistWallet, PlatformWallet, EscrowStatus } from '../types/payment';
-import { calculateGlobalQuote, findCountry } from './currencyService';
+import { calculateGlobalQuote } from './currencyService';
+import { hasMtnCredentials } from './mtnService';
+import { hasAirtelCredentials } from './airtelService';
+import { hasStripeCredentials } from './stripeService';
+import { resolveProviderAccountId } from './paymentService';
+
+function isGatewayConfigured(gateway: string): boolean {
+  const g = (gateway || '').toLowerCase();
+  if (g.includes('stripe') || g.includes('card')) return hasStripeCredentials();
+  if (g.includes('airtel')) return hasAirtelCredentials();
+  if (g.includes('mtn')) return hasMtnCredentials();
+  return false;
+}
 
 /**
- * Process purchase into PAYTUNE Escrow Wallet, then execute automated 5% VAT and 70/30 split
+ * Process real purchase via configured payment provider into PostgreSQL escrow/ledger tables.
  */
 export async function processEscrowPurchase(params: {
   userId: string;
@@ -27,274 +38,217 @@ export async function processEscrowPurchase(params: {
     currency
   } = params;
 
-  // 1. Fetch Video & Artist
-  let { data: video, error: vErr } = await supabaseAdmin
+  if (!isGatewayConfigured(gateway)) {
+    const err: any = new Error(`${gateway} payment gateway credentials are not configured.`);
+    err.statusCode = 503;
+    err.provider_configured = false;
+    throw err;
+  }
+
+  const { data: video, error: vErr } = await supabaseAdmin
     .from('videos')
-    .select('*, artists(*)')
+    .select('id, title, creator_channel_id, artist_profile_id, metadata, is_free')
     .eq('id', videoId)
     .maybeSingle();
 
-  if (!video) {
-    const { data: fallbackVideo } = await supabaseAdmin
-      .from('videos')
-      .select('*, artists(*)')
-      .limit(1)
-      .maybeSingle();
-
-    if (fallbackVideo) {
-      video = { ...fallbackVideo, id: videoId || fallbackVideo.id };
-    } else {
-      video = {
-        id: videoId,
-        title: 'PAYTUNE Video',
-        artist_id: 'a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d',
-        price_rwf: 1000,
-        artists: { full_name: 'PAYTUNE Artist' }
-      };
-    }
+  if (vErr || !video) {
+    throw new Error('Video not found in database.');
   }
 
-  const artistId = video.artist_id;
-  const basePriceRwf = Number(video.price_rwf) || 1000;
-  const quote = calculateGlobalQuote(basePriceRwf, countryCode);
+  const { data: channel } = await supabaseAdmin
+    .from('creator_channels')
+    .select('id, channel_name')
+    .eq('id', video.creator_channel_id)
+    .maybeSingle();
 
+  const meta = (video.metadata && typeof video.metadata === 'object' ? video.metadata : {}) as Record<string, any>;
+  const basePriceRwf = Number(meta.price_rwf) || Number(amount) || 0;
+  if (basePriceRwf <= 0 && !video.is_free) {
+    throw new Error('Video price is not configured.');
+  }
+
+  const quote = calculateGlobalQuote(basePriceRwf, countryCode);
   const paidCurrency = currency || quote.target_currency;
   const paidAmount = Number(amount) || quote.converted_amount;
-  const exchangeRate = quote.exchange_rate;
+  const now = new Date().toISOString();
+  const transactionRef = `PT-ESCROW-${countryCode.toUpperCase()}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
-  const transactionRef = `PT-ESCROW-${countryCode.toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-  // 2. Step 1: Record money entering PAYTUNE Escrow Wallet
-  const escrowRecord: EscrowTransaction = {
-    id: `escrow-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-    video_id: videoId,
-    video_title: video.title,
+  const intentId = randomUUID();
+  const providerAccountId = await resolveProviderAccountId(gateway || 'mtn_momo');
+  await supabaseAdmin.from('payment_intents').insert({
+    id: intentId,
+    provider_account_id: providerAccountId,
     user_id: userId,
-    artist_id: artistId,
-    artist_name: video.artists?.full_name || video.artist_name || 'Artist',
-    base_price_rwf: basePriceRwf,
-    paid_currency: paidCurrency,
-    paid_amount: paidAmount,
-    exchange_rate: exchangeRate,
-    vat_rate: 0.05,
-    vat_amount_rwf: quote.vat_amount_rwf,
-    after_vat_rwf: quote.after_vat_rwf,
-    artist_share_rwf: quote.artist_share_rwf,
-    owner_share_rwf: quote.platform_share_rwf,
-    status: 'HELD_IN_ESCROW',
-    payment_gateway: gateway,
-    country_code: countryCode.toUpperCase(),
-    transaction_ref: transactionRef,
-    created_at: new Date().toISOString()
-  };
-
-  // Persist escrow transaction into database store
-  const store = getDbStore();
-  if (!store.escrow_transactions) {
-    store.escrow_transactions = [];
-  }
-  store.escrow_transactions.unshift(escrowRecord);
-
-  // 3. Create purchase record with complete multi-currency and escrow attribution
-  const purchaseRecord = {
-    id: `purchase-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-    user_id: userId,
-    video_id: videoId,
-    payment_phone: paymentPhone || paymentAccount || '0780000000',
-    amount_paid: quote.base_price_rwf,
-    paid_currency: paidCurrency,
-    paid_amount: paidAmount,
-    exchange_rate: exchangeRate,
-    vat_amount: quote.vat_amount_rwf,
-    after_vat: quote.after_vat_rwf,
-    artist_share: quote.artist_share_rwf,
-    owner_share: quote.platform_share_rwf,
-    transaction_id: transactionRef,
-    payment_method: gateway,
-    country_code: countryCode.toUpperCase(),
-    escrow_status: 'RELEASED',
-    purchased_at: new Date().toISOString()
-  };
-
-  const { data: createdPurchase } = await supabaseAdmin
-    .from('purchases')
-    .insert(purchaseRecord)
-    .select()
-    .maybeSingle();
-
-  escrowRecord.purchase_id = createdPurchase?.id || purchaseRecord.id;
-
-  // 4. Step 2: Immediate Escrow Release:
-  // - 5% VAT allocated to Tax pool
-  // - 70% credited to Artist Wallet
-  // - 30% credited to PAYTUNE Platform Wallet
-  escrowRecord.status = 'RELEASED';
-  escrowRecord.released_at = new Date().toISOString();
-
-  // Credit Artist Wallet
-  const { data: artistRecord } = await supabaseAdmin
-    .from('artists')
-    .select('*')
-    .eq('id', artistId)
-    .maybeSingle();
-
-  const currentEarnings = Number(artistRecord?.total_earnings || 0);
-  const currentPending = Number(artistRecord?.pending_balance || 0);
-
-  const updatedEarnings = currentEarnings + quote.artist_share_rwf;
-  const updatedPending = currentPending + quote.artist_share_rwf;
-
-  await supabaseAdmin
-    .from('artists')
-    .update({
-      total_earnings: updatedEarnings,
-      pending_balance: updatedPending,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', artistId);
-
-  // Update mock store artist wallet state
-  if (!store.artist_wallets) {
-    store.artist_wallets = [];
-  }
-  let aWallet = store.artist_wallets.find((w: any) => w.artist_id === artistId);
-  if (!aWallet) {
-    aWallet = {
-      artist_id: artistId,
-      artist_name: video.artists?.full_name || 'Artist',
-      escrow_balance_rwf: 0,
-      available_balance_rwf: updatedPending,
-      total_earned_rwf: updatedEarnings,
-      total_withdrawn_rwf: 0,
-      currency: 'RWF',
-      updated_at: new Date().toISOString()
-    };
-    store.artist_wallets.push(aWallet);
-  } else {
-    aWallet.available_balance_rwf = updatedPending;
-    aWallet.total_earned_rwf = updatedEarnings;
-    aWallet.updated_at = new Date().toISOString();
-  }
-
-  // Update Platform Wallet
-  if (!store.platform_wallet) {
-    store.platform_wallet = {
-      escrow_balance_rwf: 0,
-      revenue_balance_rwf: 0,
-      vat_collected_rwf: 0,
-      total_settled_rwf: 0,
-      currency: 'RWF',
-      updated_at: new Date().toISOString()
-    };
-  }
-  store.platform_wallet.revenue_balance_rwf += quote.platform_share_rwf;
-  store.platform_wallet.vat_collected_rwf += quote.vat_amount_rwf;
-  store.platform_wallet.total_settled_rwf += quote.base_price_rwf;
-  store.platform_wallet.updated_at = new Date().toISOString();
-
-  // Increment video views and purchase count
-  const { data: vRow } = await supabaseAdmin.from('videos').select('views').eq('id', videoId).maybeSingle();
-  if (vRow) {
-    await supabaseAdmin.from('videos')
-      .update({ views: (Number(vRow?.views) || 0) + 1 })
-      .eq('id', videoId);
-  }
-
-  notifyMutation(store);
+    revenue_source: 'premium_content',
+    source_record_id: video.id,
+    currency_code: paidCurrency,
+    amount: paidAmount,
+    amount_received: 0,
+    amount_refunded: 0,
+    payment_status: 'pending',
+    requires_customer_action: false,
+    provider_payment_reference: transactionRef,
+    idempotency_key: `escrow:${transactionRef}`,
+    provider_metadata: {
+      video_id: video.id,
+      creator_channel_id: video.creator_channel_id,
+      payment_gateway: gateway,
+      country_code: countryCode.toUpperCase(),
+      payment_phone: paymentPhone || paymentAccount || null,
+      vat_amount_rwf: quote.vat_amount_rwf,
+      artist_share_rwf: quote.artist_share_rwf,
+      owner_share_rwf: quote.platform_share_rwf
+    },
+    created_at: now,
+    updated_at: now
+  });
 
   return {
     success: true,
+    status: 'pending',
+    provider_configured: true,
     transactionRef,
     quote,
-    escrow: escrowRecord,
-    purchase: purchaseRecord,
+    paymentIntentId: intentId,
     video: {
       id: video.id,
       title: video.title,
-      artist_name: video.artists?.full_name || video.artist_name || 'PAYTUNE Artist'
+      artist_name: channel?.channel_name || ''
     }
   };
 }
 
 /**
- * Get Artist Escrow & Available Wallet overview
+ * Get Artist Escrow & Available Wallet overview from live PostgreSQL tables.
  */
-export async function getArtistWalletOverview(artistId: string) {
-  const store = getDbStore();
-  const artist = (store.artists || []).find((a: any) => a.id === artistId);
+export async function getArtistWalletOverview(creatorOrArtistId: string) {
+  let channelId = creatorOrArtistId;
+  let channelName = '';
 
-  const availableBalance = Number(artist?.pending_balance || 0);
-  const totalEarned = Number(artist?.total_earnings || 0);
+  const { data: channel } = await supabaseAdmin
+    .from('creator_channels')
+    .select('id, channel_name')
+    .eq('id', creatorOrArtistId)
+    .maybeSingle();
 
-  const transactions = (store.escrow_transactions || []).filter((tx: any) => tx.artist_id === artistId);
-  const pendingInEscrow = transactions
-    .filter((tx: any) => tx.status === 'HELD_IN_ESCROW')
-    .reduce((sum: number, tx: any) => sum + (tx.artist_share_rwf || 0), 0);
+  if (channel) {
+    channelId = channel.id;
+    channelName = channel.channel_name;
+  } else {
+    const { data: artist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id, artist_name, primary_contact_user_id, created_by_user_id')
+      .eq('id', creatorOrArtistId)
+      .maybeSingle();
+    if (artist) {
+      channelName = artist.artist_name;
+      const ownerId = artist.primary_contact_user_id || artist.created_by_user_id;
+      if (ownerId) {
+        const { data: owned } = await supabaseAdmin
+          .from('creator_channels')
+          .select('id')
+          .eq('owner_user_id', ownerId)
+          .maybeSingle();
+        if (owned?.id) channelId = owned.id;
+      }
+    }
+  }
 
-  const withdrawals = (store.withdrawals || []).filter((w: any) => w.artist_id === artistId);
-  const totalWithdrawn = withdrawals
-    .filter((w: any) => w.status === 'completed' || w.status === 'approved')
-    .reduce((sum: number, w: any) => sum + (Number(w.amount) || 0), 0);
+  const { data: account } = await supabaseAdmin
+    .from('creator_earning_accounts')
+    .select('*')
+    .eq('creator_channel_id', channelId)
+    .maybeSingle();
+
+  const { data: payoutMethod } = await supabaseAdmin
+    .from('creator_payout_methods')
+    .select('provider_name, masked_account_reference')
+    .eq('creator_channel_id', channelId)
+    .eq('is_default', true)
+    .maybeSingle();
+
+  const { data: withdrawals } = await supabaseAdmin
+    .from('creator_withdrawal_requests')
+    .select('*')
+    .eq('creator_channel_id', channelId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  let recentTransactions: any[] = [];
+  let totalEarned = Number(account?.available_balance || 0) + Number(account?.pending_balance || 0) + Number(account?.settled_total || 0);
+  if (account?.id) {
+    const [{ data: txs }, { data: allEarnedTxs }] = await Promise.all([
+      supabaseAdmin
+        .from('creator_earning_transactions')
+        .select('*')
+        .eq('earning_account_id', account.id)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabaseAdmin
+        .from('creator_earning_transactions')
+        .select('creator_amount, earning_status')
+        .eq('earning_account_id', account.id)
+    ]);
+    recentTransactions = txs || [];
+    const ledgerSum = (allEarnedTxs || [])
+      .filter((tx: any) => !['reversed', 'cancelled', 'refunded'].includes(String(tx.earning_status || '')))
+      .reduce((sum: number, tx: any) => sum + (Number(tx.creator_amount) || 0), 0);
+    if (ledgerSum > 0) {
+      totalEarned = Math.max(totalEarned, ledgerSum);
+    }
+  }
 
   return {
-    artist_id: artistId,
-    artist_name: artist?.full_name || 'Artist',
-    currency: 'RWF',
-    available_balance_rwf: availableBalance,
-    escrow_balance_rwf: pendingInEscrow,
+    artist_id: channelId,
+    artist_name: channelName,
+    currency: account?.currency_code || 'RWF',
+    available_balance_rwf: Number(account?.available_balance || 0),
+    escrow_balance_rwf: Number(account?.pending_balance || 0),
     total_earned_rwf: totalEarned,
-    total_withdrawn_rwf: totalWithdrawn,
-    payout_method: artist?.momo_provider || 'MTN MoMo',
-    payout_account: artist?.phone || artist?.momo_code || '',
-    recent_escrow_transactions: transactions.slice(0, 10),
-    withdrawals: withdrawals.slice(0, 10)
+    total_withdrawn_rwf: Number(account?.settled_total || 0),
+    payout_method: payoutMethod?.provider_name || null,
+    payout_account: payoutMethod?.masked_account_reference || '',
+    recent_escrow_transactions: recentTransactions,
+    withdrawals: withdrawals || []
   };
 }
 
 /**
- * Get Master Admin Global Escrow & Settlement Overview
+ * Get Master Admin Global Escrow & Settlement Overview from PostgreSQL ledger tables.
  */
 export async function getPlatformEscrowOverview() {
-  const store = getDbStore();
-  const transactions: EscrowTransaction[] = store.escrow_transactions || [];
-  const purchases = store.purchases || [];
-  const withdrawals = store.withdrawals || [];
+  const { data: txRows } = await supabaseAdmin
+    .from('financial_transactions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-  const totalHeldInEscrow = transactions
-    .filter(tx => tx.status === 'HELD_IN_ESCROW')
-    .reduce((sum, tx) => sum + (tx.base_price_rwf || 0), 0);
+  const { data: withdrawalRows } = await supabaseAdmin
+    .from('creator_withdrawal_requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  const totalVatCollected = purchases.reduce((sum: number, p: any) => sum + (Number(p.vat_amount) || 0), 0);
-  const totalPlatformRevenue = purchases.reduce((sum: number, p: any) => sum + (Number(p.owner_share) || 0), 0);
-  const totalArtistDisbursed = purchases.reduce((sum: number, p: any) => sum + (Number(p.artist_share) || 0), 0);
-  const totalGrossVolume = purchases.reduce((sum: number, p: any) => sum + (Number(p.amount_paid) || 0), 0);
+  const txs = txRows || [];
+  const withdrawals = withdrawalRows || [];
 
-  // Group by country
-  const volumeByCountry: Record<string, { count: number; volume_rwf: number; currency: string }> = {};
-  purchases.forEach((p: any) => {
-    const c = p.country_code || 'RW';
-    if (!volumeByCountry[c]) {
-      volumeByCountry[c] = { count: 0, volume_rwf: 0, currency: p.paid_currency || 'RWF' };
-    }
-    volumeByCountry[c].count++;
-    volumeByCountry[c].volume_rwf += Number(p.amount_paid || 0);
-  });
+  const succeeded = txs.filter((t: any) => t.transaction_status === 'succeeded');
+  const pending = txs.filter((t: any) => t.transaction_status === 'pending');
 
-  // Group by gateway
-  const volumeByGateway: Record<string, { count: number; volume_rwf: number }> = {};
-  purchases.forEach((p: any) => {
-    const g = p.payment_method || 'MTN MoMo';
-    if (!volumeByGateway[g]) {
-      volumeByGateway[g] = { count: 0, volume_rwf: 0 };
-    }
-    volumeByGateway[g].count++;
-    volumeByGateway[g].volume_rwf += Number(p.amount_paid || 0);
-  });
+  const totalHeldInEscrow = pending.reduce((sum: number, t: any) => sum + (Number(t.gross_amount) || 0), 0);
+  const totalGrossVolume = succeeded.reduce((sum: number, t: any) => sum + (Number(t.gross_amount) || 0), 0);
+  const totalVatCollected = succeeded.reduce((sum: number, t: any) => sum + (Number(t.fee_amount) || 0), 0);
+  const totalNet = succeeded.reduce((sum: number, t: any) => sum + (Number(t.net_amount) || 0), 0);
+  const totalArtistDisbursed = Number((totalNet * 0.7).toFixed(2));
+  const totalPlatformRevenue = Number((totalNet * 0.3).toFixed(2));
 
-  const pendingWithdrawalsCount = withdrawals.filter((w: any) => w.status === 'pending').length;
-  const pendingWithdrawalsAmount = withdrawals
-    .filter((w: any) => w.status === 'pending')
-    .reduce((sum: number, w: any) => sum + (Number(w.amount) || 0), 0);
+  const pendingWithdrawals = withdrawals.filter((w: any) =>
+    ['requested', 'under_review', 'queued', 'processing'].includes(w.withdrawal_status)
+  );
+  const pendingWithdrawalsAmount = pendingWithdrawals.reduce(
+    (sum: number, w: any) => sum + (Number(w.requested_amount) || 0),
+    0
+  );
 
   return {
     currency: 'RWF',
@@ -303,11 +257,11 @@ export async function getPlatformEscrowOverview() {
     total_vat_collected: totalVatCollected,
     total_platform_revenue: totalPlatformRevenue,
     total_artist_disbursed: totalArtistDisbursed,
-    pending_withdrawals_count: pendingWithdrawalsCount,
+    pending_withdrawals_count: pendingWithdrawals.length,
     pending_withdrawals_amount: pendingWithdrawalsAmount,
-    volume_by_country: volumeByCountry,
-    volume_by_gateway: volumeByGateway,
-    recent_transactions: transactions.slice(0, 20),
+    volume_by_country: {},
+    volume_by_gateway: {},
+    recent_transactions: txs.slice(0, 20),
     recent_withdrawals: withdrawals.slice(0, 20)
   };
 }

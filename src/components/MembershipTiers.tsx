@@ -84,17 +84,18 @@ export default function MembershipTiers({
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     {tier.name}
                   </h3>
-                  <div 
+                  <div
                     className="w-7 h-7 rounded-full flex items-center justify-center border shadow"
-                    style={{ 
-                      backgroundColor: `${tier.badge_color || '#CD7F32'}20`, 
-                      borderColor: tier.badge_color || '#CD7F32' 
+                    ref={(el) => {
+                      if (el) {
+                        const c = tier.badge_color || '#CD7F32';
+                        el.style.backgroundColor = `${c}20`;
+                        el.style.borderColor = c;
+                        el.style.color = c;
+                      }
                     }}
                   >
-                    <Crown 
-                      className="w-4 h-4" 
-                      style={{ color: tier.badge_color || '#CD7F32' }} 
-                    />
+                    <Crown className="w-4 h-4" />
                   </div>
                 </div>
 

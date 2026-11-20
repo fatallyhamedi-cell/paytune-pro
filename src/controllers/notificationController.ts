@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { getTableData, saveTableData, dispatchRealtimeEvent } from '../config/supabase_mock';
+import { supabaseAdmin } from '../config/supabase';
 import { getNotificationPreferences, saveNotificationPreferences } from '../services/notificationService';
 
 export const getNotifications = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  if (!user) {
+  if (!user?.id) {
     return res.json({
       notifications: [],
       unreadCount: 0
@@ -12,48 +12,35 @@ export const getNotifications = async (req: Request, res: Response) => {
   }
 
   try {
-    const requestedRole = (req.query.role as string) || '';
-    const artists = getTableData('artists') || [];
-    const userArtist = artists.find((a: any) => a.user_id === user.id || a.id === user.artist_id || a.email === user.email);
-    const isMaster = user.role === 'master' || user.role === 'admin' || user.email === 'master@paytune.com';
+    const { data: rows, error } = await supabaseAdmin
+      .from('notifications')
+      .select('*')
+      .eq('recipient_user_id', user.id)
+      .eq('is_archived', false)
+      .order('is_read', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(100);
 
-    const allNotifications = getTableData('notifications') || [];
+    if (error) throw error;
 
-    const userNotifications = allNotifications.filter((n: any) => {
-      // 1. Direct user notifications
-      if (n.recipient_type === 'user' && n.user_id === user.id) {
-        return true;
-      }
-      // 2. Artist notifications if the user is an artist
-      if (userArtist && n.recipient_type === 'artist' && n.artist_id === userArtist.id) {
-        return true;
-      }
-      // 3. Master admin notifications
-      if (isMaster && n.recipient_type === 'master') {
-        return true;
-      }
-      // 4. If requested explicitly via query param
-      if (requestedRole === 'artist' && userArtist && n.artist_id === userArtist.id) {
-        return true;
-      }
-      if (requestedRole === 'master' && isMaster && n.recipient_type === 'master') {
-        return true;
-      }
-      return false;
-    });
+    const notifications = (rows || []).map((n: any) => ({
+      id: n.id,
+      user_id: n.recipient_user_id,
+      artist_id: n.metadata?.artist_id || null,
+      recipient_type: n.metadata?.recipient_type || 'user',
+      type: n.metadata?.legacy_type || n.notification_type,
+      title: n.title,
+      message: n.message,
+      link: n.action_url || '/dashboard',
+      is_read: Boolean(n.is_read),
+      related_id: n.metadata?.related_id || n.content_id || null,
+      created_at: n.created_at
+    }));
 
-    // Sort unread first, then newest
-    userNotifications.sort((a: any, b: any) => {
-      if (a.is_read !== b.is_read) {
-        return a.is_read ? 1 : -1;
-      }
-      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-    });
-
-    const unreadCount = userNotifications.filter((n: any) => !n.is_read).length;
+    const unreadCount = notifications.filter((n: any) => !n.is_read).length;
 
     res.json({
-      notifications: userNotifications,
+      notifications,
       unreadCount
     });
   } catch (err: any) {
@@ -64,27 +51,17 @@ export const getNotifications = async (req: Request, res: Response) => {
 
 export const markAllAsRead = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  if (!user) return res.json({ success: true, message: 'No active session.' });
+  if (!user?.id) return res.status(401).json({ error: 'Authentication required.' });
 
   try {
-    const artists = getTableData('artists') || [];
-    const userArtist = artists.find((a: any) => a.user_id === user.id || a.id === user.artist_id || a.email === user.email);
-    const isMaster = user.role === 'master' || user.role === 'admin' || user.email === 'master@paytune.com';
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from('notifications')
+      .update({ is_read: true, read_at: now, updated_at: now })
+      .eq('recipient_user_id', user.id)
+      .eq('is_read', false);
 
-    const notifications = getTableData('notifications') || [];
-    notifications.forEach((n: any) => {
-      const isTarget =
-        (n.recipient_type === 'user' && n.user_id === user.id) ||
-        (userArtist && n.recipient_type === 'artist' && n.artist_id === userArtist.id) ||
-        (isMaster && n.recipient_type === 'master');
-
-      if (isTarget) {
-        n.is_read = true;
-      }
-    });
-
-    saveTableData('notifications', notifications);
-    dispatchRealtimeEvent('notifications', 'UPDATE', { is_read: true });
+    if (error) throw error;
     res.json({ success: true, message: 'All notifications marked as read.' });
   } catch (err: any) {
     console.error('markAllAsRead error:', err);
@@ -94,20 +71,19 @@ export const markAllAsRead = async (req: Request, res: Response) => {
 
 export const markAsRead = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  if (!user) return res.json({ success: true, message: 'No active session.' });
+  if (!user?.id) return res.status(401).json({ error: 'Authentication required.' });
 
   const { id } = req.params;
 
   try {
-    const notifications = getTableData('notifications') || [];
-    const target = notifications.find((n: any) => n.id === id);
+    const now = new Date().toISOString();
+    const { error } = await supabaseAdmin
+      .from('notifications')
+      .update({ is_read: true, read_at: now, updated_at: now })
+      .eq('id', id)
+      .eq('recipient_user_id', user.id);
 
-    if (target) {
-      target.is_read = true;
-      saveTableData('notifications', notifications);
-      dispatchRealtimeEvent('notifications', 'UPDATE', target);
-    }
-
+    if (error) throw error;
     res.json({ success: true, message: 'Notification marked as read.' });
   } catch (err: any) {
     console.error('markAsRead error:', err);
@@ -117,25 +93,18 @@ export const markAsRead = async (req: Request, res: Response) => {
 
 export const getPreferences = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  if (!user) {
-    return res.json({
-      success: true,
-      preferences: {
-        email_notifications: true,
-        sms_notifications: true,
-        push_notifications: true,
-        momo_receipts: true,
-        artist_announcements: true,
-        stream_alerts: true
-      }
-    });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required.' });
   }
 
   try {
-    const artists = getTableData('artists') || [];
-    const userArtist = artists.find((a: any) => a.user_id === user.id || a.id === user.artist_id);
-    const prefs = getNotificationPreferences(user.id, userArtist?.id || null);
+    const { data: artist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
 
+    const prefs = await getNotificationPreferences(user.id, artist?.id || null);
     res.json({ success: true, preferences: prefs });
   } catch (err: any) {
     console.error('getPreferences error:', err);
@@ -145,18 +114,18 @@ export const getPreferences = async (req: Request, res: Response) => {
 
 export const updatePreferences = async (req: Request, res: Response) => {
   const user = (req as any).user;
-  if (!user) {
-    return res.json({
-      success: true,
-      preferences: req.body
-    });
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Authentication required.' });
   }
 
   try {
-    const artists = getTableData('artists') || [];
-    const userArtist = artists.find((a: any) => a.user_id === user.id || a.id === user.artist_id);
-    const updated = saveNotificationPreferences(user.id, userArtist?.id || null, req.body);
+    const { data: artist } = await supabaseAdmin
+      .from('artist_profiles')
+      .select('id')
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
 
+    const updated = await saveNotificationPreferences(user.id, artist?.id || null, req.body || {});
     res.json({ success: true, preferences: updated });
   } catch (err: any) {
     console.error('updatePreferences error:', err);

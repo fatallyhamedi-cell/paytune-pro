@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { useCallback, useRef } from 'react';
 
 export interface ShortItem {
@@ -56,7 +56,7 @@ export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
   } = useInfiniteQuery({
     queryKey: ['shortsFeed', sort],
     queryFn: async ({ pageParam = 0 }) => {
-      const res = await axios.get<ShortsFeedResponse>('/api/shorts/feed', {
+      const res = await api.get<ShortsFeedResponse>('/api/shorts/feed', {
         params: {
           limit: 15,
           offset: pageParam,
@@ -80,7 +80,7 @@ export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
   // Toggle Like Mutation
   const likeMutation = useMutation({
     mutationFn: async (shortId: string) => {
-      const res = await axios.post(`/api/shorts/${shortId}/like`);
+      const res = await api.post(`/api/shorts/${shortId}/like`);
       return res.data;
     },
     onMutate: async (shortId: string) => {
@@ -124,7 +124,7 @@ export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
   // Toggle Subscribe Mutation
   const subscribeMutation = useMutation({
     mutationFn: async (shortId: string) => {
-      const res = await axios.post(`/api/shorts/${shortId}/subscribe`);
+      const res = await api.post(`/api/shorts/${shortId}/subscribe`);
       return res.data;
     },
     onMutate: async (shortId: string) => {
@@ -172,7 +172,7 @@ export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
       watchedSeconds: number;
       completed: boolean;
     }) => {
-      const res = await axios.post(`/api/shorts/${shortId}/view`, {
+      const res = await api.post(`/api/shorts/${shortId}/view`, {
         watched_seconds: watchedSeconds,
         completed,
         device_type: window.innerWidth < 768 ? 'mobile' : 'desktop'

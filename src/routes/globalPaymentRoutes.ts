@@ -34,9 +34,9 @@ router.get('/escrow/artist/wallet', authenticate, getArtistEscrow);
 router.post('/escrow/artist/withdraw', authenticate, requestArtistWithdrawal);
 
 // Master Admin Escrow Management & Settlement
-router.get('/admin/escrow/overview', authenticate, getMasterEscrowOverview);
-router.get('/admin/escrow/transactions', authenticate, getMasterEscrowTransactions);
-router.post('/admin/escrow/withdrawals/:id/approve', authenticate, approveEscrowWithdrawal);
-router.post('/admin/escrow/withdrawals/:id/reject', authenticate, rejectEscrowWithdrawal);
+router.get('/admin/escrow/overview', authenticate, checkRole('master'), getMasterEscrowOverview);
+router.get('/admin/escrow/transactions', authenticate, checkRole('master'), getMasterEscrowTransactions);
+router.post('/admin/escrow/withdrawals/:id/approve', authenticate, checkRole('master'), approveEscrowWithdrawal);
+router.post('/admin/escrow/withdrawals/:id/reject', authenticate, checkRole('master'), rejectEscrowWithdrawal);
 
 export default router;

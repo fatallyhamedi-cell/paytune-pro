@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { useAuth } from './useAuth';
 
 export interface DashboardSummary {
@@ -23,14 +23,14 @@ export function useArtistDashboard() {
       setError(null);
 
       // Attempt primary studio dashboard endpoint
-      const res = await axios.get('/api/artist/dashboard');
+      const res = await api.get('/api/artist/dashboard');
       setData(res.data);
     } catch (err: any) {
       console.warn('Primary artist dashboard fetch failed, attempting fallback...', err);
       // Attempt fallback with user id if available
       if (user?.id) {
         try {
-          const fallbackRes = await axios.get(`/api/artist/${user.id}/dashboard`);
+          const fallbackRes = await api.get(`/api/artist/${user.id}/dashboard`);
           setData(fallbackRes.data);
           return;
         } catch {
@@ -49,7 +49,7 @@ export function useArtistDashboard() {
 
   const hideComment = async (commentId: string, hidden: boolean) => {
     try {
-      await axios.put(`/api/artist/comments/${commentId}/hide`, { hidden });
+      await api.put(`/api/artist/comments/${commentId}/hide`, { hidden });
       return { success: true };
     } catch (err: any) {
       throw new Error(err.response?.data?.error || 'Failed to update comment visibility');
@@ -58,7 +58,7 @@ export function useArtistDashboard() {
 
   const regenerateVideoLink = async (videoId: string) => {
     try {
-      const res = await axios.post(`/api/artist/video/${videoId}/regenerate-link`);
+      const res = await api.post(`/api/artist/video/${videoId}/regenerate-link`);
       return res.data;
     } catch (err: any) {
       throw new Error(err.response?.data?.error || 'Failed to regenerate stream link');
@@ -67,7 +67,7 @@ export function useArtistDashboard() {
 
   const deleteVideo = async (videoId: string) => {
     try {
-      const res = await axios.delete(`/api/artist/video/${videoId}`);
+      const res = await api.delete(`/api/artist/video/${videoId}`);
       await fetchDashboard();
       return res.data;
     } catch (err: any) {

@@ -1,0 +1,3110 @@
+Paste November 12, 2026 - 3:49AM
+PAYTUNE Music — Professional page concept
+My recommendation is to make PAYTUNE Music a dedicated music-discovery experience, not just a page containing uploaded audio files. It should help listeners discover new songs, follow artists, enjoy music, and return to artists they love.
+
+The key idea is:
+
+Discover a track → listen and interact → follow the artist → visit the artist's page → discover their videos and other music.
+
+Your idea of showing a small circular artist account beneath each track is especially useful. It connects music discovery directly to artist growth.
+1. Music homepage — discovery feed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+
+
+
+
+
+
+
+
+
+
+I recommend organizing the page into these sections:
+A. Top music navigation
+- Music Home
+- Discover
+- Trending
+- New Releases
+- African Music
+- Playlists
+- Artists
+- Albums
+- My Music
+Include a search field that can find songs, artists, albums, genres and playlists.
+B. Personalized music recommendations
+The system should recommend tracks using several signals:
+1. Artists you follow: New tracks from followed artists should receive priority.
+2. Songs you like: Recommend songs with similar musical characteristics.
+3. Genres you enjoy: Afrobeats, Amapiano, Gospel, Hip-hop, R&B, Afro-pop, Reggae, traditional music and more.
+4. Country preferences: Recommend music from countries the listener selects or frequently explores.
+5. Listening history: Use songs the listener actually listens to, not just songs they open.
+6. Similar artists: Introduce artists whose music is similar to the listener's interests.
+7. New releases: Highlight recently published songs from followed and relevant artists.
+8. Trending music: Show popular songs in the listener's country, Africa and worldwide.
+The recommendation system should balance familiar music with new discoveries, so users do not hear the same artists repeatedly.
+C. Recommended homepage sections
+Made for you
+
+Personalized tracks based on your listening activity.
+
+
+
+
+
+
+
+
+
+
+Recommended tracks
+
+Songs matching your taste
+
+
+
+From artists you follow
+
+New music from the artists you already support.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Latest releases
+
+Followed artists
+
+
+
+Popular in your country
+
+Discover music gaining attention in your selected country.
+
+Explore African sounds
+
+Discover different countries, languages and music cultures.
+
+Because you liked these songs
+
+Recommendations based on your liked tracks.
+
+2. Music track cards — the most important component
+Each track should have a consistent design. I recommend making the artist identity visible directly beneath the music track, as you described.
+
+
+
+
+
+
+
+
+isina.com
+
+
+A track card should contain:
+
+
+
+
+
+
+
+
+
+
+Song title
+
+Artist name · Afrobeats
+125K plays
+
+· 3:42
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Artist name
+
+Verified artist · 28K followers
+
+Following
+
+Illustrative track-card layout — sample figures and artist details are not real PAYTUNE data.
+Track card interactions
+- Play button: starts the selected track.
+- Heart: likes or unlikes the song.
+- Play count: displays the verified number of plays.
+- Comment: opens the song discussion.
+- Share: shares the track link.
+- More: save to playlist, add to queue, view credits, report or share.
+- Artist avatar or artist name: opens the artist's page.
+- Follow button: follows or unfollows the artist without leaving the music page.
+I recommend displaying both the track's total plays and the number of likes, but keeping the card uncluttered. A small play count and heart count are sufficient.
+
+Important distinction: Count a play only after a defined valid-listening threshold, not every time someone clicks the play button. Keep track plays, unique listeners and total listening time as separate metrics.
+3. Artist page — one artist identity, two content sections
+This is a central part of your idea.
+
+When a listener clicks the circular artist account below a track, PAYTUNE should open that artist's dedicated page. The page should contain a large banner, artist identity and two major content areas:
+- Videos
+- Audio Tracks
+Both sections belong to the same artist profile. The artist should not need two separate accounts.
+
+
+
+
+
+
+
+
+flowapp-website.vercel.app
+
+
+Artist page layout
+
+
+
+
+
+
+
+
+nme.com
+
+
+
+
+
+
+
+
+
+
+
+
+Artist Name
+Verified artist
+
+125K followers · 2.4M music plays
+
+
+Follow
+
+
+
+
+Artist biography, music style, country, language and social links appear here.
+
+Videos
+Selected
+
+Audio Tracks
+
+Music library
+
+
+Concept only: sample profile layout, not a real artist account.
+
+A. Videos section
+Show the artist's video content:
+- Official music videos.
+- Lyric videos.
+- Live performances.
+- Behind-the-scenes videos.
+- Interviews.
+- Shorts.
+- Documentaries.
+- Video premieres.
+Each video card should show a thumbnail, title, duration, views, publication date and access type (free or paid).
+B. Audio Tracks section
+Show the artist's music library:
+- Latest releases.
+- Popular tracks.
+- Singles.
+- Albums and EPs.
+- Featured collaborations.
+- Playlists.
+- Older releases.
+Each track should have its own play control, cover artwork, play count, likes and track details.
+
+My recommendation: Keep Videos and Audio Tracks as two tabs within the same artist page, not two different profile pages. Add an optional Overview tab later to show featured videos, latest tracks and popular releases together.
+4. Follow system and personalized music feed
+Following an artist should have a meaningful effect.
+
+When someone follows an artist:
+1. The artist is added to the listener's Following list.
+2. New releases from that artist appear in the music homepage's followed-artists section.
+3. New music notifications can be sent according to the listener's preferences.
+4. The artist appears in the listener's followed-artists library.
+5. Recommendations can include similar artists.
+6. The artist's channel shows the updated follower count.
+The listener should also be able to unfollow at any time.
+
+I would include a Following page that shows followed artists as circular profile images, with quick access to their latest music and videos.
+5. Music preference setup
+When someone first visits PAYTUNE Music, offer an optional music-personalization setup. Do not force them to complete a long questionnaire before listening.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+7
+
+
+
+
+
+
+
+
+
+
+
+Allow users to select:
+
+Music genres
+- Afrobeats
+- Amapiano
+- Afro-pop
+- Hip-hop and Rap
+- R&B and Soul
+- Gospel
+- Dancehall
+- Reggae
+- Jazz
+- Classical
+- Traditional and cultural music
+- Electronic and Dance
+- Country
+- Rock
+- Pop
+- Other genres
+Countries and regions
+- Rwanda
+- Nigeria
+- Ghana
+- Kenya
+- Uganda
+- Tanzania
+- South Africa
+- Senegal
+- Cameroon
+- Ethiopia
+- Democratic Republic of Congo
+- Other African countries
+- International music
+Languages
+- English
+- French
+- Portuguese
+- Arabic
+- Swahili
+- Kinyarwanda
+- Hausa
+- Yoruba
+- Amharic
+- Zulu
+- Other languages
+Users can change their preferences at any time. Country, language and genre should be independent filters: for example, a listener in Rwanda can enjoy Nigerian Afrobeats sung in English.
+6. Smart music recommendation engine
+I would use a combined recommendation system rather than relying on one signal.
+Recommendation signal	How PAYTUNE uses it
+Followed artists	More releases from followed artists
+Liked tracks	Similar songs and artists
+Listening history	Understand actual listening habits
+Completion rate	Learn which songs listeners finish
+Genre preferences	Match preferred musical styles
+Country preference	Discover local and regional artists
+Language preference	Find music in preferred languages
+New releases	Introduce fresh music
+Trending	Discover popular songs
+Similar listeners	Find music enjoyed by people with comparable tastes
+
+Add recommendation controls:
+- More like this.
+- Less like this.
+- Hide this track.
+- Don't recommend this artist.
+- Not interested in this genre.
+- Reset my music recommendations.
+- Exclude tracks already played frequently.
+A critical rule: Do not make recommendations depend only on likes or popularity. A new African artist with a small audience should still have an opportunity to be discovered.
+7. Music player — persistent listening experience
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+11
+
+
+
+
+
+
+
+
+
+
+
+The player should remain available while users navigate around PAYTUNE.
+
+Desktop player
+- Fixed bottom music player.
+- Track artwork and title.
+- Artist profile link.
+- Play/pause and next/previous.
+- Progress bar.
+- Volume.
+- Shuffle and repeat.
+- Queue.
+- Lyrics.
+- Add to playlist.
+- Like button.
+Mobile player
+- Compact bottom player.
+- Expandable full-screen player.
+- Touch-friendly controls.
+- Background playback where supported.
+- Lock-screen controls where supported.
+- Bluetooth audio controls where supported.
+- Network-quality handling.
+- Resume listening after connection loss where possible.
+Important: Music playback should continue when navigating from the Music page to the artist page, provided the user has not stopped playback and the platform/device permits it.
+8. Playlists and music collections
+- Personal playlists.
+- Public playlists.
+- Private playlists.
+- Collaborative playlists.
+- Artist-created playlists.
+- Country-based playlists.
+- Genre playlists.
+- Trending playlists.
+- New release playlists.
+- Album collections.
+- Liked Songs.
+- Recently Played.
+- Followed Artists.
+- Downloaded Music for eligible offline access.
+Allow users to follow public playlists and share playlist links.
+9. Artist tools for publishing and managing music
+Artists should have a dedicated Music Studio section.
+- Upload audio tracks.
+- Upload album artwork.
+- Create singles, EPs and albums.
+- Add track titles and descriptions.
+- Add featured artists and collaborators.
+- Add genre, language and country.
+- Add songwriter, composer and producer credits.
+- Add release dates.
+- Schedule releases.
+- Set free or paid access.
+- Manage music ownership and licensing.
+- Track plays, unique listeners and listening time.
+- View countries and audience demographics.
+- See likes, followers and playlist additions.
+- Manage comments.
+- Edit music metadata.
+- Request correction of incorrect artist attribution.
+- Review copyright claims and disputes.
+An artist should be able to upload a music video and associate it with the corresponding audio track. This lets listeners move between the audio and video versions without searching again.
+10. Music discovery by country
+This can become one of PAYTUNE's strongest African advantages.
+
+
+
+
+
+
+
+
+visa-essaouira.com
+
+
+Create a dedicated African music discovery area:
+- Trending in Africa.
+- Trending in East Africa.
+- Trending in West Africa.
+- Trending in Southern Africa.
+- Trending in Central Africa.
+- Trending in North Africa.
+- Top artists by country.
+- New African releases.
+- African gospel.
+- African hip-hop.
+- African traditional music.
+- Cross-country collaborations.
+Country rankings should be based on valid listening and engagement, with transparent time windows such as daily, weekly and monthly. Do not rank artists based on paid followers or unverified plays.
+11. Music interaction and artist growth
+Every track should provide opportunities for listeners to support artists:
+- Like a song.
+- Follow the artist.
+- Comment on the song.
+- Share the song.
+- Add to playlist.
+- View the artist's profile.
+- Discover similar artists.
+- Buy the track or album.
+- Send a tip or gift where supported.
+- Follow an artist's release notifications.
+A listener should not need to leave the player to follow the artist.
+
+I would also introduce a small Artist mini-profile when a user clicks an artist avatar, with the option to open the full artist page. This can show the artist's name, banner thumbnail, follower count, biography and Follow button.
+12. Important music rules and analytics
+PAYTUNE must distinguish between:
+- Track plays.
+- Unique listeners.
+- Total listening time.
+- Average listening duration.
+- Completed listens.
+- Likes.
+- Playlist additions.
+- Shares.
+- Artist profile visits.
+- New followers.
+- Purchases.
+These measurements help creators understand their real audience. They should not be combined into one artificial popularity number.
+
+For recommendations, the system should also avoid repeatedly showing a track simply because the listener opened it once. Listening duration, skips, repeat listens and explicit feedback should influence relevance.
+13. Recommended PAYTUNE Music page layout
+This is the structure I would build:
+PAYTUNE Music
+
+
+For You
+Discover
+Trending
+Following
+Playlists
+Artists
+
+
+Made for you
+
+
+
+
+
+
+
+
+music.apple.com
+
+
+Personalized music based on followed artists, listening history and preferences.
+
+From artists you follow
+
+
+
+
+
+
+
+
+
+
+Artist One
+
+
+
+
+
+
+
+
+
+
+
+Artist Two
+
+
+
+
+
+
+
+
+
+
+
+Artist Three
+
+
+See all
+
+
+
+Trending in Africa
+
+
+
+
+
+
+
+
+
+
+Track title
+
+Artist · Afrobeats
+
+245K plays
+
+
+
+Explore by music genre
+Afrobeats
+
+
+Amapiano
+
+
+Gospel
+
+
+Hip-hop
+
+
+R&B
+
+
+Reggae
+
+
+
+
+New releases
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+13
+
+
+
+
+
+
+
+
+
+
+
+
+Popular artists
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Now playing
+
+Track title · Artist name
+
+
+
+Illustrative page structure. This is a design proposal, not a live music service.
+14. Technical features needed to support this experience
+I recommend these core data entities:
+Entity	Purpose
+artists	Artist identity and profile information
+artist_followers	User-to-artist following relationships
+music_tracks	Audio track details and media references
+music_albums	Singles, EPs and albums
+music_genres	Music classification
+music_track_genres	Multiple genres per track
+music_likes	User likes and unlikes
+music_listening_events	Verified listening activity
+music_playlists	User and artist playlists
+music_playlist_tracks	Tracks inside playlists
+music_preferences	Listener's preferred genres, countries and languages
+music_recommendations	Personalized recommendations
+music_comments	Track discussions
+music_track_videos	Connect audio tracks to music videos
+artist_notifications	Artist release and activity notifications
+
+All artist relationships should reference the same artist identity and PAYTUNE user/account system. Do not create duplicate artist accounts just for audio and video.
+15. My highest-priority recommendations
+Build first
+1. Music homepage and personalized recommendations.
+2. Track cards with plays, hearts and artist avatars.
+3. Follow/unfollow artists.
+4. Artist page with a large banner.
+5. Separate Videos and Audio Tracks sections.
+6. Persistent music player.
+7. Music search, genres and country discovery.
+8. Likes, playlists and listening history.
+9. Artist music publishing and analytics.
+10. Recommendation controls and privacy settings.
+    
+    Build later
+- Advanced AI recommendations.
+- Collaborative playlists.
+- Synchronized lyrics.
+- Music radio.
+- Offline listening.
+- Personalized release notifications.
+- Artist-to-fan exclusive music experiences.
+
+One design decision I strongly recommend: PAYTUNE should have one artist profile that unifies their entire creative identity. A listener who discovers an audio track should be able to visit the artist's banner page, follow them, watch their music videos, listen to their audio catalogue and discover their next release without changing accounts or leaving the artist's page.
+
+The next useful development step is to turn this concept into the complete PAYTUNE Music PRD, with screen-by-screen layouts, responsive behavior, database migrations, API endpoints and acceptance criteria.
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+The next useful development step is to turn this concept into the complete PAYTUNE Music PRD, with screen-by-screen layouts, responsive behavior, database migrations, API endpoints and acceptance criteria. i need strongest powerful paytune no mock. every relationship working well
+
+
+
+
+
+
+
+
+
+
+
+
+Worked for 14s
+
+
+
+
+
+
+
+I’ll define PAYTUNE Music as a production-grade subsystem connected to the existing PAYTUNE accounts, artist profiles, videos, payments, notifications and administration—not as a separate music website.
+
+I’ve checked the available PAYTUNE master specification. It describes React + TypeScript + Vite, Express.js, Supabase PostgreSQL and Storage, and custom JWT authentication. It also describes existing artist, video, follow, playlist and engagement concepts. The Music implementation must integrate with those systems rather than create duplicate accounts or disconnected relationships. Pasted text(1).txt
+
+
+Two important requirements are built into this PRD:
+- No mock tracks, fake artists, invented play counts, simulated follows or fabricated revenue. Empty database states must remain genuinely empty.
+- Every relationship must be enforced by database constraints and backend authorization, not merely by frontend buttons. A successful follow, like, play, purchase or playlist action must persist and be verifiable.
+PAYTUNE MUSIC
+Master Product Requirements Document (PRD)
+Product: PAYTUNE Music
+Product vision: A Pan-African music discovery, streaming, artist-following and creator-growth ecosystem.
+Tagline: Pay Once, Tune Forever.
+Document status: Proposed implementation specification
+Priority: High
+Primary platforms: Responsive web, Android and iOS-compatible experience
+Primary audience: Music listeners, independent artists, record labels, music producers and administrators.
+
+1. Product vision
+PAYTUNE Music should become a powerful African music platform where listeners discover music from different countries, follow artists, listen to audio tracks, watch music videos, create playlists and support artists.
+
+It should combine:
+- Personalized music discovery.
+- Music streaming.
+- Artist profiles and channels.
+- Audio and video content.
+- Artist following.
+- Likes, comments and playlists.
+- Country-based music discovery.
+- Artist analytics.
+- Music publishing and management.
+- Music purchases and other supported monetization.
+- Platform-wide music administration.
+The central experience:
+
+Discover music → Play a track → Like it → Follow its artist → Visit the artist page → Watch videos → Listen to more tracks → Save music → Return for new releases.
+
+PAYTUNE must maintain one connected artist identity throughout this experience.
+2. Non-negotiable engineering requirements
+These requirements apply to every Music module.
+2.1 No mock data
+- Do not hardcode example artists into production pages.
+- Do not hardcode music tracks, album artwork or playlists.
+- Do not generate fake follower counts or play counts.
+- Do not simulate successful purchases.
+- Do not pretend an artist was followed when the backend rejects the request.
+- Do not use local arrays as substitutes for database records.
+- Do not create sample records automatically in production.
+- Do not show invented analytics when no data exists.
+Development fixtures may exist only in isolated test environments and must never appear as production content.
+2.2 Database is the source of truth
+Every important operation must use the actual backend:
+- Follow artist.
+- Unfollow artist.
+- Like track.
+- Unlike track.
+- Play track.
+- Save track.
+- Create playlist.
+- Add track to playlist.
+- Remove track from playlist.
+- Publish track.
+- Update artist profile.
+- Retrieve artist videos.
+- Retrieve artist audio.
+- Retrieve listening history.
+- Retrieve analytics.
+A successful interface update must correspond to a successful backend operation.
+
+Optimistic updates are allowed only with rollback when an operation fails.
+2.3 Relationships must be real
+Every relationship must use stable database identifiers and foreign keys.
+
+Examples:
+- One user can follow many artists.
+- One artist can have many followers.
+- One artist can publish many tracks.
+- One artist can publish many videos.
+- One album can contain many tracks.
+- One track can belong to multiple genres.
+- One user can like many tracks.
+- One user can create multiple playlists.
+- One playlist can contain multiple tracks.
+- One track can have a corresponding music video.
+- One artist profile must connect to the existing PAYTUNE user account.
+Never identify an artist using a display name when an immutable artist ID is available.
+2.4 Existing PAYTUNE systems must be reused
+Use the existing:
+- User authentication.
+- Artist authentication and approval.
+- User profiles.
+- Artist profiles.
+- Video system.
+- Storage infrastructure.
+- Payments and purchases.
+- Notifications.
+- Comments and moderation where compatible.
+- Admin permissions.
+- Audit logs.
+Do not create another authentication system or another artist account system for Music.
+2.5 Design defaults
+- Default theme: White / light mode.
+- Primary brand color: #FFB300.
+- Text: dark charcoal.
+- Background: white.
+- Cards: white or light neutral.
+- Borders: subtle neutral gray.
+- Dark mode: optional user preference.
+- Mobile-first responsive layouts.
+- Consistent navigation and components across PAYTUNE.
+
+3. User roles and permissions
+Role	Music permissions
+Guest	Browse publicly available music and artist pages, subject to access rules
+Registered listener	Like, follow, comment, save, create playlists and access purchased music
+Approved artist	Publish and manage own tracks, albums, videos and artist profile
+Artist team member	Manage assigned artist resources according to permissions
+Music moderator	Review reports, content and moderation cases
+Country administrator	Manage authorized country-level operations
+Master Owner	Global Music administration, configuration and analytics3.1 Permission rules
+Listeners may only change their own likes, follows, playlists and listening preferences.
+
+Artists may only manage content belonging to their authorized artist profile.
+
+Artist team members must receive explicit permissions, such as:
+- Manage profile.
+- Upload music.
+- Edit music metadata.
+- Manage videos.
+- View analytics.
+- Manage comments.
+Master Owner permissions must be separate from ordinary artist permissions.
+
+Do not trust a role or artist ID supplied by the browser. The backend must derive the authenticated identity and verify authorization on every protected request.
+
+4. Music homepage
+Route: /music
+
+The homepage is the primary music discovery experience.
+4.1 Desktop layout
+Top navigation
+- PAYTUNE logo.
+- Music navigation.
+- Search bar.
+- Upload or Creator Studio shortcut when authorized.
+- Notifications.
+- User account menu.
+Music navigation
+- For You.
+- Discover.
+- Trending.
+- Following.
+- New Releases.
+- Playlists.
+- Artists.
+Main content
+1. Personalized recommendations.
+2. Music from followed artists.
+3. Popular in selected country.
+4. Trending across Africa.
+5. New African releases.
+6. Recommended artists.
+7. Recently played.
+8. Because you liked these tracks.
+9. Explore by genre.
+10. Explore by language.
+11. Albums and EPs.
+12. Curated playlists.
+13. International music discovery.
+Sections must be returned from real backend queries.
+
+Do not display a recommendation section when there are no eligible results. Use an appropriate empty state instead.
+4.2 Personalized sections
+Made for You
+Recommend tracks using:
+- Followed artists.
+- Liked tracks.
+- Listening history.
+- Listening completion.
+- Repeat listening.
+- Explicit genre preferences.
+- Country preferences.
+- Language preferences.
+- Similar artists.
+- New releases.
+From Artists You Follow
+Display newly published tracks from artists the current user follows.
+
+Each item must link to the real artist profile.
+Popular in Your Country
+Use the user's selected country preference, not an unchangeable assumption based on IP.
+
+IP-based country detection may be used as an initial suggestion where permitted.
+Trending in Africa
+Provide regional and country-specific rankings.
+Discover Something New
+Introduce emerging artists and tracks outside the user's existing listening habits.
+
+Recommendation quality must not depend solely on popularity or advertising revenue.
+4.3 Homepage acceptance criteria
+- [ ] Homepage loads from real API responses.
+- [ ] Followed artists are personalized to the authenticated user.
+- [ ] Guest recommendations use only permitted public information.
+- [ ] Changing music preferences affects future recommendations.
+- [ ] New releases are sorted using actual publication dates.
+- [ ] No fake counts or tracks appear.
+- [ ] Empty states work correctly.
+- [ ] Pagination or cursor-based loading prevents unlimited data retrieval.
+- [ ] Failed requests display recoverable error states.
+
+5. Music track card
+This is one of the most important reusable components.
+
+Component: MusicTrackCard
+
+Every track card should show:
+1. Track cover artwork.
+2. Track title.
+3. Artist name.
+4. Artist circular avatar.
+5. Verified artist indicator, if verified.
+6. Genre.
+7. Country or language where relevant.
+8. Play count.
+9. Track duration.
+10. Like button.
+11. Like count.
+12. Play button.
+13. Follow button or following status.
+14. More-actions menu.
+5.1 Artist identity underneath every track
+Display a small circular artist account below the track.
+
+When clicked:
+- Open the correct artist page.
+- Use the artist's immutable ID.
+- Load that artist's actual banner and profile information.
+- Show the artist's videos and audio tracks.
+- Preserve the currently playing track.
+The Follow button should work without navigating away.
+5.2 Track actions
+Action	Expected result
+Play	Starts the selected track if access is permitted
+Heart	Likes or unlikes the track
+Artist avatar	Opens the artist profile
+Artist name	Opens the same artist profile
+Follow	Creates an artist-follow relationship
+Following	Removes that relationship after confirmation where appropriate
+Comment	Opens the track discussion
+Share	Copies or opens a real track URL
+Add to playlist	Displays the user's accessible playlists
+Queue	Adds the track to the playback queue
+Report	Creates a moderation report
+View credits	Displays verified music credits5.3 Play-count rules
+A click on Play must not automatically count as a valid play.
+
+Use a server-defined valid-listening policy.
+
+Store listening events with:
+- Track ID.
+- Authenticated user ID when available.
+- Anonymous session identifier when appropriate.
+- Listening start time.
+- Listening duration.
+- Completion percentage.
+- Playback source.
+- Device category.
+- Country when lawfully available.
+- Validation status.
+Apply:
+- Duplicate event detection.
+- Rate limiting.
+- Bot and abnormal activity detection.
+- Replay and repeat-listening rules.
+- Invalid-traffic filtering.
+Do not expose private listening information to other users.
+
+Public play counts must come from validated aggregates.
+5.4 Acceptance criteria
+- [ ] Track artwork loads from its actual media reference.
+- [ ] Artist avatar points to the correct artist.
+- [ ] Like status is correct for the logged-in user.
+- [ ] Follow status is correct.
+- [ ] A failed like request restores the previous interface state.
+- [ ] Play count changes only after valid server-side processing.
+- [ ] Track links open the correct track.
+- [ ] Unavailable tracks cannot be played.
+- [ ] Paid tracks enforce their purchase entitlement.
+
+6. Artist profile and channel page
+Route: /artists/:artistSlug
+
+The artist profile is the single identity connecting all of the artist's music and video content.
+
+An artist must not have a separate audio account and video account.
+6.1 Artist banner
+Use a professional, wide landscape banner similar to YouTube channel art.
+
+Required capabilities:
+- Large desktop banner.
+- Responsive tablet cropping.
+- Mobile-safe crop area.
+- Custom banner upload.
+- Image validation.
+- Preview before publishing.
+- Image repositioning and crop adjustment.
+- Automatic optimized variants.
+- Replace and remove banner.
+- Fallback design when no banner exists.
+Store the original privately where appropriate and serve optimized display variants.
+
+Never stretch a small avatar into a banner.
+6.2 Artist identity section
+Display:
+- Circular artist profile image.
+- Artist display name.
+- Verified status.
+- Biography.
+- Country.
+- Music languages.
+- Genres.
+- Followers.
+- Total validated music plays.
+- Social links.
+- Follow button.
+- Share profile button.
+- More options.
+Only show verified information. Do not invent location, identity or verification status.
+6.3 Artist page navigation
+Recommended tabs:
+1. Overview.
+2. Videos.
+3. Audio Tracks.
+4. Albums.
+5. Playlists.
+6. About.
+Overview
+Show:
+- Featured music video.
+- Featured audio track.
+- Latest releases.
+- Popular tracks.
+- Popular videos.
+- Artist biography.
+- Upcoming releases where available.
+Videos
+Show the artist's published:
+- Official music videos.
+- Lyric videos.
+- Live performances.
+- Behind-the-scenes videos.
+- Interviews.
+- Shorts.
+- Documentaries.
+Use the existing PAYTUNE video system.
+Audio Tracks
+Show:
+- Latest tracks.
+- Popular tracks.
+- Singles.
+- Albums.
+- EPs.
+- Collaborations.
+- Artist playlists.
+Albums
+Display actual albums and their ordered track lists.
+Playlists
+Display artist-created public playlists.
+About
+Show artist biography, country, language, genres, official links and other verified profile information.
+6.4 Artist page relationship requirements
+- Every video must reference its actual artist.
+- Every audio track must reference its actual artist.
+- Every album must reference its owner artist.
+- Track collaborations must identify the participating artists.
+- Artist profile links must work across every PAYTUNE Music component.
+- Following an artist must work from every artist page and track card.
+- The same follower relationship must appear consistently throughout PAYTUNE.
+6.5 Acceptance criteria
+- [ ] Artist page loads using a real artist record.
+- [ ] Banner is responsive.
+- [ ] Artist avatar and name match the correct profile.
+- [ ] Followers count comes from real relationships.
+- [ ] Follow/unfollow works.
+- [ ] Videos tab loads the artist's actual published videos.
+- [ ] Audio Tracks tab loads the artist's actual published tracks.
+- [ ] Albums display their real tracks in the correct order.
+- [ ] Unpublished or restricted content is not publicly exposed.
+- [ ] Changing tabs does not unnecessarily restart music playback.
+
+7. Artist following system
+This relationship must be shared across the whole PAYTUNE platform.
+
+A user can follow multiple artists. An artist can have multiple followers.
+7.1 Follow operation
+Endpoint:
+
+POST /api/music/artists/:artistId/follow
+
+Expected process:
+1. Authenticate user.
+2. Validate artist ID.
+3. Verify artist exists and is eligible for public following.
+4. Prevent self-follow where applicable.
+5. Insert the relationship.
+6. Handle duplicate requests safely.
+7. Return the actual relationship state and updated counts.
+8. Create a notification event according to notification policy.
+7.2 Unfollow operation
+Endpoint:
+
+DELETE /api/music/artists/:artistId/follow
+
+Expected process:
+1. Authenticate user.
+2. Verify relationship ownership.
+3. Delete the correct relationship.
+4. Return the updated relationship state.
+5. Update relevant cached counts.
+7.3 Following features
+- Follow.
+- Unfollow.
+- Followers list.
+- Artist following count.
+- My Followed Artists.
+- Followed artists' new releases.
+- Optional notifications for new releases.
+- Notification settings per artist.
+- Block and restriction handling.
+7.4 Critical relationship rule
+The following relationship must not be duplicated separately for Music and Videos.
+
+If the existing PAYTUNE follows table already supports user-to-artist relationships, extend and reuse it after verifying its structure.
+
+Otherwise, implement one canonical artist-follow relationship and connect every relevant feature to it.
+7.5 Acceptance criteria
+- [ ] One user cannot create duplicate follows for the same artist.
+- [ ] Following from a track card updates the artist page.
+- [ ] Following from the artist page updates track cards.
+- [ ] Following is preserved after logout and login.
+- [ ] Unfollowing removes the relationship everywhere.
+- [ ] Counts are based on actual unique relationships.
+- [ ] Unauthorized users cannot follow on behalf of another user.
+- [ ] Blocked or restricted accounts follow platform policy.
+
+8. Music likes and engagement
+8.1 Track likes
+Endpoints:
+- POST /api/music/tracks/:trackId/like
+- DELETE /api/music/tracks/:trackId/like
+- GET /api/music/tracks/:trackId/like-status
+Features:
+- Like.
+- Unlike.
+- Like count.
+- My Liked Music.
+- Recommendations based on liked music.
+A user can like a track only once.
+
+The database must enforce uniqueness.
+8.2 Comments
+Use the existing PAYTUNE comments system if it supports content-type references.
+
+Otherwise, introduce a music-specific comment module with:
+- Track comments.
+- Replies.
+- Edit own comments.
+- Delete own comments.
+- Artist moderation.
+- Report comments.
+- Pin eligible comments.
+- Moderation status.
+- Pagination.
+Never allow an artist to edit or delete another user's comment without an authorized moderation action.
+8.3 Sharing
+Provide:
+- Track URL.
+- Artist URL.
+- Album URL.
+- Playlist URL.
+- Share to supported mobile applications.
+- Copy link.
+- Share metadata and preview image.
+All shared URLs must resolve to real public pages.
+
+9. Music preferences and onboarding
+Route: /music/preferences
+
+Music preferences should be optional, editable and independent.
+9.1 Genre preferences
+Support configurable genres such as:
+- Afrobeats.
+- Amapiano.
+- Afro-pop.
+- Hip-hop.
+- Rap.
+- R&B.
+- Soul.
+- Gospel.
+- Reggae.
+- Dancehall.
+- Jazz.
+- Classical.
+- Electronic.
+- Rock.
+- Pop.
+- Traditional music.
+- Country music.
+- Other genres.
+Genres must be database records, not permanently hardcoded UI options.
+9.2 Country preferences
+Support countries across Africa and international markets.
+
+Examples include Rwanda, Nigeria, Ghana, Kenya, Uganda, Tanzania, South Africa, Senegal, Cameroon, Ethiopia and the Democratic Republic of Congo.
+
+Country records should use stable country codes.
+9.3 Language preferences
+Support English, French, Portuguese, Arabic, Swahili, Kinyarwanda, Hausa, Yoruba, Amharic, Zulu and additional languages.
+
+Language must be represented independently from country.
+9.4 Preference controls
+Users can:
+- Add genres.
+- Remove genres.
+- Select countries.
+- Select languages.
+- Set preferred music types.
+- Change recommendation preferences.
+- Reset personalized recommendations.
+- Pause listening-history-based personalization.
+- Delete eligible listening-history records.
+9.5 Acceptance criteria
+- [ ] Preferences save to the authenticated user's record.
+- [ ] Preferences are retrieved on another device.
+- [ ] Users can change preferences.
+- [ ] Recommendations respond to preference changes.
+- [ ] Empty preferences do not block music discovery.
+- [ ] Country and language are separate filters.
+- [ ] Users can reset preferences without deleting their account.
+
+10. Recommendation engine
+The recommendation engine should have a staged architecture.
+10.1 Initial recommendation system
+Start with explainable, database-backed recommendations.
+
+Inputs:
+- Followed artists.
+- Liked tracks.
+- Listening history.
+- Listening duration.
+- Completion rate.
+- Skips.
+- Repeated listening.
+- Genres.
+- Countries.
+- Languages.
+- Track release dates.
+- Validated popularity.
+10.2 Recommendation categories
+- Recommended for You.
+- From Artists You Follow.
+- Because You Liked This Track.
+- Similar Artists.
+- New Releases.
+- Popular in Your Country.
+- Trending in Africa.
+- Discover New Artists.
+- Your Frequently Played Music.
+- Recently Played.
+10.3 Recommendation ranking
+Use a configurable ranking model.
+
+Possible factors:
+- User preference match.
+- Artist-follow relevance.
+- Similarity to liked music.
+- Listening behavior.
+- Freshness.
+- Quality and moderation status.
+- Geographic relevance.
+- Diversity.
+- Repetition penalty.
+Do not use unverified plays as the sole popularity signal.
+
+Do not make paid promotion indistinguishable from organic recommendations. Clearly label sponsored placements.
+10.4 Recommendation feedback
+Listeners can select:
+- More like this.
+- Less like this.
+- Hide this track.
+- Don't recommend this artist.
+- Not interested in this genre.
+- Reset recommendations.
+10.5 Cold-start behavior
+For new users with no listening history:
+- Use optional onboarding preferences.
+- Use country and language preferences when supplied.
+- Show legitimate trending and new-release content.
+- Introduce a diverse selection of African artists.
+For new artists:
+- Give eligible new releases a discovery opportunity.
+- Avoid a system where only established artists receive impressions.
+10.6 Future advanced recommendations
+After reliable listening data exists:
+- Similarity models.
+- Collaborative filtering.
+- Audio-feature similarity where technically and legally appropriate.
+- Personalized ranking.
+- Cross-country discovery.
+- Context-aware recommendations.
+Do not introduce expensive AI infrastructure before reliable foundational data exists.
+
+11. Music search and discovery
+Routes:
+- /music/discover
+- /music/search
+- /music/trending
+11.1 Search categories
+Search across:
+- Tracks.
+- Artists.
+- Albums.
+- Playlists.
+- Genres.
+- Countries.
+- Languages.
+11.2 Search functionality
+- Search suggestions.
+- Search history.
+- Clear search history.
+- Typo tolerance.
+- Exact artist search.
+- Partial title search.
+- Multilingual text support.
+- Filters.
+- Sorting.
+- Pagination.
+- Search result grouping.
+11.3 Filters
+- Country.
+- Genre.
+- Language.
+- Release date.
+- Artist.
+- Album.
+- Free or paid.
+- Track duration.
+- Popularity.
+- Newest releases.
+11.4 African music discovery
+Create:
+- East African music.
+- West African music.
+- Central African music.
+- Southern African music.
+- North African music.
+- African gospel.
+- African hip-hop.
+- African traditional music.
+- African collaborations.
+These sections must be driven by real track metadata.
+
+12. Music player
+The music player must be a shared application-level service, not a player that resets every time a page changes.
+12.1 Persistent player
+Desktop:
+- Fixed bottom player.
+- Artwork.
+- Track title.
+- Artist link.
+- Play/pause.
+- Previous and next.
+- Progress.
+- Volume.
+- Shuffle.
+- Repeat.
+- Queue.
+- Like.
+- Add to playlist.
+Mobile:
+- Compact mini-player.
+- Expandable full player.
+- Touch-friendly controls.
+- Background playback where supported.
+- Device media controls where supported.
+- Network recovery.
+- Queue management.
+12.2 Playback behavior
+- Play track.
+- Pause.
+- Resume.
+- Seek.
+- Next.
+- Previous.
+- Shuffle.
+- Repeat one.
+- Repeat queue.
+- Add to queue.
+- Remove from queue.
+- Clear queue.
+- Save listening position where appropriate.
+- Restore session when permitted.
+- Continue playback during navigation.
+- Stop when the user explicitly stops playback.
+12.3 Audio delivery
+- Use processed audio formats suitable for the device.
+- Support adaptive delivery where appropriate.
+- Use short-lived access for restricted content.
+- Avoid exposing private original files.
+- Support retry and recovery.
+- Detect unavailable media.
+- Prevent unauthorized access to paid tracks.
+The existing public audio storage bucket should not automatically be reused for paid original files. Audit current bucket access first.
+12.4 Playback authorization
+The backend must check:
+- Track publication status.
+- Moderation status.
+- Geographic restrictions where applicable.
+- Free or paid status.
+- Purchase entitlement.
+- Account restrictions.
+- Valid playback access.
+A browser-side check is not sufficient.
+
+13. Albums, singles and EPs
+13.1 Album features
+- Create album.
+- Upload cover.
+- Add album title.
+- Add description.
+- Add artist.
+- Add featured artists.
+- Set release date.
+- Set language.
+- Set genre.
+- Add tracks.
+- Reorder tracks.
+- Remove tracks.
+- Publish album.
+- Unpublish album.
+- Edit album metadata.
+13.2 Album rules
+- An album must belong to an authorized artist.
+- Each album-track relationship must reference a real track.
+- Track ordering must be stored explicitly.
+- Duplicate positions within one album must be prevented.
+- A track may appear on more than one album when rights and publishing rules allow it.
+- A single can exist without an album.
+- Deleting an album must not accidentally delete its audio files or independently published tracks.
+13.3 Acceptance criteria
+- [ ] Album creation works.
+- [ ] Album cover uploads correctly.
+- [ ] Track ordering persists.
+- [ ] Album detail page displays actual tracks.
+- [ ] Publishing and unpublishing are enforced.
+- [ ] Album ownership is verified.
+- [ ] Removing a track from an album does not delete the track itself.
+
+14. Artist Music Studio
+Route: /artist/music
+
+This module belongs inside the existing Creator Studio.
+14.1 Music overview
+Display real statistics:
+- Total published tracks.
+- Total published albums.
+- Validated plays.
+- Unique listeners.
+- Total listening time.
+- Average listening duration.
+- Likes.
+- Playlist additions.
+- Artist followers.
+- Track-level performance.
+- Revenue where applicable.
+14.2 Music upload
+Upload form:
+- Track title.
+- Track description.
+- Audio file.
+- Artwork.
+- Artist.
+- Featured artists.
+- Album.
+- Genre.
+- Language.
+- Country of origin.
+- Release date.
+- Songwriter credits.
+- Composer credits.
+- Producer credits.
+- Lyrics where permitted.
+- Free or paid access.
+- Price and currency where supported.
+- Copyright declaration.
+- Rights information.
+- Publishing options.
+14.3 Upload processing
+The upload process must support:
+- File validation.
+- File size limits.
+- Actual file signature validation.
+- Secure resumable uploads for large files.
+- Upload progress.
+- Retry.
+- Resume.
+- Cancel.
+- Duplicate detection.
+- SHA-256 file fingerprint.
+- Metadata extraction.
+- Audio transcoding.
+- Artwork optimization.
+- Moderation status.
+- Processing status.
+- Publishing status.
+Do not mark a track as published merely because its file has uploaded.
+14.4 Track lifecycle
+Suggested lifecycle:
+
+draft → uploading → processing → pending_review → approved → scheduled → published
+
+Additional states:
+
+failed, rejected, restricted, unpublished, removed.
+
+State transitions must be validated on the backend.
+14.5 Music management
+Artists can:
+- Edit metadata.
+- Replace artwork.
+- Update release information.
+- Schedule publication.
+- Unpublish a track.
+- View track details.
+- View analytics.
+- Manage comments.
+- Review copyright claims.
+- Correct incorrect credits.
+- Request moderation review.
+Changing metadata must not break existing track URLs unnecessarily.
+
+15. Music analytics
+Both the artist and Master Owner must have reliable music analytics.
+15.1 Artist analytics
+Global artist overview:
+- Total validated plays.
+- Unique listeners.
+- Listening hours.
+- Average listening duration.
+- Track completion.
+- Followers gained.
+- Likes.
+- Playlist additions.
+- Top tracks.
+- Top albums.
+- Country breakdown.
+- Language breakdown.
+- Traffic sources.
+- Revenue by eligible source.
+Individual track analytics:
+- Total validated plays.
+- Unique listeners.
+- Listening time.
+- Average duration.
+- Completion percentage.
+- Repeat listens.
+- Likes.
+- Shares.
+- Playlist additions.
+- Listener countries.
+- Release performance over time.
+15.2 Master Owner analytics
+Platform-wide music reporting:
+- Total published tracks.
+- Total albums.
+- Active artists.
+- Total validated plays.
+- Unique listeners.
+- Listening hours.
+- Most played tracks.
+- Trending artists.
+- Country-level consumption.
+- Genre-level consumption.
+- Upload failures.
+- Processing failures.
+- Moderation queue.
+- Copyright claims.
+- Storage consumption.
+- Bandwidth usage.
+- Music purchases.
+- Revenue and liabilities where applicable.
+15.3 Analytics integrity
+- Do not count every heartbeat as a play.
+- Deduplicate events.
+- Separate raw events from validated aggregates.
+- Record aggregation time windows.
+- Reconcile counts.
+- Exclude known automated traffic.
+- Do not expose personal listener identities in public analytics.
+- Restrict detailed user-level analytics to authorized personnel.
+- Clearly label estimated and finalized financial data.
+
+16. Playlists and listener library
+Routes:
+- /music/library
+- /music/playlists
+- /music/playlists/:playlistId
+Features:
+- Create playlist.
+- Edit playlist.
+- Delete playlist.
+- Set public/private/unlisted visibility.
+- Add track.
+- Remove track.
+- Reorder tracks.
+- Share playlist.
+- Follow public playlist.
+- Collaborative playlists as a later phase.
+- Liked Songs.
+- Recently Played.
+- Followed Artists.
+- Purchased Music.
+- Saved Albums.
+Playlist ownership must be enforced.
+
+A user cannot edit another user's private playlist.
+
+When a track becomes unavailable, keep its playlist reference manageable and display an appropriate unavailable state rather than corrupting the entire playlist.
+
+17. Track and artist monetization
+Music monetization must integrate with the PAYTUNE financial system.
+
+Possible models:
+- Free music.
+- Paid individual tracks.
+- Paid albums.
+- Artist tips and gifts.
+- Artist memberships.
+- Sponsored placements.
+- Eligible advertising where policy permits.
+- Other approved commercial agreements.
+Important:
+
+The existing PAYTUNE master specification describes a 5% VAT deduction and a 70/30 artist/platform split for its video-purchase model. That policy must not automatically be assumed to govern every music product.
+
+Before implementing music sales, Master Owner must approve the applicable:
+- Artist royalty agreement.
+- Platform fee.
+- Tax handling.
+- Payment provider fee handling.
+- Rights-holder split.
+- Refund rules.
+- Currency handling.
+- Payout conditions.
+Music rights may involve multiple contributors. The platform must support approved ownership and revenue-sharing agreements before enabling royalty distributions for collaborative recordings.
+
+Never calculate final earnings in the browser.
+
+18. Notifications
+Events that may produce notifications:
+- Artist releases a new track.
+- Artist publishes an album.
+- Followed artist goes live.
+- Someone replies to a track comment.
+- Playlist collaboration invitation.
+- Music purchase confirmation.
+- Payment or refund status.
+- Artist moderation decision.
+- Copyright claim.
+- Artist account verification.
+Users must control notification preferences.
+
+Do not send a notification to every follower for every action without applying notification preferences and delivery limits.
+
+19. Database architecture
+The database must be relational and enforce ownership and consistency.
+
+The following schema is the proposed additive Music data model. Before applying it, inspect the actual PAYTUNE migrations and existing column types. Reuse compatible existing tables instead of creating duplicates.
+19.1 Core existing entities to reuse
+- users
+- artist_profiles
+- videos
+- follows where compatible
+- notifications
+- payments
+- purchases
+- Existing comments and reports where compatible
+19.2 Proposed new entities
+Table	Purpose
+music_tracks	Track metadata and publishing state
+music_albums	Albums, singles and EPs
+music_album_tracks	Ordered album-track relationships
+music_genres	Genre catalog
+music_track_genres	Track genre relationships
+music_track_artists	Primary and featured artist credits
+music_track_credits	Songwriter, producer and composer credits
+music_track_videos	Connect tracks with videos
+music_likes	Track likes
+music_listening_events	Raw listening activity
+music_track_stats	Validated aggregate metrics
+music_artist_stats	Aggregated artist metrics
+music_playlists	Playlists
+music_playlist_tracks	Playlist-track relationships
+music_user_preferences	Music preferences
+music_user_history	User listening history
+music_queue_sessions	Optional persistent playback queues
+music_recommendation_feedback	Recommendation feedback
+music_search_history	Search history
+music_moderation_cases	Music moderation
+music_rights_records	Rights and ownership evidence
+music_release_events	Publication and release history19.3 Important database relationships
+users
+  ├── artist_profiles
+  │     ├── music_tracks
+  │     ├── music_albums
+  │     └── existing videos
+  │
+  ├── artist follows
+  ├── music likes
+  ├── music preferences
+  ├── listening history
+  ├── playlists
+  └── recommendation feedback
+
+music_tracks
+  ├── track artists
+  ├── track credits
+  ├── track genres
+  ├── album relationships
+  ├── video relationships
+  ├── likes
+  ├── listening events
+  └── comments
+
+music_albums
+  └── album tracks
+       └── music_tracks
+19.4 Migration 001 — Music catalog
+Create music_tracks.
+
+Recommended columns:
+- id UUID PRIMARY KEY
+- primary_artist_id UUID NOT NULL
+- title VARCHAR(255) NOT NULL
+- slug VARCHAR(255)
+- description TEXT
+- audio_storage_key TEXT NOT NULL
+- artwork_storage_key TEXT
+- duration_seconds INTEGER
+- language_code VARCHAR(20)
+- country_code CHAR(2)
+- access_type VARCHAR(20)
+- price_amount NUMERIC(18, 2)
+- currency_code VARCHAR(3)
+- release_at TIMESTAMPTZ
+- published_at TIMESTAMPTZ
+- status VARCHAR(30) NOT NULL
+- moderation_status VARCHAR(30) NOT NULL
+- copyright_status VARCHAR(30) NOT NULL
+- created_at TIMESTAMPTZ NOT NULL
+- updated_at TIMESTAMPTZ NOT NULL
+Requirements:
+- Foreign key to the existing artist profile table.
+- Non-negative duration.
+- Valid status values.
+- Valid access type.
+- Price and currency required only for paid tracks.
+- Unique slug within the appropriate artist namespace.
+- Indexed artist and publication queries.
+- Private original audio storage.
+- No direct public access to protected originals.
+19.5 Migration 002 — Albums
+music_albums:
+- id
+- artist_id
+- title
+- slug
+- description
+- artwork_storage_key
+- release_date
+- album_type
+- language_code
+- country_code
+- status
+- created_at
+- updated_at
+music_album_tracks:
+- id
+- album_id
+- track_id
+- track_number
+- disc_number
+- created_at
+Constraints:
+- Unique (album_id, track_number, disc_number).
+- Foreign keys to albums and tracks.
+- Valid positive track numbers.
+- Authorization checks for album ownership and track inclusion.
+19.6 Migration 003 — Artist credits
+music_track_artists:
+- id
+- track_id
+- artist_id
+- role
+- display_order
+- created_at
+Support:
+- Primary artist.
+- Featured artist.
+- Collaborating artist.
+- Remixer where applicable.
+music_track_credits:
+- id
+- track_id
+- credit_name
+- credit_role
+- artist_id nullable
+- display_order
+Do not require every songwriter or producer to own a PAYTUNE account.
+19.7 Migration 004 — Genres
+music_genres:
+- id
+- name
+- slug
+- parent_id
+- is_active
+- created_at
+music_track_genres:
+- track_id
+- genre_id
+Use unique constraints to prevent duplicate genre assignments.
+19.8 Migration 005 — Likes
+music_likes:
+- id
+- user_id
+- track_id
+- created_at
+Required unique constraint:
+
+UNIQUE(user_id, track_id)
+
+Add indexes for user library and track engagement queries.
+19.9 Migration 006 — Following
+First inspect the existing PAYTUNE follows table.
+
+If it supports the canonical user-to-artist relationship, reuse it.
+
+If not, add or migrate to a canonical relationship containing:
+- id
+- user_id
+- artist_id
+- created_at
+Required unique constraint:
+
+UNIQUE(user_id, artist_id)
+
+Do not leave two independently maintained artist-follow systems.
+19.10 Migration 007 — Listening events
+music_listening_events:
+- id
+- track_id
+- user_id nullable
+- session_id
+- started_at
+- ended_at
+- listened_seconds
+- completion_percentage
+- source
+- country_code nullable
+- validation_status
+- created_at
+Do not use raw event rows as public counters.
+
+Create a separate aggregate process to calculate validated plays and listening statistics.
+19.11 Migration 008 — Playlists
+music_playlists:
+- id
+- owner_user_id
+- title
+- description
+- artwork_storage_key
+- visibility
+- created_at
+- updated_at
+music_playlist_tracks:
+- id
+- playlist_id
+- track_id
+- position
+- added_at
+Use constraints for valid positions and duplicate rules according to the chosen playlist policy.
+19.12 Migration 009 — Preferences
+music_user_preferences:
+- user_id
+- preferred_country_codes
+- preferred_language_codes
+- preferred_genre_ids
+- personalization_enabled
+- listening_history_enabled
+- updated_at
+Use a normalized preference relationship table instead if the final implementation requires relational filtering at scale.
+19.13 Migration 010 — Videos and tracks
+music_track_videos:
+- id
+- track_id
+- video_id
+- relationship_type
+- created_at
+Examples:
+- Official music video.
+- Lyric video.
+- Live performance.
+- Visualizer.
+The video must still belong to its real artist and pass the existing video publication and access rules.
+19.14 Migration requirements
+Every migration must:
+- Be versioned.
+- Be additive where possible.
+- Include foreign keys.
+- Include unique constraints.
+- Include indexes.
+- Include appropriate check constraints.
+- Include rollback or documented recovery procedures.
+- Be tested against the actual database schema.
+- Avoid deleting existing PAYTUNE data.
+- Avoid creating fake production records.
+- Be safe to rerun only where the migration framework explicitly supports that behavior.
+Use UTC timestamps and stable ISO country/language codes.
+
+Do not assume the existing users.id or artist_profiles.id type without inspecting the actual database.
+
+20. API architecture
+Base path: /api/music
+
+All endpoints must use consistent JSON responses, input validation, authentication and error handling.
+20.1 Public discovery APIs
+Method	Endpoint	Purpose
+GET	/home	Personalized music homepage
+GET	/discover	Music discovery
+GET	/trending	Trending music
+GET	/new-releases	Recent releases
+GET	/popular/artists	Popular artists
+GET	/genres	Active genres
+GET	/countries/:countryCode	Country music discovery
+GET	/search	Music search
+GET	/tracks/:trackId	Track detail
+GET	/albums/:albumId	Album detail
+GET	/playlists/:playlistId	Public playlist20.2 Artist APIs
+Method	Endpoint	Purpose
+GET	/artists/:artistId	Artist detail
+GET	/artists/:artistId/videos	Artist videos
+GET	/artists/:artistId/tracks	Artist audio tracks
+GET	/artists/:artistId/albums	Artist albums
+GET	/artists/:artistId/playlists	Artist playlists
+GET	/artists/:artistId/stats/public	Public artist statistics
+POST	/artists/:artistId/follow	Follow artist
+DELETE	/artists/:artistId/follow	Unfollow artist
+GET	/artists/:artistId/follow-status	Current user's follow status
+GET	/artists/:artistId/followers	Public follower listing where permitted20.3 Track APIs
+Method	Endpoint	Purpose
+POST	/tracks	Create draft
+GET	/tracks/:trackId	Track details
+PATCH	/tracks/:trackId	Update authorized track
+DELETE	/tracks/:trackId	Delete or archive according to policy
+POST	/tracks/:trackId/publish	Publish track
+POST	/tracks/:trackId/unpublish	Unpublish track
+POST	/tracks/:trackId/like	Like track
+DELETE	/tracks/:trackId/like	Unlike track
+GET	/tracks/:trackId/like-status	Like state
+POST	/tracks/:trackId/playback	Request authorized playback
+POST	/tracks/:trackId/listening-events	Submit listening event
+GET	/tracks/:trackId/analytics	Authorized track analytics
+GET	/tracks/:trackId/comments	Track comments
+POST	/tracks/:trackId/comments	Create comment20.4 Album APIs
+Method	Endpoint	Purpose
+POST	/albums	Create album
+PATCH	/albums/:albumId	Update album
+GET	/albums/:albumId	Album details
+POST	/albums/:albumId/tracks	Add track
+PATCH	/albums/:albumId/tracks/reorder	Reorder tracks
+DELETE	/albums/:albumId/tracks/:trackId	Remove track
+POST	/albums/:albumId/publish	Publish album20.5 Playlist APIs
+Method	Endpoint	Purpose
+GET	/me/playlists	User playlists
+POST	/playlists	Create playlist
+PATCH	/playlists/:playlistId	Update playlist
+DELETE	/playlists/:playlistId	Delete playlist
+POST	/playlists/:playlistId/tracks	Add track
+DELETE	/playlists/:playlistId/tracks/:trackId	Remove track
+PATCH	/playlists/:playlistId/reorder	Reorder tracks
+GET	/me/liked-tracks	Liked music
+GET	/me/following-artists	Followed artists
+GET	/me/history	Listening history20.6 Preference APIs
+Method	Endpoint	Purpose
+GET	/me/preferences	Get preferences
+PUT	/me/preferences	Update preferences
+POST	/me/recommendation-feedback	Save feedback
+DELETE	/me/history	Delete eligible listening history
+POST	/me/recommendations/reset	Reset personalization20.7 Artist Studio APIs
+Method	Endpoint	Purpose
+GET	/studio/overview	Music dashboard
+GET	/studio/tracks	Manage own tracks
+GET	/studio/albums	Manage own albums
+POST	/studio/uploads	Start upload
+POST	/studio/uploads/:uploadId/complete	Complete upload
+GET	/studio/uploads/:uploadId	Upload status
+POST	/studio/tracks/:trackId/publish	Publish own track
+GET	/studio/analytics	Artist analytics
+GET	/studio/tracks/:trackId/analytics	Individual track analytics20.8 Master Owner APIs
+Method	Endpoint	Purpose
+GET	/admin/overview	Global Music dashboard
+GET	/admin/tracks	Manage music catalog
+GET	/admin/artists	Manage artist records
+GET	/admin/analytics	Platform analytics
+GET	/admin/moderation	Moderation queue
+POST	/admin/tracks/:trackId/review	Review track
+POST	/admin/tracks/:trackId/restrict	Restrict track
+POST	/admin/tracks/:trackId/restore	Restore eligible track
+GET	/admin/reports	Music reports
+GET	/admin/health	Music subsystem healthAll administrative endpoints must use appropriate authorization policies and record sensitive actions in audit logs.
+
+21. Backend folder structure
+Integrate this into the existing Express backend rather than replacing the whole backend.
+backend/
+└── src/
+    ├── modules/
+    │   └── music/
+    │       ├── music.routes.js
+    │       ├── music.validation.js
+    │       ├── music.constants.js
+    │       │
+    │       ├── controllers/
+    │       │   ├── discovery.controller.js
+    │       │   ├── track.controller.js
+    │       │   ├── artist.controller.js
+    │       │   ├── album.controller.js
+    │       │   ├── playlist.controller.js
+    │       │   ├── follow.controller.js
+    │       │   ├── like.controller.js
+    │       │   ├── playback.controller.js
+    │       │   ├── preference.controller.js
+    │       │   ├── studio.controller.js
+    │       │   └── analytics.controller.js
+    │       │
+    │       ├── services/
+    │       │   ├── discovery.service.js
+    │       │   ├── recommendation.service.js
+    │       │   ├── track.service.js
+    │       │   ├── artist.service.js
+    │       │   ├── album.service.js
+    │       │   ├── playlist.service.js
+    │       │   ├── follow.service.js
+    │       │   ├── like.service.js
+    │       │   ├── playback.service.js
+    │       │   ├── listening.service.js
+    │       │   ├── analytics.service.js
+    │       │   └── rights.service.js
+    │       │
+    │       ├── repositories/
+    │       │   ├── track.repository.js
+    │       │   ├── artist.repository.js
+    │       │   ├── album.repository.js
+    │       │   ├── playlist.repository.js
+    │       │   ├── follow.repository.js
+    │       │   └── analytics.repository.js
+    │       │
+    │       ├── policies/
+    │       │   ├── music.policy.js
+    │       │   ├── track.policy.js
+    │       │   ├── artist.policy.js
+    │       │   └── playback.policy.js
+    │       │
+    │       ├── workers/
+    │       │   ├── audio-processing.worker.js
+    │       │   ├── listening-aggregation.worker.js
+    │       │   ├── recommendation.worker.js
+    │       │   └── release-notification.worker.js
+    │       │
+    │       └── admin/
+    │           ├── music-admin.routes.js
+    │           ├── music-admin.controller.js
+    │           └── music-admin.service.js
+    │
+    ├── middleware/
+    ├── config/
+    ├── jobs/
+    └── migrations/
+Controllers should be thin.
+
+Services should own business rules.
+
+Repositories should own database access.
+
+Policies should own authorization.
+
+Workers should handle slow or asynchronous tasks.
+
+22. Frontend folder structure
+frontend/
+└── src/
+    ├── modules/
+    │   └── music/
+    │       ├── pages/
+    │       │   ├── MusicHomePage.tsx
+    │       │   ├── MusicDiscoverPage.tsx
+    │       │   ├── MusicTrendingPage.tsx
+    │       │   ├── MusicSearchPage.tsx
+    │       │   ├── MusicArtistPage.tsx
+    │       │   ├── MusicTrackPage.tsx
+    │       │   ├── MusicAlbumPage.tsx
+    │       │   ├── MusicPlaylistPage.tsx
+    │       │   ├── MusicLibraryPage.tsx
+    │       │   ├── MusicFollowingPage.tsx
+    │       │   └── MusicPreferencesPage.tsx
+    │       │
+    │       ├── components/
+    │       │   ├── MusicNavigation.tsx
+    │       │   ├── MusicTrackCard.tsx
+    │       │   ├── MusicTrackList.tsx
+    │       │   ├── ArtistAvatar.tsx
+    │       │   ├── ArtistMiniProfile.tsx
+    │       │   ├── ArtistBanner.tsx
+    │       │   ├── ArtistHeader.tsx
+    │       │   ├── ArtistTabs.tsx
+    │       │   ├── FollowButton.tsx
+    │       │   ├── LikeButton.tsx
+    │       │   ├── AlbumCard.tsx
+    │       │   ├── PlaylistCard.tsx
+    │       │   ├── GenreSelector.tsx
+    │       │   ├── CountrySelector.tsx
+    │       │   ├── LanguageSelector.tsx
+    │       │   ├── RecommendationSection.tsx
+    │       │   └── MusicEmptyState.tsx
+    │       │
+    │       ├── player/
+    │       │   ├── MusicPlayerProvider.tsx
+    │       │   ├── MusicPlayerBar.tsx
+    │       │   ├── MusicFullPlayer.tsx
+    │       │   ├── MusicQueue.tsx
+    │       │   ├── MusicProgressBar.tsx
+    │       │   └── musicPlayer.types.ts
+    │       │
+    │       ├── hooks/
+    │       │   ├── useMusicHome.ts
+    │       │   ├── useMusicSearch.ts
+    │       │   ├── useArtist.ts
+    │       │   ├── useArtistFollow.ts
+    │       │   ├── useTrackLike.ts
+    │       │   ├── useMusicPlayback.ts
+    │       │   ├── useMusicPreferences.ts
+    │       │   └── useMusicAnalytics.ts
+    │       │
+    │       ├── services/
+    │       │   └── musicApi.ts
+    │       │
+    │       ├── types/
+    │       │   ├── artist.types.ts
+    │       │   ├── track.types.ts
+    │       │   ├── album.types.ts
+    │       │   ├── playlist.types.ts
+    │       │   └── music.types.ts
+    │       │
+    │       └── utils/
+    │           ├── formatDuration.ts
+    │           ├── formatMusicCount.ts
+    │           └── musicAccess.ts
+    │
+    ├── components/
+    ├── contexts/
+    ├── routes/
+    └── styles/
+The persistent player provider must be mounted above the Music route level so changing Music pages does not recreate the playback session.
+
+23. Responsive design requirements
+Desktop
+- Full music navigation.
+- Search in header.
+- Large discovery sections.
+- Multi-column track and album cards.
+- Persistent bottom player.
+- Artist banner with full layout.
+- Optional queue sidebar.
+- Full Creator Studio analytics.
+Tablet
+- Compact navigation.
+- Collapsible sidebar.
+- Two- or three-column cards depending on width.
+- Touch-friendly player.
+- Responsive artist banner.
+- No horizontal overflow.
+Mobile
+- Compact header.
+- Bottom navigation.
+- One-column or horizontally scrolling music sections.
+- Circular artist avatars.
+- Large touch targets.
+- Compact persistent player.
+- Expandable full player.
+- Artist banner safe area.
+- Mobile-friendly follow and heart controls.
+- Upload recovery and network handling.
+Suggested navigation
+Desktop:
+- Home.
+- Explore.
+- Music.
+- Following.
+- Library.
+- Creator Studio when authorized.
+Mobile:
+- Home.
+- Explore.
+- Music.
+- Following.
+- Library.
+Do not hide important functionality behind hover-only interactions.
+
+24. Security and privacy
+Required protections:
+- Backend authorization for every write operation.
+- Row Level Security policies where applicable.
+- Never expose Supabase service-role credentials.
+- Validate uploads using actual file signatures.
+- Protect private originals.
+- Signed, short-lived media access.
+- Verify purchases server-side.
+- Rate-limit follow, like, search and playback events.
+- Prevent SQL injection.
+- Validate all inputs.
+- Protect administrative endpoints.
+- Record moderation and administrative actions.
+- Prevent unauthorized artist profile changes.
+- Protect user listening history.
+- Provide privacy controls.
+- Prevent account enumeration through sensitive responses.
+- Enforce ownership of playlists and content.
+- Use idempotency for payment-related operations.
+For Supabase, use server-side privileged operations only from a protected backend environment. RLS must not be treated as a replacement for business authorization.
+
+25. Error handling and real operational behavior
+Every operation must have clear states.
+
+Examples:
+
+Follow
+- Not following.
+- Request pending.
+- Following.
+- Failed to follow.
+- Failed to unfollow.
+Music upload
+- Draft.
+- Uploading.
+- Paused.
+- Resuming.
+- Processing.
+- Review.
+- Published.
+- Failed.
+Playback
+- Loading.
+- Playing.
+- Paused.
+- Buffering.
+- Reconnecting.
+- Restricted.
+- Purchase required.
+- Unavailable.
+API failures
+- Authentication required.
+- Permission denied.
+- Resource not found.
+- Validation failed.
+- Rate limited.
+- Service temporarily unavailable.
+Do not display a green success notification until the backend confirms success.
+
+26. Testing strategy
+26.1 Database tests
+- Artist foreign keys.
+- User foreign keys.
+- Duplicate follow prevention.
+- Duplicate like prevention.
+- Album ordering.
+- Playlist ownership.
+- Track ownership.
+- Track-video relationship.
+- Valid statuses.
+- Invalid price rejection.
+- Cascading and restrictive delete behavior.
+Avoid cascading deletion of financial records, rights evidence or historical analytics.
+26.2 API tests
+- Guest access.
+- Authenticated access.
+- Artist ownership.
+- Unauthorized artist editing.
+- Follow/unfollow.
+- Like/unlike.
+- Search.
+- Recommendations.
+- Playback authorization.
+- Paid-track entitlement.
+- Playlist ownership.
+- Album operations.
+- Analytics permissions.
+- Moderation permissions.
+26.3 Frontend tests
+- Artist navigation.
+- Track card behavior.
+- Follow state synchronization.
+- Like state synchronization.
+- Persistent playback.
+- Player recovery.
+- Search and filters.
+- Responsive breakpoints.
+- Empty states.
+- Error states.
+- Upload progress.
+- Artist tabs.
+26.4 End-to-end relationship tests
+These are mandatory.
+
+Scenario A: Discover and follow
+1. A real artist publishes a track.
+2. A listener discovers the track.
+3. The listener clicks the artist avatar.
+4. The artist page opens.
+5. The listener follows the artist.
+6. The follower relationship appears in the database.
+7. The artist's follower count updates.
+8. The artist appears in the listener's Following page.
+9. The track card reflects the following state.
+10. The relationship remains after a fresh login.
+Scenario B: Like and save
+1. A listener opens a real track.
+2. The listener likes it.
+3. The like record is saved.
+4. The track like count updates.
+5. The track appears in Liked Music.
+6. The listener removes the like.
+7. The database record is removed.
+8. The track disappears from Liked Music.
+Scenario C: Audio and video relationship
+1. An artist publishes a music track.
+2. The artist publishes its music video.
+3. The artist associates the video with the track.
+4. The audio track page shows the related video.
+5. The artist Videos tab shows the video.
+6. The artist Audio Tracks tab shows the track.
+7. Both pages reference the same artist identity.
+Scenario D: Paid audio access
+1. A user opens a paid track.
+2. The backend confirms the user has no entitlement.
+3. Playback is denied and purchase options appear.
+4. The user completes a real payment.
+5. The payment provider confirms the transaction.
+6. The backend creates the appropriate entitlement.
+7. Playback becomes available.
+8. The entitlement remains valid according to the product's purchase terms.
+Scenario E: Unauthorized access
+1. Artist A attempts to edit Artist B's track.
+2. Backend authorization rejects the request.
+3. No database record is changed.
+4. The operation is recorded where security auditing requires it.
+
+27. Performance and scalability
+- Use pagination and indexed queries.
+- Avoid loading every track on the homepage.
+- Cache public artist and album metadata.
+- Invalidate cached counts after successful writes.
+- Use asynchronous workers for audio processing.
+- Aggregate listening statistics in background jobs.
+- Use a CDN for optimized media.
+- Avoid expensive recommendation queries on every page request.
+- Monitor database query performance.
+- Use connection pooling.
+- Use appropriate indexes for country, genre, language and publication queries.
+- Implement graceful degradation when recommendations are unavailable.
+- Monitor audio delivery and storage costs.
+Music playback should not fail merely because the recommendation service is temporarily unavailable.
+
+28. Implementation phases
+Phase 1 — Foundation and database
+- Inspect existing schema.
+- Confirm user and artist IDs.
+- Reuse existing follows.
+- Add Music migrations.
+- Configure RLS.
+- Implement backend authorization.
+- Add Music API module.
+- Add automated database tests.
+Completion: All foundational relationships are enforceable.
+Phase 2 — Artist identity and artist pages
+- Artist banner.
+- Artist avatar.
+- Artist information.
+- Videos tab.
+- Audio Tracks tab.
+- Albums tab.
+- Follow button.
+- Artist statistics.
+Completion: One artist profile correctly connects real video and music content.
+Phase 3 — Music discovery and track cards
+- Music homepage.
+- Track cards.
+- Artist mini-profiles.
+- Trending.
+- New releases.
+- Search.
+- Country and genre discovery.
+Completion: Users can discover actual music and navigate to actual artists.
+Phase 4 — Player and listening history
+- Persistent player.
+- Playback authorization.
+- Queue.
+- Listening events.
+- History.
+- Validated plays.
+- Error recovery.
+Completion: Playback works and listening activity is measured accurately.
+Phase 5 — Engagement and following
+- Likes.
+- Follows.
+- Comments.
+- Playlists.
+- Notifications.
+- Library.
+Completion: All user relationships work across pages and persist across sessions.
+Phase 6 — Personalization
+- Music preferences.
+- Recommendation service.
+- Followed artists' releases.
+- Similar artists.
+- User feedback.
+- Trending and discovery ranking.
+Completion: Recommendations use real activity and preferences.
+Phase 7 — Artist Music Studio
+- Upload.
+- Audio processing.
+- Albums.
+- Publishing.
+- Metadata management.
+- Artist analytics.
+Completion: Approved artists can manage their complete music catalog.
+Phase 8 — Monetization and administration
+- Paid tracks.
+- Paid albums.
+- Entitlements.
+- Artist revenue.
+- Financial integration.
+- Music moderation.
+- Master Owner analytics.
+Completion: Financial operations are verified and auditable.
+Phase 9 — Production hardening
+- Security review.
+- Performance tests.
+- Accessibility.
+- Mobile compatibility.
+- Load testing.
+- Backup and recovery.
+- Monitoring.
+- Deployment verification.
+Completion: Music meets production release criteria.
+
+29. Global definition of done
+PAYTUNE Music must not be considered complete just because the pages render.
+
+A feature is complete only when:
+1. Its frontend works.
+2. Its API works.
+3. Its database relationship is correct.
+4. Its authorization is enforced.
+5. Its validation works.
+6. Its errors are handled.
+7. Its data persists after refresh.
+8. Its mobile layout works.
+9. Its automated tests pass.
+10. Its real production dependencies are configured.
+11. Its analytics are accurate where applicable.
+12. Its audit and security requirements are satisfied.
+A feature that only works with locally hardcoded data is not complete.
+
+A button that changes its appearance without persisting its intended operation is not complete.
+
+A relationship that works on one page but not another is not complete.
+
+30. Production release gates
+Before launch, require:
+- [ ] All migrations reviewed and applied successfully.
+- [ ] Existing PAYTUNE user and artist identities reused.
+- [ ] No duplicate artist-follow systems.
+- [ ] No fake production content.
+- [ ] No exposed service-role credentials.
+- [ ] Private audio access tested.
+- [ ] Paid-track entitlements tested.
+- [ ] Artist ownership tested.
+- [ ] Play and listening metrics validated.
+- [ ] Recommendations tested with empty and populated accounts.
+- [ ] Artist video/audio connections tested.
+- [ ] Desktop, tablet and mobile tested.
+- [ ] Accessibility reviewed.
+- [ ] Error monitoring active.
+- [ ] Backup and recovery verified.
+- [ ] Database indexes reviewed.
+- [ ] Financial policies approved before music monetization is enabled.
+- [ ] Copyright and licensing procedures operational.
+- [ ] Production environment configuration verified.
+31. Existing specification decisions requiring reconciliation
+The available PAYTUNE master specification describes an earlier video-first implementation. Before Music development, the engineering team must reconcile these details:
+1. Its earlier UI specification says dark mode by default; the current Music requirement is white/light mode by default.
+2. Its earlier storage design includes a public audio bucket; protected and paid audio requires a more secure access model.
+3. Its earlier follows table must be inspected before adding a new artist-follow relationship.
+4. Its existing videos table must be inspected to determine how artist ownership and video publication work.
+5. Its existing payment split applies to the specified video model; Music royalties require an explicitly approved policy.
+6. Its existing artist approval and copyright review workflow must be reused or extended for music.
+7. The actual repository and migrations must be inspected before finalizing column types, file names or migration execution.
+Implementation honesty: The available project material contains the master specification, not a verified complete current source-code repository. This PRD therefore defines the target system; it does not claim that its APIs, migrations or features already exist.
+32. Final product standard
+PAYTUNE Music should be judged by the quality of its relationships and the reliability of its operations, not simply by the number of screens it contains.
+
+A listener must be able to discover a track, follow its artist, return to that artist's page, play another track, watch the related video, save an album and see all those actions reflected consistently throughout the platform.
+
+An artist must be able to manage their music and video identity from one channel and understand their real audience.
+
+The Master Owner must be able to understand platform-wide music activity, enforce policies and audit important operations.
+
+Final principle: One user system. One artist identity. One consistent relationship system. One trusted music catalog. One reliable playback and analytics system.
+
+This is the foundation for a powerful, scalable Pan-African PAYTUNE Music platform.
+
+
+
+
+Important implementation note
+This PRD is ready to guide development, but the actual code implementation must begin with a schema and repository audit. I would not run the proposed migrations blindly against the current database: existing PAYTUNE IDs, foreign keys, RLS policies and storage permissions must be checked first.
+
+The first engineering deliverable should be the Music Foundation: verified schema map, additive SQL migrations, RLS policies, artist-follow integration and automated relationship tests. That prevents us from building attractive pages on top of broken relationships.
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+i want to turning this paytune to professional music and video that help the artist earning money
+
+
+
+
+
+
+
+
+
+
+
+
+
+PAYTUNE — Building a professional music and video earning platform
+I recommend developing PAYTUNE into a Pan-African creator economy platform where musicians, video creators, filmmakers, and other content owners can publish, distribute, grow an audience, and earn money through several transparent revenue streams.
+
+The goal should not simply be to create another YouTube or music-streaming website. PAYTUNE should connect music, video, audiences, distribution, monetization, advertising, and creator payments in one reliable platform.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PAYTUNE
+Pay Once, Tune Forever.
+
+A platform where African creativity reaches the world and creators have real opportunities to earn.
+
+1. The five major parts of PAYTUNE
+
+
+
+
+
+
+
+
+
+
+1. PAYTUNE Music
+
+Music streaming, singles, albums, EPs, playlists, artist profiles, music videos, recommendations, and music discovery.
+
+
+
+
+
+
+
+
+
+
+
+
+
+2. PAYTUNE Video
+
+Long-form videos, Shorts, documentaries, films, education, entertainment, live replays, and creator channels.
+
+
+
+
+
+
+
+
+
+
+
+
+
+3. PAYTUNE Creator Studio
+
+Uploads, media management, channel customization, analytics, audience management, copyright and monetization tools.
+
+
+
+
+
+
+
+
+
+
+
+
+
+4. PAYTUNE Advertising
+
+Platform advertisements, direct advertiser campaigns, sponsored placements, music promotions, and campaign reporting.
+
+
+
+
+
+
+
+
+
+
+
+
+
+5. PAYTUNE Earnings
+
+Creator balances, revenue statements, eligible earnings, withdrawals, payment history, tax information, and financial reporting.
+
+
+
+2. How artists and video creators should earn money
+PAYTUNE should support multiple earning methods instead of depending on a single source.
+Earning method	How the creator earns
+Free-video advertising	Shares eligible advertising revenue under PAYTUNE's approved partner rules.
+Music streaming	Earns from eligible monetized music streams under an approved royalty policy.
+Paid content	Sells access to premium videos, music, albums, or exclusive releases.
+Fan subscriptions	Receives recurring payments from supporters.
+Gifts and tips	Receives voluntary support from fans.
+Sponsorships	Works with brands on sponsored content and campaigns.
+Music downloads	Sells downloadable music where licensing permits.
+Licensing	Earns when music or video is licensed for approved commercial use.
+Live streaming	Earns through gifts, tickets, sponsorships, and eligible advertising.
+Merchandise	Sells clothing, products, and other creator merchandise.
+
+Important: A view, play, like, or follower should not automatically create money. PAYTUNE must validate eligible activity, advertising delivery, payment status, rights ownership, and applicable revenue-sharing rules.
+3. The most important business decision: separate platform revenue from creator revenue
+PAYTUNE must operate with two connected financial systems.
+A. PAYTUNE platform revenue
+
+Money earned by the company through:
+- Google AdSense or Google Ad Manager, where eligible.
+- Direct advertising contracts.
+- Advertiser campaign fees.
+- Platform service fees.
+- Premium subscriptions and other approved services.
+
+B. Creator earnings
+
+Money payable to creators through:
+- Eligible video advertising shares.
+- Music royalties.
+- Paid content sales.
+- Fan subscriptions, gifts and tips.
+- Sponsorship and licensing agreements.
+
+These must never be confused. For example, an advertiser's payment is platform revenue first. PAYTUNE records the campaign's costs, eligible creator allocations, platform share, and other liabilities according to the applicable contract.
+Example: free-video advertising
+Suppose PAYTUNE receives $1,000 in eligible advertising revenue from a campaign. The platform must apply its approved revenue-sharing agreement, rather than automatically treating the entire $1,000 as creator earnings.
+
+For example, an illustrative agreement might allocate:
+Allocation	Example
+Creator pool	$550
+PAYTUNE platform share	$450
+Total	$1,000
+
+This is an example, not a proposed final rate. The actual split should be approved after considering advertising costs, taxes, payment fees, fraud, and operating expenses.
+
+For music, create a separate royalty system. Music royalties need to account for rights ownership, master recordings, compositions, collaborators, territories, licensing, and valid streams.
+4. Build a serious creator earning system
+Every creator should have an Earnings Dashboard with real financial records.
+
+
+
+
+
+
+
+
+disctopia.com
+
+
+The dashboard should show:
+- Estimated earnings.
+- Confirmed earnings.
+- Pending earnings.
+- Available withdrawal balance.
+- Paid earnings.
+- Video advertising revenue.
+- Music royalties.
+- Subscription revenue.
+- Gifts and tips.
+- Paid content sales.
+- Revenue by video, track, album, and campaign.
+- Monthly statements and downloadable reports.
+The backend must use a proper financial ledger. Do not simply store a balance and change it whenever a creator earns money. Every credit, debit, adjustment, refund, fee, and payout should have an auditable transaction record.
+5. PAYTUNE's professional platform architecture
+I would organize the platform into these connected systems:
+PAYTUNE CORE PLATFORM
+
+Authentication · Users · Artist identities · Countries · Permissions
+
+
+Music System
+
+Tracks, albums, playlists, streaming, royalties
+
+
+Video System
+
+Videos, Shorts, live, playback, advertising
+
+
+Creator System
+
+Channels, followers, uploads, analytics
+
+
+Advertising System
+
+Advertisers, campaigns, impressions, billing
+
+
+
+
+PAYTUNE FINANCIAL ENGINE
+
+Revenue allocation · Rights · Ledger · Payouts · Tax · Fraud controls
+
+
+ADMINISTRATION & TRUST
+
+Moderation · Compliance · Reports · Disputes · Audit logs
+
+
+The systems should share the existing PAYTUNE identity and artist relationships. A musician should not need separate music and video accounts. One artist channel should connect their tracks, music videos, regular videos, followers, and analytics.
+6. Development roadmap
+I recommend building in this order so that monetization is supported by real data rather than being added as an unreliable feature later.
+Phase	Deliverable
+1	Audit existing PAYTUNE code, database, authentication, and storage.
+2	Build unified creator identities, artist channels, follows, and media relationships.
+3	Complete professional music and video upload, processing, playback, and discovery.
+4	Implement validated analytics, listening events, video views, and watch time.
+5	Build advertising campaigns, ad delivery, and advertiser reporting.
+6	Implement creator monetization eligibility, royalties, revenue allocation, and ledger.
+7	Add subscriptions, paid content, tips, licensing, and withdrawals.
+8	Launch regional payment integrations, compliance, security testing, and production monitoring.
+
+Each phase needs database migrations, backend services, frontend screens, authorization, automated tests, and real end-to-end verification.
+7. What will make PAYTUNE different?
+I recommend five principles:
+1. African-first, globally accessible: Support African countries, languages, currencies, artists, and payment methods, while allowing international audiences.
+2. Creator ownership: Artists control their content, rights information, releases, and monetization settings.
+3. Transparent earnings: Creators can understand exactly where every payment comes from and why money is deducted.
+4. Real relationships: One artist identity, one follower system, connected music and video channels, and reliable analytics.
+5. Professional reliability: Secure uploads, high-quality streaming, responsive design, mobile compatibility, fraud prevention, and dependable payments.
+8. My recommendation: start with the PAYTUNE master architecture
+Before writing more individual features, we should establish one integrated architecture covering:
+- Music and video products.
+- Creator and artist management.
+- Upload and media processing.
+- Recommendations and discovery.
+- Advertising and advertiser management.
+- Music royalties and video revenue sharing.
+- Financial ledger and withdrawals.
+- Admin and moderation.
+- Pan-African country, currency, language, and payment support.
+- Security, scalability, and production deployment.
+One important implementation condition: The existing PAYTUNE materials describe the intended architecture, but I have not yet verified the complete current source code or live database. We should inspect those before changing existing tables or implementing migrations. The specified React/TypeScript, Express, and Supabase architecture should be preserved where it is already working. 
+
+The first engineering deliverable should be the PAYTUNE Master Architecture and System Audit, followed by implementation in testable stages. That gives us a foundation for a genuine music and video business—not just a visually impressive website.
+Close
+Skip to main content
+PAYTUNE
+Gemini
+Gemini 3.8 Flash
+Ran for 58s
+
+Action history
+Here are key actions taken for the app:
+
+Built
+Summary of Completed Features
+1. Permanent Lifetime Monetization Policy & 3-Tier Workflow
+Lifetime Approval Policy: Implemented permanent lifetime monetization (monetization_lifetime: true, monetization_approved_at). Once approved, creators never face annual expiration or periodic re-qualification.
+Three-Level Monetization Tiers:
+Level 1 (Standard Creator): Direct video and audio purchases with 70% artist payout split, ticketed live streams, and fan tips.
+Level 2 (Monetization Eligible): Qualification metrics reached (1,000 followers, 10,000 free views, 1,000 watch hours, zero strikes). Includes KYC identity document verification (POST /api/artist/partner-program/verify-identity) and mobile money / banking payout verification (POST /api/artist/partner-program/verify-payout).
+Level 3 (PayTune Partner): Approved permanent lifetime ad monetization with automated 40% ad revenue share on all eligible free videos.
+Admin & Artist Studio Interfaces:
+Artist Studio Partner Program: Interactive 3-level journey tracker, lifetime partner badge, progress meters, and verification modals.
+Master Admin Monetization Center: Real-time review queue with actions for permanent lifetime approval, requesting government KYC ID, requesting payout details, and rule threshold updates.
+2. YouTube-Standard 2560 × 1440 Channel Cover Banner & Responsive Studio
+2560 × 1440 Canvas with 1546 × 423 Safe Zone: Built CoverBannerEditor with interactive focal point dragging, zoom slider (
+ to 
+), toggleable central safe zone guide, and real-time multi-device preview tabs (Desktop 
+, Tablet 
+, Mobile 
+).
+Full-Width Responsive Channel Header: Upgraded ChannelHeader in the White / Light Theme with purple (#8B5CF6) and amber (#FFB300) accents, smooth CSS object-position using saved coordinates (focal_x, focal_y, zoom), 
+ master avatar overlap, and official PayTune Partner badges.
+3. Professional Media Upload Infrastructure
+Full Media Pipeline: Enhanced /api/upload with endpoints for avatar images, YouTube-spec cover banners with focal coordinates (/api/upload/banner, /api/upload/banner-coordinates), high-bitrate audio tracks (/api/upload/audio), and 1:1 artwork covers (/api/upload/artwork).
+Database Asset Registry: Real persistence to public/uploads and Supabase Storage with tracking in store.media_assets and store.profile_covers.
+4. Quality Verification
+Automated Tests: All 27 unit tests across 6 test suites passed (27/27 pass).
+Build & Compilation: Both compile_applet and lint_applet passed with 0 errors. Dev server running on port 3000.
+Checkpoint
+[AIS_METADATA_SECTION_START]
+Media attachment: User sent attachment: /assets/aistudio/Paste_November_12__2026_-1_57AM_14afc831 (saved in workspace at /public/assets/aistudio/Paste_November_12__2026-1_57AM_14afc831). Read it with view_file at that path; in shell commands, which run from the workspace root, use the relative path public/assets/aistudio/Paste_November_12__2026-_1_57AM_14afc831. When displaying or embedding this asset in code, reference this local file path directly. Only invoke image generation tools if the user explicitly requests creating or modifying an image.
+[AIS_METADATA_SECTION_END]
+Paste November 12, 2026 - 1:57AM
+Gemini 3.8 Flash
+Ran for 6m 7s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 8 files
+src/pages/Music.tsx
+src/pages/Community.tsx
+src/App.tsx
+src/components/Sidebar.tsx
+src/components/layout/MobileBottomNav.tsx
+src/components/master/MasterLiveControl.tsx
+src/components/MasterDashboardLayout.tsx
+src/pages/MasterDashboard.tsx
+Built
+Summary of Completed Upgrades
+1. Responsive Cross-Platform Navigation & Layout (Desktop, Tablet, Mobile)
+Fluid Layout Shell: Full support across all screen sizes (small phones 
+–
+, smartphones 
+–
+, large phones 
+–
+, tablets 
+–
+, laptops 
+–
+, and desktop 
+–
+ displays) with zero horizontal page overflow.
+Mobile Bottom Navigation (MobileBottomNav): Built to the specification:
+Home (/)
+Shorts (/shorts)
+Create (/artist/upload or artist onboarding)
+Music (/music)
+Profile (/dashboard or /artist/dashboard)
+Touch targets 
+ with active purple highlighting.
+Desktop & Tablet Sidebar (Sidebar): Updated with direct links to Explore, Trending, Shorts, Music, Live, Community, Following, Studio, Settings, and Profile.
+2. Dedicated Pan-African Music & Audio Hub (/music)
+African Genre Categorization: Rwandan Hits, Afrobeats, Amapiano, Gospel & Worship, Bongo Flava, and Highlife.
+Interactive Player: Audio waveform/progress scrubber, volume slider, mute toggle, play/pause, next/previous tracks, and like reaction counters.
+Monetization Support: Displays free tracks alongside lifetime paid tracks (
+ artist payout split, 
+ platform).
+Responsive Track Catalog: Adapts seamlessly from single-column on mobile phones to 4-column cards on wide displays.
+3. Community & Social Hub (/community)
+Creator Announcements: Direct updates, tour dates, and release teasers from verified African artists.
+Interactive Polls: Live community voting with calculated percentage bars and instant tally updates.
+Fan Engagement: Like counters, comments, and sharing options.
+4. PAYTUNE Live System & Master Control Center
+Creator Live Studio & Live Viewer: RTMP stream keys, live preview, WebSocket chat, concurrent viewer counts, and Super Thanks donations.
+Master Admin Live Control Center (MasterLiveControl): Added a dedicated Live Broadcasts tab to the Master Admin Dashboard for real-time broadcast monitoring, stream health tracking (
+ 
+), and emergency one-click broadcast termination.
+5. Verification & Health
+Automated Tests: All 27 unit tests across 6 test suites passed (27/27 pass).
+Compilation & Linting: Co-executed compile_applet and lint_applet with 0 errors. Dev server running healthy on port 3000.
+Checkpoint
+read careful and focus line by line, analyze features then implement and upgrade to turn it to professional
+Paste November 12, 2026 - 3:49AM
+Gemini 3.8 Flash
+Ran for 3m 57s
+
+Action history
+Here are key actions taken for the app:
+
+Edited 2 files
+src/components/Sidebar.tsx
+frontend/src/components/Sidebar.tsx
+Built
+The sidebar has been updated to match the design from your screenshot.
+Summary of Updates
+Streamlined Navigation Layout:
+Explore: Displays with the grid globe icon and active styling (bg-[#F3E8FF], text-[#8B5CF6], and font-bold inside a rounded-2xl pill).
+Following: Outlined Star icon with an indented guide line featuring followed channels (MyFrenchFilmFesti... with verified badge).
+Studio: Clean BarChart3 icon navigating to the creator dashboard.
+Settings: Standard Settings gear icon.
+Profile Row: Styled with a solid purple circular avatar and username handle (fatal_mbz67 / logged-in handle).
+Dailymotion Footer:
+Divider followed by Company, Support, and Legal bold links.
+Secondary policy links: Privacy and Cookie Policy, Legal notices, Terms, and All videos.
+© 2026 Dailymotion attribution.
+Verification:
+Both src/components/Sidebar.tsx and frontend/src/components/Sidebar.tsx are in sync.
+compile_applet and lint_applet pass with 0 errors.
+Full test suite passes (27/27 unit tests).
+Server health returns HTTP 200.
+Checkpoint
+Make changes, add new features, ask for anything
+
+/music
+
+18
+Finished

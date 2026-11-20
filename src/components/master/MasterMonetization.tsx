@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 import {
   Sparkles,
   Users,
@@ -40,8 +40,8 @@ export default function MasterMonetization() {
     try {
       setLoading(true);
       const [rulesRes, appsRes] = await Promise.all([
-        axios.get('/api/master/partner-program/rules'),
-        axios.get('/api/master/partner-program/applications'),
+        api.get('/api/master/partner-program/rules'),
+        api.get('/api/master/partner-program/applications'),
       ]);
 
       if (rulesRes.data?.success && rulesRes.data.rules) {
@@ -67,7 +67,7 @@ export default function MasterMonetization() {
     setSavingRules(true);
     setStatusMessage(null);
     try {
-      const res = await axios.put('/api/master/partner-program/rules', rules);
+      const res = await api.put('/api/master/partner-program/rules', rules);
       if (res.data?.success) {
         setStatusMessage({ type: 'success', text: 'Partner program qualification thresholds updated successfully!' });
         await fetchData();
@@ -86,7 +86,7 @@ export default function MasterMonetization() {
     setActionLoadingId(artistId);
     setStatusMessage(null);
     try {
-      const res = await axios.post(`/api/master/partner-program/applications/${artistId}/decision`, {
+      const res = await api.post(`/api/master/partner-program/applications/${artistId}/decision`, {
         action,
         notes:
           action === 'approve'
@@ -471,7 +471,7 @@ export default function MasterMonetization() {
                       <td className="px-6 py-4">
                         <div className="space-y-0.5">
                           <p className="text-[11px] text-gray-600">
-                            Phone: <span className={m.phone_verified ? 'text-emerald-600 font-bold' : 'text-amber-600 font-semibold'}>{m.phone_verified ? 'Verified' : 'Pending'}</span>
+                            Account: <span className={m.account_status === 'approved' ? 'text-emerald-600 font-bold' : 'text-gray-700 font-semibold'}>{m.account_status || 'In Review'}</span>
                           </p>
                           <p className="text-[11px] text-gray-600">
                             Copyright Strikes: <span className={m.active_strikes === 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{m.active_strikes}</span>

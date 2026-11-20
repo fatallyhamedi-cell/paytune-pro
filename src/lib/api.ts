@@ -44,22 +44,53 @@ const processQueue = (error: any, token: string | null = null) => {
 // Request Interceptor: Attach Bearer Token to Every Request
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData && config.headers) {
+      config.headers.delete('Content-Type');
+    }
+
     try {
-      // 1. Check active Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const url = String(config.url || '');
+      const isMasterTarget =
+        url.startsWith('/api/master') ||
+        (typeof window !== 'undefined' && window.location.pathname.startsWith('/master'));
+      const isArtistTarget =
+        url.startsWith('/api/artist') || url.startsWith('/api/auth/artist');
+
+      let token: string | null = null;
+
+      if (isMasterTarget && typeof window !== 'undefined') {
+        token =
+          localStorage.getItem('master_token') ||
+          localStorage.getItem('paytune_master_token') ||
+          localStorage.getItem('paytune_auth_token') ||
+          localStorage.getItem('token');
+      } else if (isArtistTarget && typeof window !== 'undefined') {
+        token =
+          localStorage.getItem('artist_token') ||
+          localStorage.getItem('paytune_artist_token') ||
+          localStorage.getItem('paytune_auth_token') ||
+          localStorage.getItem('token');
+      }
+
+      if (!token) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || null;
+      }
+
+      if (!token && typeof window !== 'undefined') {
+        token =
+          localStorage.getItem('paytune_auth_token') ||
+          localStorage.getItem('token') ||
+          localStorage.getItem('artist_token') ||
+          localStorage.getItem('paytune_artist_token') ||
+          localStorage.getItem('supabase.auth.token');
+      }
 
       if (token) {
-        config.headers.set('Authorization', `Bearer ${token}`);
-      } else {
-        // 2. Fallback: check localStorage for custom or mock tokens
-        const storedToken = 
-          localStorage.getItem('paytune_auth_token') || 
-          localStorage.getItem('token') ||
-          localStorage.getItem('supabase.auth.token');
-        
-        if (storedToken) {
-          config.headers.set('Authorization', `Bearer ${storedToken}`);
+        let cleanToken = String(token).replace(/^"|"$/g, '').trim();
+        if (cleanToken.startsWith('Bearer ')) cleanToken = cleanToken.slice(7).trim();
+        if (cleanToken && !config.headers.get('Authorization')) {
+          config.headers.set('Authorization', `Bearer ${cleanToken}`);
         }
       }
     } catch (err) {
@@ -71,14 +102,15 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle 401, Auto-Refresh Token, and Graceful Fallback
+// Response Interceptor: Handle 401, Auto-Refresh Token when Supabase session exists
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest: any = error.config;
+    const reqUrl = String(originalRequest?.url || '');
+    const isAuthEndpoint = reqUrl.includes('/auth/') || reqUrl.includes('/artist/login') || reqUrl.includes('/artist/register');
 
-    // Check if error is 401 Unauthorized and not already retried
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -96,7 +128,12 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Fix 7: Token Refresh via Supabase Auth
+        const { data: { session: currentSupaSession } } = await supabase.auth.getSession();
+        if (!currentSupaSession?.refresh_token) {
+          processQueue(error, null);
+          return Promise.reject(error);
+        }
+
         const { data, error: refreshError } = await supabase.auth.refreshSession();
         const newSession = data?.session;
 
@@ -106,8 +143,6 @@ api.interceptors.response.use(
           return api(originalRequest);
         } else {
           processQueue(refreshError, null);
-          
-          // Fix 6: Graceful UI notification for unrecoverable 401
           if (typeof window !== 'undefined') {
             window.dispatchEvent(
               new CustomEvent('paytune:auth_unauthorized', {
@@ -122,16 +157,6 @@ api.interceptors.response.use(
         }
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('paytune:auth_unauthorized', {
-              detail: {
-                message: 'Authentication session expired. Please sign in.',
-                status: 401
-              }
-            })
-          );
-        }
       } finally {
         isRefreshing = false;
       }

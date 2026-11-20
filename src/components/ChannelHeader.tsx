@@ -84,9 +84,11 @@ export default function ChannelHeader({
             alt={`${artist.full_name} Channel Cover`}
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover transition-transform duration-500 ease-out"
-            style={{
-              objectPosition: `${focalX}% ${focalY}%`,
-              transform: `scale(${zoom})`,
+            ref={(el) => {
+              if (el) {
+                el.style.objectPosition = `${focalX}% ${focalY}%`;
+                el.style.transform = `scale(${zoom})`;
+              }
             }}
           />
         ) : (

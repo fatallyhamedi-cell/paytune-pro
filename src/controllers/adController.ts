@@ -1,239 +1,304 @@
 import { Request, Response } from "express";
-import { supabaseAdmin, isSupabaseConfigured } from "../config/supabase";
-import { getDbStore, notifyMutation } from "../config/supabase_mock";
+import crypto from "crypto";
+import { supabaseAdmin, rawSupabaseAdmin, isSupabaseConfigured } from "../config/supabase";
 import { logAdminAction } from "./masterController";
+
+const db = () => rawSupabaseAdmin || supabaseAdmin;
+
+async function ensureDefaultAdvertiser(userId: string, name: string, email: string) {
+  const client = db();
+  const { data: existing } = await client
+    .from("advertiser_accounts")
+    .select("*")
+    .ilike("business_name", name)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  const { data: created, error } = await client
+    .from("advertiser_accounts")
+    .insert({
+      id: crypto.randomUUID(),
+      owner_user_id: userId,
+      business_name: name,
+      contact_email: email || "ads@paytune.com",
+      advertiser_status: "approved",
+      verification_status: "verified",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return created;
+}
+
+async function ensurePlacement(type: "video_preroll" | "video_midroll" | "video_postroll" | "feed" | "livestream" = "video_preroll") {
+  const client = db();
+  const { data: existing } = await client
+    .from("advertising_placements")
+    .select("*")
+    .eq("placement_type", type)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  const { data: created, error } = await client
+    .from("advertising_placements")
+    .insert({
+      id: crypto.randomUUID(),
+      placement_name: `PAYTUNE ${type}`,
+      placement_type: type,
+      is_active: true,
+      requires_creator_eligibility: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return created;
+}
 
 /**
  * Public endpoint: GET /api/ads/video/:videoId
- * Evaluates whether a video should display a pre-roll ad based on platform rules:
- * 1. PAID VIDEOS NEVER SHOW ADS (Premium content is always ad-free)
- * 2. Shorts never show ads (Quick vertical scroll content)
- * 3. FREE videos can show ads (Single targeted ad prioritized over Global campaign)
+ * Paid videos & shorts NEVER show ads.
  */
 export const getAdForVideo = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.json({ has_ad: false, reason: "database_unconfigured" });
+  }
+
   try {
     const { videoId } = req.params;
     if (!videoId) {
       return res.status(400).json({ success: false, message: "Missing videoId parameter" });
     }
 
-    const store = getDbStore();
-    const videos = store.videos || [];
-    const video = videos.find((v: any) => String(v.id) === String(videoId));
+    const client = db();
+    const { data: video } = await client
+      .from("videos")
+      .select("id, video_type, is_free, is_paywalled")
+      .eq("id", videoId)
+      .maybeSingle();
 
     if (!video) {
       return res.json({ has_ad: false, reason: "video_not_found" });
     }
 
-    // RULE 1: PAID VIDEOS NEVER SHOW ADS
-    const isPaid = !video.is_free && Number(video.price_rwf || 0) > 0;
-    if (isPaid) {
+    if (!video.is_free || video.is_paywalled) {
       return res.json({
         has_ad: false,
         reason: "paid_video_ad_free",
-        message: "Premium paid content is strictly 100% ad-free on PAYTUNE."
+        message: "Premium paid content is strictly 100% ad-free on PAYTUNE.",
       });
     }
 
-    // RULE 2: SHORTS NEVER SHOW ADS
-    const isShort = Boolean(
-      video.is_short || 
-      video.category === "Shorts" || 
-      video.category === "Reels" || 
-      video.category === "Reel"
-    );
-    if (isShort) {
+    if (video.video_type === "short") {
       return res.json({
         has_ad: false,
         reason: "shorts_ad_free",
-        message: "Shorts never show ads."
+        message: "Shorts never show ads.",
       });
     }
 
-    // RULE 3: FREE VIDEOS CAN SHOW ADS
-    const assignments = (store.ad_assignments || []).filter((a: any) => a.status === "active");
-    const ads = (store.ads || []).filter((ad: any) => ad.status === "active");
+    const nowIso = new Date().toISOString();
+    const { data: campaigns } = await client
+      .from("advertising_campaigns")
+      .select("*, advertiser_accounts(business_name)")
+      .eq("campaign_status", "active")
+      .order("created_at", { ascending: false });
 
-    const now = new Date();
-
-    // Check targeted 'single' assignments first
-    const singleAssignments = assignments.filter((a: any) => {
-      if (a.scope !== "single" || String(a.video_id) !== String(videoId)) return false;
-      if (a.start_date && new Date(a.start_date) > now) return false;
-      if (a.end_date && new Date(a.end_date) < now) return false;
+    const activeCampaigns = (campaigns || []).filter((c: any) => {
+      if (c.starts_at && c.starts_at > nowIso) return false;
+      if (c.ends_at && c.ends_at < nowIso) return false;
+      if (c.total_budget && Number(c.total_spend || 0) >= Number(c.total_budget)) return false;
       return true;
     });
 
-    let chosenAssignment: any = null;
-
-    if (singleAssignments.length > 0) {
-      // Sort single assignments by priority descending
-      singleAssignments.sort((a: any, b: any) => (b.priority || 1) - (a.priority || 1));
-      chosenAssignment = singleAssignments[0];
-    } else {
-      // Fallback to 'global' assignments for all free videos
-      const globalAssignments = assignments.filter((a: any) => {
-        if (a.scope !== "global") return false;
-        if (a.start_date && new Date(a.start_date) > now) return false;
-        if (a.end_date && new Date(a.end_date) < now) return false;
-        return true;
-      });
-
-      if (globalAssignments.length > 0) {
-        globalAssignments.sort((a: any, b: any) => (b.priority || 1) - (a.priority || 1));
-        // Pick top priority, or cycle if multiple with same priority
-        chosenAssignment = globalAssignments[0];
-      }
-    }
-
-    if (!chosenAssignment) {
+    if (activeCampaigns.length === 0) {
       return res.json({ has_ad: false, reason: "no_active_campaign" });
     }
 
-    const matchedAd = ads.find((ad: any) => String(ad.id) === String(chosenAssignment.ad_id));
-    if (!matchedAd) {
-      return res.json({ has_ad: false, reason: "ad_creative_unavailable" });
-    }
+    // Prioritize campaigns explicitly targeting this videoId in metadata.target_video_id
+    const targeted = activeCampaigns.find((c: any) => String(c.metadata?.target_video_id || "") === String(videoId));
+    const chosenCampaign = targeted || activeCampaigns[0];
 
-    // Check budget cap
-    if (matchedAd.budget_rwf && matchedAd.spent_rwf >= matchedAd.budget_rwf) {
-      return res.json({ has_ad: false, reason: "ad_budget_exhausted" });
+    const { data: creative } = await client
+      .from("advertising_creatives")
+      .select("*")
+      .eq("campaign_id", chosenCampaign.id)
+      .in("creative_status", ["approved", "draft"])
+      .limit(1)
+      .maybeSingle();
+
+    if (!creative || !creative.metadata?.video_url) {
+      return res.json({ has_ad: false, reason: "ad_creative_unavailable" });
     }
 
     return res.json({
       has_ad: true,
       ad: {
-        id: matchedAd.id,
-        title: matchedAd.title,
-        description: matchedAd.description,
-        video_url: matchedAd.video_url,
-        thumbnail_url: matchedAd.thumbnail_url,
-        click_url: matchedAd.click_url,
-        duration_seconds: matchedAd.duration_seconds || 15,
-        advertiser_name: matchedAd.advertiser_name || "PAYTUNE Partner",
-        skip_offset_seconds: 5 // Users can skip after 5 seconds
+        id: chosenCampaign.id,
+        creative_id: creative.id,
+        title: creative.headline || chosenCampaign.campaign_name,
+        description: creative.description || chosenCampaign.campaign_description || "",
+        video_url: creative.metadata.video_url,
+        thumbnail_url: creative.metadata.thumbnail_url || "",
+        click_url: creative.destination_url || chosenCampaign.landing_page_url || "",
+        duration_seconds: Number(creative.metadata.duration_seconds || 15),
+        advertiser_name: chosenCampaign.advertiser_accounts?.business_name || "PAYTUNE Advertiser",
+        skip_offset_seconds: 5,
       },
       assignment: {
-        id: chosenAssignment.id,
-        scope: chosenAssignment.scope,
-        priority: chosenAssignment.priority
-      }
+        id: chosenCampaign.id,
+        scope: targeted ? "single" : "global",
+        priority: targeted ? 10 : 1,
+      },
     });
   } catch (err: any) {
     console.error("Error retrieving ad for video:", err);
-    return res.status(500).json({ has_ad: false, error: "Internal server error" });
+    return res.status(500).json({ has_ad: false, error: err?.message || "Internal server error" });
   }
 };
 
 /**
  * Public endpoint: POST /api/ads/impression
- * Records an ad impression when playback begins
  */
 export const recordAdImpression = async (req: Request, res: Response) => {
   try {
-    const { ad_id, video_id, country, device } = req.body;
+    const { ad_id, creative_id, video_id, country, device } = req.body;
     if (!ad_id) {
       return res.status(400).json({ success: false, message: "Missing ad_id" });
     }
 
+    const client = db();
     const user = (req as any).user;
-    const userId = user?.id || req.body.user_id || null;
+    const nowIso = new Date().toISOString();
+    const impressionId = crypto.randomUUID();
 
-    const store = getDbStore();
-    if (!store.ad_impressions) store.ad_impressions = [];
+    const { data: campaign } = await client
+      .from("advertising_campaigns")
+      .select("id, total_spend")
+      .eq("id", ad_id)
+      .maybeSingle();
 
-    const impressionId = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const newImpression = {
-      id: impressionId,
-      ad_id: String(ad_id),
-      video_id: video_id ? String(video_id) : null,
-      user_id: userId,
-      country: country || "Rwanda",
-      device: device || "desktop",
-      watched_seconds: 0,
-      clicked: false,
-      created_at: new Date().toISOString()
-    };
-
-    store.ad_impressions.push(newImpression);
-
-    // Update ad spent budget (e.g. standard 5 RWF per ad display)
-    const adCost = 5;
-    const ad = (store.ads || []).find((a: any) => String(a.id) === String(ad_id));
-    if (ad) {
-      ad.spent_rwf = Number(ad.spent_rwf || 0) + adCost;
-      ad.updated_at = new Date().toISOString();
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Ad campaign not found" });
     }
 
-    // Revenue distribution rule:
-    // Only artists who are approved in the PayTune Partner Program (monetization_status === 'approved_monetized')
-    // receive an advertising revenue share. Otherwise, 100% of the ad revenue goes to PayTune platform wallet.
+    let creatorChannelId: string | null = null;
+    if (video_id) {
+      const { data: video } = await client
+        .from("videos")
+        .select("creator_channel_id")
+        .eq("id", video_id)
+        .maybeSingle();
+      creatorChannelId = video?.creator_channel_id || null;
+    }
+
+    await client.from("advertising_delivery_events").insert({
+      id: impressionId,
+      campaign_id: ad_id,
+      creative_id: creative_id || null,
+      event_type: "impression",
+      content_entity_type: video_id ? "video" : null,
+      content_id: video_id || null,
+      creator_channel_id: creatorChannelId,
+      viewer_user_id: user?.id || null,
+      country_code: country ? String(country).slice(0, 8) : null,
+      device_type: device || "desktop",
+      occurred_at: nowIso,
+      received_at: nowIso,
+      is_valid: true,
+      event_metadata: { watched_seconds: 0 },
+    });
+
+    const adCost = 5;
+    await client
+      .from("advertising_campaigns")
+      .update({
+        total_spend: Number(campaign.total_spend || 0) + adCost,
+        updated_at: nowIso,
+      })
+      .eq("id", ad_id);
+
     let artistShare = 0;
     let platformShare = adCost;
     let isMonetizedPartner = false;
 
-    if (video_id) {
-      const video = (store.videos || []).find((v: any) => String(v.id) === String(video_id));
-      if (video && (video.artist_id || video.user_id)) {
-        const creatorId = String(video.artist_id || video.user_id);
-        const artist = (store.artists || []).find(
-          (a: any) => String(a.id) === creatorId || String(a.user_id) === creatorId
-        );
+    if (creatorChannelId) {
+      const { data: mono } = await client
+        .from("creator_monetization_accounts")
+        .select("id, account_status")
+        .eq("creator_channel_id", creatorChannelId)
+        .maybeSingle();
 
-        if (artist && artist.monetization_status === 'approved_monetized') {
-          isMonetizedPartner = true;
-          const rules = store.partner_program_rules || { artist_ad_share_pct: 40 };
-          const sharePct = rules.artist_ad_share_pct || 40;
-          artistShare = Math.round(adCost * (sharePct / 100));
-          platformShare = adCost - artistShare;
+      if (mono?.account_status === "approved" && mono?.id) {
+        isMonetizedPartner = true;
+        const { data: ruleRow } = await client
+          .from("platform_settings")
+          .select("setting_value")
+          .eq("setting_key", "partner_program_rules")
+          .maybeSingle();
 
-          // Credit artist's wallet & ad earnings tracker
-          if (!store.artist_wallets) store.artist_wallets = [];
-          let wallet = store.artist_wallets.find(
-            (w: any) => String(w.artist_id) === String(artist.id) || String(w.artist_id) === String(artist.user_id)
-          );
-          if (!wallet) {
-            wallet = {
-              id: `wallet-${artist.id}`,
-              artist_id: artist.id,
-              balance_rwf: 0,
-              pending_clearance_rwf: 0,
-              total_withdrawn_rwf: 0,
-              currency: 'RWF',
-              updated_at: new Date().toISOString()
-            };
-            store.artist_wallets.push(wallet);
-          }
+        const sharePct = Number((ruleRow?.setting_value as any)?.artist_ad_share_pct ?? 40);
+        artistShare = Number((adCost * (sharePct / 100)).toFixed(2));
+        platformShare = Number((adCost - artistShare).toFixed(2));
 
-          wallet.balance_rwf = Number(wallet.balance_rwf || 0) + artistShare;
-          wallet.updated_at = new Date().toISOString();
+        await client.from("advertising_creator_revenue_attributions").insert({
+          delivery_event_id: impressionId,
+          creator_channel_id: creatorChannelId,
+          monetization_account_id: mono.id,
+          revenue_source: "video_ads",
+          gross_ad_revenue: adCost,
+          creator_share_amount: artistShare,
+          platform_share_amount: platformShare,
+          currency_code: "RWF",
+          attribution_status: "verified",
+          eligibility_verified: true,
+          policy_snapshot: { artist_ad_share_pct: sharePct },
+          verified_at: nowIso,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
 
-          artist.ad_earnings_rwf = Number(artist.ad_earnings_rwf || 0) + artistShare;
-          artist.ad_impressions_count = Number(artist.ad_impressions_count || 0) + 1;
+        const { data: earningAcct } = await client
+          .from("creator_earning_accounts")
+          .select("id, available_balance")
+          .eq("creator_channel_id", creatorChannelId)
+          .maybeSingle();
+
+        if (earningAcct) {
+          await client.from("creator_earning_transactions").insert({
+            earning_account_id: earningAcct.id,
+            revenue_source: "video_ads",
+            earning_status: "available",
+            currency_code: "RWF",
+            gross_amount: adCost,
+            platform_fee: platformShare,
+            creator_amount: artistShare,
+            source_record_id: video_id || ad_id,
+            available_at: nowIso,
+            description: "Ad impression share",
+            metadata: { impression_id: impressionId },
+            created_at: nowIso,
+          });
+
+          await client
+            .from("creator_earning_accounts")
+            .update({
+              available_balance: Number(earningAcct.available_balance || 0) + artistShare,
+              last_transaction_at: nowIso,
+              updated_at: nowIso,
+            })
+            .eq("id", earningAcct.id);
         }
       }
     }
-
-    // Credit platform wallet
-    if (!store.platform_wallet) {
-      store.platform_wallet = {
-        escrow_balance_rwf: 0,
-        revenue_balance_rwf: 0,
-        vat_collected_rwf: 0,
-        total_settled_rwf: 0,
-        currency: 'RWF',
-        updated_at: new Date().toISOString()
-      };
-    }
-    store.platform_wallet.revenue_balance_rwf =
-      Number(store.platform_wallet.revenue_balance_rwf || 0) + platformShare;
-    store.platform_wallet.updated_at = new Date().toISOString();
-
-    (newImpression as any).monetized = isMonetizedPartner;
-    (newImpression as any).artist_share_rwf = artistShare;
-    (newImpression as any).platform_share_rwf = platformShare;
-
-    notifyMutation();
 
     return res.json({
       success: true,
@@ -241,7 +306,7 @@ export const recordAdImpression = async (req: Request, res: Response) => {
       monetized: isMonetizedPartner,
       artist_share_rwf: artistShare,
       platform_share_rwf: platformShare,
-      message: "Ad impression recorded"
+      message: "Ad impression recorded",
     });
   } catch (err: any) {
     console.error("Error recording ad impression:", err);
@@ -251,7 +316,6 @@ export const recordAdImpression = async (req: Request, res: Response) => {
 
 /**
  * Public endpoint: POST /api/ads/progress
- * Updates watched seconds for an active impression
  */
 export const recordAdProgress = async (req: Request, res: Response) => {
   try {
@@ -260,13 +324,17 @@ export const recordAdProgress = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Missing impression_id" });
     }
 
-    const store = getDbStore();
-    const impressions = store.ad_impressions || [];
-    const imp = impressions.find((i: any) => String(i.id) === String(impression_id));
+    const client = db();
+    const { data: imp } = await client
+      .from("advertising_delivery_events")
+      .select("id, campaign_id, event_metadata")
+      .eq("id", impression_id)
+      .maybeSingle();
 
     if (imp) {
-      imp.watched_seconds = Math.max(imp.watched_seconds || 0, Number(watched_seconds || 0));
-      notifyMutation();
+      const meta = (imp.event_metadata && typeof imp.event_metadata === "object" ? imp.event_metadata : {}) as Record<string, any>;
+      meta.watched_seconds = Math.max(Number(meta.watched_seconds || 0), Number(watched_seconds || 0));
+      await client.from("advertising_delivery_events").update({ event_metadata: meta }).eq("id", impression_id);
     }
 
     return res.json({ success: true });
@@ -278,30 +346,34 @@ export const recordAdProgress = async (req: Request, res: Response) => {
 
 /**
  * Public endpoint: POST /api/ads/click
- * Records an ad click when the user clicks the advertiser call-to-action
  */
 export const recordAdClick = async (req: Request, res: Response) => {
   try {
     const { impression_id, ad_id } = req.body;
+    const client = db();
+    const user = (req as any).user;
+    const nowIso = new Date().toISOString();
 
-    const store = getDbStore();
-    if (impression_id) {
-      const impressions = store.ad_impressions || [];
-      const imp = impressions.find((i: any) => String(i.id) === String(impression_id));
-      if (imp) {
-        imp.clicked = true;
-      }
+    if (ad_id) {
+      await client.from("advertising_delivery_events").insert({
+        campaign_id: ad_id,
+        event_type: "click",
+        viewer_user_id: user?.id || null,
+        occurred_at: nowIso,
+        received_at: nowIso,
+        is_valid: true,
+        event_metadata: { impression_id: impression_id || null },
+      });
     }
 
-    const ads = store.ads || [];
-    const ad = ads.find((a: any) => String(a.id) === String(ad_id));
-
-    notifyMutation();
+    const { data: campaign } = ad_id
+      ? await client.from("advertising_campaigns").select("landing_page_url").eq("id", ad_id).maybeSingle()
+      : { data: null };
 
     return res.json({
       success: true,
-      click_url: ad?.click_url || "https://paytune.com",
-      message: "Ad click recorded"
+      click_url: campaign?.landing_page_url || null,
+      message: "Ad click recorded",
     });
   } catch (err: any) {
     console.error("Error recording ad click:", err);
@@ -311,40 +383,55 @@ export const recordAdClick = async (req: Request, res: Response) => {
 
 /**
  * MASTER ADMIN: GET /api/ads/master/list
- * Returns all ad creatives with live metrics (impressions, clicks, CTR, spent budget)
  */
-export const getMasterAds = async (req: Request, res: Response) => {
+export const getMasterAds = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const assignments = store.ad_assignments || [];
-    const impressions = store.ad_impressions || [];
+    const client = db();
+    const { data: campaigns, error } = await client
+      .from("advertising_campaigns")
+      .select("*, advertiser_accounts(business_name), advertising_creatives(*), advertising_campaign_placements(*)")
+      .order("created_at", { ascending: false });
 
-    const enrichedAds = ads.map((ad: any) => {
-      const adImps = impressions.filter((i: any) => String(i.ad_id) === String(ad.id));
-      const totalImpressions = adImps.length;
-      const totalClicks = adImps.filter((i: any) => i.clicked === true).length;
+    if (error) throw error;
+
+    const { data: events } = await client
+      .from("advertising_delivery_events")
+      .select("campaign_id, event_type");
+
+    const enrichedAds = (campaigns || []).map((c: any) => {
+      const creative = Array.isArray(c.advertising_creatives) ? c.advertising_creatives[0] : c.advertising_creatives;
+      const campEvents = (events || []).filter((e: any) => e.campaign_id === c.id);
+      const totalImpressions = campEvents.filter((e: any) => e.event_type === "impression").length;
+      const totalClicks = campEvents.filter((e: any) => e.event_type === "click").length;
       const ctr = totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(1)) : 0;
-      const adAssignments = assignments.filter((a: any) => String(a.ad_id) === String(ad.id));
-      const activeAssignments = adAssignments.filter((a: any) => a.status === "active").length;
 
       return {
-        ...ad,
+        id: c.id,
+        title: creative?.headline || c.campaign_name,
+        description: creative?.description || c.campaign_description || "",
+        video_url: creative?.metadata?.video_url || "",
+        thumbnail_url: creative?.metadata?.thumbnail_url || "",
+        click_url: creative?.destination_url || c.landing_page_url || "",
+        duration_seconds: Number(creative?.metadata?.duration_seconds || 15),
+        advertiser_name: c.advertiser_accounts?.business_name || "Advertiser",
+        budget_rwf: Number(c.total_budget || 0),
+        spent_rwf: Number(c.total_spend || 0),
+        status: c.campaign_status,
+        start_date: c.starts_at,
+        end_date: c.ends_at,
+        created_at: c.created_at,
         metrics: {
           impressions: totalImpressions,
           clicks: totalClicks,
           ctr: `${ctr}%`,
           ctr_num: ctr,
-          active_assignments: activeAssignments,
-          total_assignments: adAssignments.length
-        }
+          active_assignments: Array.isArray(c.advertising_campaign_placements) ? c.advertising_campaign_placements.length : 0,
+          total_assignments: Array.isArray(c.advertising_campaign_placements) ? c.advertising_campaign_placements.length : 0,
+        },
       };
     });
 
-    return res.json({
-      success: true,
-      ads: enrichedAds
-    });
+    return res.json({ success: true, ads: enrichedAds });
   } catch (err: any) {
     console.error("Error fetching master ads:", err);
     return res.status(500).json({ success: false, error: err.message });
@@ -353,7 +440,6 @@ export const getMasterAds = async (req: Request, res: Response) => {
 
 /**
  * MASTER ADMIN: POST /api/ads/master/create
- * Creates a new ad creative
  */
 export const createMasterAd = async (req: Request, res: Response) => {
   try {
@@ -365,62 +451,98 @@ export const createMasterAd = async (req: Request, res: Response) => {
       click_url,
       duration_seconds,
       advertiser_name,
-      budget_rwf
+      budget_rwf,
+      status,
+      start_date,
+      end_date,
     } = req.body;
 
     if (!title || !video_url) {
       return res.status(400).json({ success: false, message: "Title and video URL are required" });
     }
 
-    const store = getDbStore();
-    if (!store.ads) store.ads = [];
-
+    const client = db();
     const user = (req as any).user;
-    const adId = `ad-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const nowIso = new Date().toISOString();
 
-    const newAd = {
-      id: adId,
-      title: title.trim(),
-      description: (description || "").trim(),
-      video_url: video_url.trim(),
-      thumbnail_url: (thumbnail_url || "").trim(),
-      click_url: (click_url || "").trim(),
-      duration_seconds: Number(duration_seconds) || 15,
-      advertiser_name: (advertiser_name || "Advertiser").trim(),
-      budget_rwf: Number(budget_rwf) || 100000,
-      spent_rwf: 0,
-      status: req.body.status || "active",
-      bid_model: req.body.bid_model || "cpm", // cpm, cpc, cpa
-      bid_amount: Number(req.body.bid_amount) || 500,
-      format: req.body.format || "pre-roll", // pre-roll, mid-roll, overlay, companion
-      target_category: req.body.target_category || "All",
-      target_device: req.body.target_device || "all", // all, mobile, desktop
-      target_country: req.body.target_country || "all",
-      frequency_cap: Number(req.body.frequency_cap) || 3,
-      pacing: req.body.pacing || "even", // even, asap
-      vast_tag_url: (req.body.vast_tag_url || "").trim(),
-      start_date: req.body.start_date || new Date().toISOString(),
-      end_date: req.body.end_date || null,
-      created_by: user?.id || "master-admin-uuid-001",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    store.ads.unshift(newAd);
-    notifyMutation();
-
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "CREATE_AD",
-      `Ad: ${newAd.title}`,
-      req.ip || "127.0.0.1",
-      `Created new ad creative "${newAd.title}" for ${newAd.advertiser_name}`
+    const advertiser = await ensureDefaultAdvertiser(
+      user.id,
+      String(advertiser_name || "PAYTUNE Advertiser").trim(),
+      user.email
     );
+
+    const campaignId = crypto.randomUUID();
+    const { data: campaign, error: cErr } = await client
+      .from("advertising_campaigns")
+      .insert({
+        id: campaignId,
+        advertiser_account_id: advertiser.id,
+        campaign_name: String(title).trim(),
+        campaign_description: String(description || "").trim(),
+        campaign_status: status || "active",
+        objective: "awareness",
+        currency_code: "RWF",
+        total_budget: Number(budget_rwf) || 100000,
+        total_spend: 0,
+        starts_at: start_date || nowIso,
+        ends_at: end_date || null,
+        landing_page_url: String(click_url || "").trim() || null,
+        created_by: user.id,
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select()
+      .single();
+
+    if (cErr) throw cErr;
+
+    const { data: creative, error: crErr } = await client
+      .from("advertising_creatives")
+      .insert({
+        id: crypto.randomUUID(),
+        advertiser_account_id: advertiser.id,
+        campaign_id: campaignId,
+        creative_name: String(title).trim(),
+        creative_status: "approved",
+        headline: String(title).trim(),
+        description: String(description || "").trim(),
+        destination_url: String(click_url || "").trim() || null,
+        media_type: "video",
+        moderation_status: "approved",
+        metadata: {
+          video_url: String(video_url).trim(),
+          thumbnail_url: String(thumbnail_url || "").trim(),
+          duration_seconds: Number(duration_seconds) || 15,
+        },
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select()
+      .single();
+
+    if (crErr) throw crErr;
+
+    await logAdminAction({
+      actorUserId: user.id,
+      actorRole: "master_admin",
+      actionKey: "CREATE_AD",
+      targetEntityType: "advertising_campaign",
+      targetEntityId: campaignId,
+      description: `Created ad creative "${title}" for ${advertiser.business_name}`,
+      ipAddress: req.ip,
+      success: true,
+    });
 
     return res.status(201).json({
       success: true,
-      ad: newAd,
-      message: "Ad creative created successfully"
+      ad: {
+        ...campaign,
+        title: campaign.campaign_name,
+        video_url: creative.metadata?.video_url,
+        thumbnail_url: creative.metadata?.thumbnail_url,
+        advertiser_name: advertiser.business_name,
+      },
+      message: "Ad creative created successfully",
     });
   } catch (err: any) {
     console.error("Error creating master ad:", err);
@@ -430,225 +552,152 @@ export const createMasterAd = async (req: Request, res: Response) => {
 
 /**
  * MASTER ADMIN: PUT /api/ads/master/:id
- * Updates an ad creative
  */
 export const updateMasterAd = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const index = ads.findIndex((a: any) => String(a.id) === String(id));
+    const client = db();
+    const user = (req as any).user;
+    const nowIso = new Date().toISOString();
 
-    if (index === -1) {
-      return res.status(404).json({ success: false, message: "Ad not found" });
+    const campaignUpdates: Record<string, any> = { updated_at: nowIso };
+    if (req.body.title !== undefined) campaignUpdates.campaign_name = req.body.title;
+    if (req.body.description !== undefined) campaignUpdates.campaign_description = req.body.description;
+    if (req.body.budget_rwf !== undefined) campaignUpdates.total_budget = Number(req.body.budget_rwf);
+    if (req.body.status !== undefined) campaignUpdates.campaign_status = req.body.status;
+    if (req.body.click_url !== undefined) campaignUpdates.landing_page_url = req.body.click_url;
+    if (req.body.start_date !== undefined) campaignUpdates.starts_at = req.body.start_date;
+    if (req.body.end_date !== undefined) campaignUpdates.ends_at = req.body.end_date;
+
+    const { data: updated, error } = await client
+      .from("advertising_campaigns")
+      .update(campaignUpdates)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Ad campaign not found" });
     }
 
-    const allowed = [
-      "title",
-      "description",
-      "video_url",
-      "thumbnail_url",
-      "click_url",
-      "duration_seconds",
-      "advertiser_name",
-      "budget_rwf",
-      "status",
-      "bid_model",
-      "bid_amount",
-      "format",
-      "target_category",
-      "target_device",
-      "target_country",
-      "frequency_cap",
-      "pacing",
-      "vast_tag_url",
-      "start_date",
-      "end_date"
-    ];
+    if (req.body.video_url !== undefined || req.body.thumbnail_url !== undefined || req.body.title !== undefined) {
+      const { data: creative } = await client
+        .from("advertising_creatives")
+        .select("id, metadata")
+        .eq("campaign_id", id)
+        .limit(1)
+        .maybeSingle();
 
-    allowed.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        ads[index][field] = req.body[field];
+      if (creative) {
+        const meta = { ...(creative.metadata || {}) };
+        if (req.body.video_url !== undefined) meta.video_url = req.body.video_url;
+        if (req.body.thumbnail_url !== undefined) meta.thumbnail_url = req.body.thumbnail_url;
+        if (req.body.duration_seconds !== undefined) meta.duration_seconds = Number(req.body.duration_seconds);
+
+        await client
+          .from("advertising_creatives")
+          .update({
+            headline: req.body.title !== undefined ? req.body.title : undefined,
+            description: req.body.description !== undefined ? req.body.description : undefined,
+            destination_url: req.body.click_url !== undefined ? req.body.click_url : undefined,
+            metadata: meta,
+            updated_at: nowIso,
+          })
+          .eq("id", creative.id);
       }
-    });
+    }
 
-    ads[index].updated_at = new Date().toISOString();
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "UPDATE_AD",
-      `Ad: ${ads[index].title}`,
-      req.ip || "127.0.0.1",
-      `Updated ad creative details for ${ads[index].id}`
-    );
-
-    return res.json({
+    await logAdminAction({
+      actorUserId: user?.id || null,
+      actorRole: "master_admin",
+      actionKey: "UPDATE_AD",
+      targetEntityType: "advertising_campaign",
+      targetEntityId: id,
+      description: `Updated ad campaign ${updated.campaign_name}`,
+      ipAddress: req.ip,
       success: true,
-      ad: ads[index],
-      message: "Ad updated successfully"
     });
+
+    return res.json({ success: true, ad: updated, message: "Ad updated successfully" });
   } catch (err: any) {
     console.error("Error updating master ad:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
 
-/**
- * MASTER ADMIN: POST /api/ads/campaigns/:id/pause or /api/ads/master/:id/pause
- * Pauses an active ad campaign
- */
-export const pauseMasterAd = async (req: Request, res: Response) => {
+async function setCampaignStatus(req: Request, res: Response, status: "paused" | "active" | "completed", actionKey: string) {
   try {
     const { id } = req.params;
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const ad = ads.find((a: any) => String(a.id) === String(id));
+    const client = db();
+    const user = (req as any).user;
 
-    if (!ad) {
+    const { data: updated, error } = await client
+      .from("advertising_campaigns")
+      .update({ campaign_status: status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updated) {
       return res.status(404).json({ success: false, message: "Campaign not found" });
     }
 
-    ad.status = "paused";
-    ad.updated_at = new Date().toISOString();
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "PAUSE_AD_CAMPAIGN",
-      `Campaign: ${ad.title}`,
-      req.ip || "127.0.0.1",
-      `Paused campaign "${ad.title}"`
-    );
-
-    return res.json({
+    await logAdminAction({
+      actorUserId: user?.id || null,
+      actorRole: "master_admin",
+      actionKey,
+      targetEntityType: "advertising_campaign",
+      targetEntityId: id,
+      description: `Set campaign "${updated.campaign_name}" status to ${status}`,
+      ipAddress: req.ip,
       success: true,
-      ad,
-      message: `Campaign "${ad.title}" has been paused.`
     });
+
+    return res.json({ success: true, ad: updated, message: `Campaign "${updated.campaign_name}" updated to ${status}.` });
   } catch (err: any) {
-    console.error("Error pausing ad campaign:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
-};
+}
 
-/**
- * MASTER ADMIN: POST /api/ads/campaigns/:id/resume or /api/ads/master/:id/resume
- * Resumes a paused ad campaign
- */
-export const resumeMasterAd = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const ad = ads.find((a: any) => String(a.id) === String(id));
-
-    if (!ad) {
-      return res.status(404).json({ success: false, message: "Campaign not found" });
-    }
-
-    ad.status = "active";
-    ad.updated_at = new Date().toISOString();
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "RESUME_AD_CAMPAIGN",
-      `Campaign: ${ad.title}`,
-      req.ip || "127.0.0.1",
-      `Resumed campaign "${ad.title}"`
-    );
-
-    return res.json({
-      success: true,
-      ad,
-      message: `Campaign "${ad.title}" has been resumed.`
-    });
-  } catch (err: any) {
-    console.error("Error resuming ad campaign:", err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
-
-/**
- * MASTER ADMIN: POST /api/ads/campaigns/:id/end or /api/ads/master/:id/end
- * Terminates / ends an ad campaign
- */
-export const endMasterAd = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const ad = ads.find((a: any) => String(a.id) === String(id));
-
-    if (!ad) {
-      return res.status(404).json({ success: false, message: "Campaign not found" });
-    }
-
-    ad.status = "ended";
-    ad.updated_at = new Date().toISOString();
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "END_AD_CAMPAIGN",
-      `Campaign: ${ad.title}`,
-      req.ip || "127.0.0.1",
-      `Ended campaign "${ad.title}"`
-    );
-
-    return res.json({
-      success: true,
-      ad,
-      message: `Campaign "${ad.title}" has been ended.`
-    });
-  } catch (err: any) {
-    console.error("Error ending ad campaign:", err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
+export const pauseMasterAd = (req: Request, res: Response) => setCampaignStatus(req, res, "paused", "PAUSE_AD_CAMPAIGN");
+export const resumeMasterAd = (req: Request, res: Response) => setCampaignStatus(req, res, "active", "RESUME_AD_CAMPAIGN");
+export const endMasterAd = (req: Request, res: Response) => setCampaignStatus(req, res, "completed", "END_AD_CAMPAIGN");
 
 /**
  * MASTER ADMIN: DELETE /api/ads/master/:id
- * Deletes an ad creative and cascading assignments
  */
 export const deleteMasterAd = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const ad = ads.find((a: any) => String(a.id) === String(id));
+    const client = db();
+    const user = (req as any).user;
 
-    if (!ad) {
+    const { data: deleted, error } = await client
+      .from("advertising_campaigns")
+      .delete()
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!deleted) {
       return res.status(404).json({ success: false, message: "Ad not found" });
     }
 
-    // Remove ad
-    store.ads = ads.filter((a: any) => String(a.id) !== String(id));
-    // Cascade delete assignments
-    if (store.ad_assignments) {
-      store.ad_assignments = store.ad_assignments.filter((a: any) => String(a.ad_id) !== String(id));
-    }
-
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "DELETE_AD",
-      `Ad: ${ad.title}`,
-      req.ip || "127.0.0.1",
-      `Deleted ad creative and removed all active assignments`
-    );
-
-    return res.json({
+    await logAdminAction({
+      actorUserId: user?.id || null,
+      actorRole: "master_admin",
+      actionKey: "DELETE_AD",
+      targetEntityType: "advertising_campaign",
+      targetEntityId: id,
+      description: `Deleted campaign "${deleted.campaign_name}"`,
+      ipAddress: req.ip,
       success: true,
-      message: "Ad and assignments removed successfully"
     });
+
+    return res.json({ success: true, message: "Ad and assignments removed successfully" });
   } catch (err: any) {
     console.error("Error deleting master ad:", err);
     return res.status(500).json({ success: false, error: err.message });
@@ -657,30 +706,30 @@ export const deleteMasterAd = async (req: Request, res: Response) => {
 
 /**
  * MASTER ADMIN: GET /api/ads/master/assignments
- * Lists all ad assignments with joined ad creative and target video details
  */
-export const getMasterAssignments = async (req: Request, res: Response) => {
+export const getMasterAssignments = async (_req: Request, res: Response) => {
   try {
-    const store = getDbStore();
-    const assignments = store.ad_assignments || [];
-    const ads = store.ads || [];
-    const videos = store.videos || [];
+    const client = db();
+    const { data: rows, error } = await client
+      .from("advertising_campaign_placements")
+      .select("*, advertising_campaigns(id, campaign_name, metadata), advertising_placements(id, placement_name, placement_type)")
+      .order("created_at", { ascending: false });
 
-    const enrichedAssignments = assignments.map((a: any) => {
-      const ad = ads.find((adItem: any) => String(adItem.id) === String(a.ad_id));
-      const video = a.video_id ? videos.find((v: any) => String(v.id) === String(a.video_id)) : null;
+    if (error) throw error;
 
-      return {
-        ...a,
-        ad: ad ? { id: ad.id, title: ad.title, advertiser_name: ad.advertiser_name } : null,
-        video: video ? { id: video.id, title: video.title, is_free: video.is_free } : null
-      };
-    });
+    const assignments = (rows || []).map((r: any) => ({
+      id: r.id,
+      ad_id: r.campaign_id,
+      placement_id: r.placement_id,
+      scope: r.advertising_campaigns?.metadata?.target_video_id ? "single" : "global",
+      video_id: r.advertising_campaigns?.metadata?.target_video_id || null,
+      status: r.is_enabled ? "active" : "paused",
+      priority: 1,
+      ad: r.advertising_campaigns ? { id: r.advertising_campaigns.id, title: r.advertising_campaigns.campaign_name } : null,
+      placement: r.advertising_placements || null,
+    }));
 
-    return res.json({
-      success: true,
-      assignments: enrichedAssignments
-    });
+    return res.json({ success: true, assignments });
   } catch (err: any) {
     console.error("Error fetching master assignments:", err);
     return res.status(500).json({ success: false, error: err.message });
@@ -689,89 +738,74 @@ export const getMasterAssignments = async (req: Request, res: Response) => {
 
 /**
  * MASTER ADMIN: POST /api/ads/master/assignments
- * Creates an ad assignment (global to ALL free videos or targeted to ONE specific free video)
  */
 export const createMasterAssignment = async (req: Request, res: Response) => {
   try {
-    const { ad_id, scope, video_id, priority, start_date, end_date } = req.body;
-
-    if (!ad_id || !scope) {
-      return res.status(400).json({ success: false, message: "Ad ID and scope ('global' | 'single') are required" });
+    const { ad_id, scope, video_id, bid_type, bid_amount } = req.body;
+    if (!ad_id || !scope || !["global", "single"].includes(scope)) {
+      return res.status(400).json({ success: false, message: "ad_id and valid scope ('global' | 'single') are required" });
     }
 
-    if (scope !== "global" && scope !== "single") {
-      return res.status(400).json({ success: false, message: "Scope must be either 'global' or 'single'" });
+    const client = db();
+    const { data: campaign } = await client
+      .from("advertising_campaigns")
+      .select("id, campaign_name, metadata")
+      .eq("id", ad_id)
+      .maybeSingle();
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Target ad campaign does not exist" });
     }
 
-    const store = getDbStore();
-    const ads = store.ads || [];
-    const ad = ads.find((a: any) => String(a.id) === String(ad_id));
-    if (!ad) {
-      return res.status(404).json({ success: false, message: "Target ad creative does not exist" });
-    }
-
-    // STRICT VALIDATION FOR SINGLE VIDEO SCOPE:
-    // 1. Video must exist
-    // 2. Video must be FREE (Paid videos NEVER show ads)
-    // 3. Video must NOT be a Short
     if (scope === "single") {
       if (!video_id) {
-        return res.status(400).json({ success: false, message: "Video ID is required for 'single' scope targeted ads" });
+        return res.status(400).json({ success: false, message: "video_id is required for 'single' scope" });
       }
-
-      const videos = store.videos || [];
-      const targetVideo = videos.find((v: any) => String(v.id) === String(video_id));
+      const { data: targetVideo } = await client
+        .from("videos")
+        .select("id, is_free, is_paywalled, video_type")
+        .eq("id", video_id)
+        .maybeSingle();
 
       if (!targetVideo) {
         return res.status(404).json({ success: false, message: "Target video does not exist" });
       }
-
-      if (!targetVideo.is_free && Number(targetVideo.price_rwf || 0) > 0) {
-        return res.status(400).json({
-          success: false,
-          message: "CRITICAL POLICY ERROR: Paid videos NEVER show ads. Premium content is strictly ad-free."
-        });
+      if (!targetVideo.is_free || targetVideo.is_paywalled) {
+        return res.status(400).json({ success: false, message: "Paid videos never show ads." });
+      }
+      if (targetVideo.video_type === "short") {
+        return res.status(400).json({ success: false, message: "Shorts never show ads." });
       }
 
-      if (targetVideo.is_short || targetVideo.category === "Shorts" || targetVideo.category === "Reels") {
-        return res.status(400).json({
-          success: false,
-          message: "CRITICAL POLICY ERROR: Shorts never show ads."
-        });
-      }
+      await client
+        .from("advertising_campaigns")
+        .update({ metadata: { ...(campaign.metadata || {}), target_video_id: video_id } })
+        .eq("id", ad_id);
     }
 
-    if (!store.ad_assignments) store.ad_assignments = [];
+    const placement = await ensurePlacement("video_preroll");
+    const { data: assignment, error } = await client
+      .from("advertising_campaign_placements")
+      .insert({
+        id: crypto.randomUUID(),
+        campaign_id: ad_id,
+        placement_id: placement.id,
+        is_enabled: true,
+        bid_type: bid_type || "cpm",
+        bid_amount: Number(bid_amount || 500),
+        currency_code: "RWF",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-    const assignmentId = `assign-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const newAssignment = {
-      id: assignmentId,
-      ad_id: String(ad_id),
-      scope: scope,
-      video_id: scope === "single" ? String(video_id) : null,
-      start_date: start_date || new Date().toISOString(),
-      end_date: end_date || null,
-      priority: Number(priority) || 1,
-      status: "active",
-      created_at: new Date().toISOString()
-    };
-
-    store.ad_assignments.unshift(newAssignment);
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "CREATE_AD_ASSIGNMENT",
-      `Scope: ${scope}`,
-      req.ip || "127.0.0.1",
-      `Assigned ad "${ad.title}" to ${scope === 'global' ? 'ALL free videos simultaneously' : `single video ${video_id}`}`
-    );
+    if (error) throw error;
 
     return res.status(201).json({
       success: true,
-      assignment: newAssignment,
-      message: `Ad successfully assigned ${scope === 'global' ? 'globally to all free videos' : 'to targeted free video'}`
+      assignment: { ...assignment, ad_id, scope, video_id: scope === "single" ? video_id : null, status: "active" },
+      message: "Ad assignment created",
     });
   } catch (err: any) {
     console.error("Error creating master assignment:", err);
@@ -779,196 +813,96 @@ export const createMasterAssignment = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * MASTER ADMIN: PUT /api/ads/master/assignments/:id
- * Updates an ad assignment status, priority, or dates
- */
 export const updateMasterAssignment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const store = getDbStore();
-    const assignments = store.ad_assignments || [];
-    const index = assignments.findIndex((a: any) => String(a.id) === String(id));
+    const client = db();
+    const { data, error } = await client
+      .from("advertising_campaign_placements")
+      .update({
+        is_enabled: req.body.status ? req.body.status === "active" : undefined,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .maybeSingle();
 
-    if (index === -1) {
-      return res.status(404).json({ success: false, message: "Assignment not found" });
-    }
-
-    if (req.body.status !== undefined) assignments[index].status = req.body.status;
-    if (req.body.priority !== undefined) assignments[index].priority = Number(req.body.priority);
-    if (req.body.start_date !== undefined) assignments[index].start_date = req.body.start_date;
-    if (req.body.end_date !== undefined) assignments[index].end_date = req.body.end_date;
-
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "UPDATE_AD_ASSIGNMENT",
-      `Assignment: ${id}`,
-      req.ip || "127.0.0.1",
-      `Updated assignment ${id} status to ${assignments[index].status}`
-    );
-
-    return res.json({
-      success: true,
-      assignment: assignments[index],
-      message: "Assignment updated successfully"
-    });
+    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, message: "Assignment not found" });
+    return res.json({ success: true, assignment: data, message: "Assignment updated successfully" });
   } catch (err: any) {
-    console.error("Error updating master assignment:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
 
-/**
- * MASTER ADMIN: DELETE /api/ads/master/assignments/:id
- * Deletes an ad assignment
- */
 export const deleteMasterAssignment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const store = getDbStore();
-    const assignments = store.ad_assignments || [];
-    const existing = assignments.find((a: any) => String(a.id) === String(id));
-
-    if (!existing) {
-      return res.status(404).json({ success: false, message: "Assignment not found" });
-    }
-
-    store.ad_assignments = assignments.filter((a: any) => String(a.id) !== String(id));
-    notifyMutation();
-
-    const user = (req as any).user;
-    logAdminAction(
-      user?.email || "master@paytune.com",
-      "DELETE_AD_ASSIGNMENT",
-      `Assignment: ${id}`,
-      req.ip || "127.0.0.1",
-      `Deleted ad assignment ${id}`
-    );
-
-    return res.json({
-      success: true,
-      message: "Assignment deleted successfully"
-    });
+    const client = db();
+    const { error } = await client.from("advertising_campaign_placements").delete().eq("id", id);
+    if (error) throw error;
+    return res.json({ success: true, message: "Assignment deleted successfully" });
   } catch (err: any) {
-    console.error("Error deleting master assignment:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
 
 /**
  * MASTER ADMIN: GET /api/ads/master/analytics
- * Aggregated analytics for the Ads Center (impressions, clicks, devices, countries, recent events, escrow, trends)
  */
 export const getMasterAdAnalytics = async (req: Request, res: Response) => {
   try {
-    const { range } = req.query; // 'today' | '7d' | '30d' | 'month' | 'all'
-    const store = getDbStore();
-    const rawImpressions = store.ad_impressions || [];
-    const ads = store.ads || [];
-
+    const { range } = req.query;
+    const client = db();
     const now = Date.now();
-    let cutoff = 0;
-    if (range === "today") {
-      cutoff = now - 24 * 60 * 60 * 1000;
-    } else if (range === "7d") {
-      cutoff = now - 7 * 24 * 60 * 60 * 1000;
-    } else if (range === "30d" || range === "month") {
-      cutoff = now - 30 * 24 * 60 * 60 * 1000;
-    }
+    let cutoffIso: string | null = null;
 
-    const impressions = cutoff > 0 
-      ? rawImpressions.filter((i: any) => new Date(i.created_at).getTime() >= cutoff)
-      : rawImpressions;
+    if (range === "today") cutoffIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    else if (range === "7d") cutoffIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    else if (range === "30d" || range === "month") cutoffIso = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    let eventsQuery = client.from("advertising_delivery_events").select("*").order("occurred_at", { ascending: false });
+    if (cutoffIso) eventsQuery = eventsQuery.gte("occurred_at", cutoffIso);
+
+    const [{ data: events }, { data: campaigns }] = await Promise.all([
+      eventsQuery,
+      client.from("advertising_campaigns").select("id, campaign_name, campaign_status, total_spend"),
+    ]);
+
+    const allEvents = events || [];
+    const impressions = allEvents.filter((e: any) => e.event_type === "impression");
+    const clicks = allEvents.filter((e: any) => e.event_type === "click");
     const totalImpressions = impressions.length;
-    const totalClicks = impressions.filter((i: any) => i.clicked).length;
+    const totalClicks = clicks.length;
     const overallCtr = totalImpressions > 0 ? Number(((totalClicks / totalImpressions) * 100).toFixed(1)) : 0;
-    
-    // Total Ad Spend
-    const totalSpent = ads.reduce((acc: number, ad: any) => acc + Number(ad.spent_rwf || 0), 0);
-    // Platform Share: 30% | Creator Pool: 70%
-    const platformRevenueRwf = Math.round(totalSpent * 0.30);
-    const creatorPoolRwf = Math.round(totalSpent * 0.70);
 
-    // Escrow Status Ledger
-    const escrowLedger = {
-      total_spent_rwf: totalSpent,
-      platform_revenue_rwf: platformRevenueRwf,
-      creator_pool_rwf: creatorPoolRwf,
-      held_in_escrow: Math.max(0, Math.round(totalSpent * 0.15)),
-      queued_for_transfer: Math.max(0, Math.round(totalSpent * 0.55)),
-      paid_to_platform: platformRevenueRwf
-    };
+    const totalSpent = (campaigns || []).reduce((acc: number, c: any) => acc + Number(c.total_spend || 0), 0);
+    const platformRevenueRwf = Math.round(totalSpent * 0.6);
+    const creatorPoolRwf = Math.round(totalSpent * 0.4);
 
-    // Device breakdown
     const deviceCounts: Record<string, number> = {};
-    impressions.forEach((i: any) => {
-      const dev = i.device || "desktop";
-      deviceCounts[dev] = (deviceCounts[dev] || 0) + 1;
-    });
-
-    // Country breakdown with detailed hover telemetry
     const countryCounts: Record<string, number> = {};
-    const countryDetails: Record<string, { views: number; clicks: number; spend_rwf: number }> = {};
-    
-    impressions.forEach((i: any) => {
-      const c = i.country || "Rwanda";
+    impressions.forEach((imp: any) => {
+      const dev = imp.device_type || "desktop";
+      deviceCounts[dev] = (deviceCounts[dev] || 0) + 1;
+      const c = imp.country_code || "RW";
       countryCounts[c] = (countryCounts[c] || 0) + 1;
-
-      if (!countryDetails[c]) {
-        countryDetails[c] = { views: 0, clicks: 0, spend_rwf: 0 };
-      }
-      countryDetails[c].views += 1;
-      if (i.clicked) countryDetails[c].clicks += 1;
-      countryDetails[c].spend_rwf += Math.round(totalSpent / Math.max(1, rawImpressions.length));
     });
 
-    // Generate 7-day trend chart data (Impressions vs Clicks)
     const trendData: Array<{ day: string; impressions: number; clicks: number; spend: number }> = [];
     for (let dayOffset = 6; dayOffset >= 0; dayOffset--) {
       const d = new Date(now - dayOffset * 24 * 60 * 60 * 1000);
-      const dayStr = d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
-      const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
-
-      const dayImps = rawImpressions.filter((imp: any) => {
-        const impTime = new Date(imp.created_at).getTime();
-        return impTime >= startOfDay && impTime < endOfDay;
-      });
-
-      const dayClicks = dayImps.filter((imp: any) => imp.clicked).length;
-      const daySpend = Math.round((dayImps.length / Math.max(1, rawImpressions.length)) * totalSpent);
-
+      const dayKey = d.toISOString().split("T")[0];
+      const dayLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+      const dayImps = impressions.filter((i: any) => String(i.occurred_at || "").startsWith(dayKey));
+      const dayClicks = clicks.filter((i: any) => String(i.occurred_at || "").startsWith(dayKey));
       trendData.push({
-        day: dayStr,
+        day: dayLabel,
         impressions: dayImps.length,
-        clicks: dayClicks,
-        spend: daySpend
+        clicks: dayClicks.length,
+        spend: dayImps.length * 5,
       });
     }
-
-    // Recent impressions telemetry feed (last 30) with eCPM, viewability, and estimated revenue
-    const recentFeed = [...impressions]
-      .reverse()
-      .slice(0, 30)
-      .map((imp: any) => {
-        const matchedAd = ads.find((a: any) => String(a.id) === String(imp.ad_id));
-        const estimatedRevenue = matchedAd?.bid_amount ? Math.round(matchedAd.bid_amount / 1000 * (imp.watched_seconds >= 15 ? 1 : 0.5)) : 25;
-        const eCPM = totalImpressions > 0 ? Math.round((totalSpent / totalImpressions) * 1000) : 5000;
-        const viewabilityScore = imp.watched_seconds >= 15 ? "100% (Complete)" : imp.watched_seconds >= 7 ? "50% (Midpoint)" : "25% (First Quartile)";
-
-        return {
-          ...imp,
-          ad_title: matchedAd?.title || "Ad Campaign",
-          advertiser_name: matchedAd?.advertiser_name || "Advertiser",
-          estimated_revenue: estimatedRevenue,
-          ecpm: eCPM,
-          viewability_score: viewabilityScore
-        };
-      });
 
     return res.json({
       success: true,
@@ -980,15 +914,12 @@ export const getMasterAdAnalytics = async (req: Request, res: Response) => {
         total_spent_rwf: totalSpent,
         platform_revenue_rwf: platformRevenueRwf,
         creator_pool_rwf: creatorPoolRwf,
-        active_campaigns_count: ads.filter((a: any) => a.status === "active").length,
-        ctr_tooltip: "Unique Clicks / Total Impressions (Micro-test sample)"
+        active_campaigns_count: (campaigns || []).filter((c: any) => c.campaign_status === "active").length,
       },
-      escrow_ledger: escrowLedger,
       trend_data: trendData,
       device_breakdown: deviceCounts,
       country_breakdown: countryCounts,
-      country_details: countryDetails,
-      recent_impressions: recentFeed
+      recent_impressions: impressions.slice(0, 30),
     });
   } catch (err: any) {
     console.error("Error getting master ad analytics:", err);

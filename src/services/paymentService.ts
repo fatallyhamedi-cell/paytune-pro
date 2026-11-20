@@ -1,7 +1,6 @@
-import { supabaseAdmin } from '../config/supabase';
 import { randomUUID } from 'crypto';
-import { createNotification } from './notificationService';
-import { getDbStore, dispatchRealtimeEvent } from '../config/supabase_mock';
+import { supabaseAdmin } from '../config/supabase';
+import { createNotification, getNotificationIO } from './notificationService';
 
 export interface PaymentSplit {
   vat: number;
@@ -11,21 +10,17 @@ export interface PaymentSplit {
 }
 
 /**
- * Calculate VAT and revenue split.
- * Rules: 5% VAT, 70% artist, 30% platform owner.
+ * Calculate VAT and revenue split: 5% VAT, then 70% creator / 30% platform.
  */
 export const calculateSplit = (amount: number): PaymentSplit => {
   const num = Number(amount) || 0;
-  const vat = Number((num * 0.05).toFixed(2));
+  const vatRate = Number(process.env.VAT_PERCENTAGE || 5) / 100;
+  const artistRate = Number(process.env.ARTIST_SHARE_PERCENTAGE || 70) / 100;
+  const vat = Number((num * vatRate).toFixed(2));
   const afterVat = Number((num - vat).toFixed(2));
-  const artistShare = Number((afterVat * 0.70).toFixed(2));
-  const ownerShare = Number((afterVat * 0.30).toFixed(2));
-  return {
-    vat,
-    afterVat,
-    artistShare,
-    ownerShare
-  };
+  const artistShare = Number((afterVat * artistRate).toFixed(2));
+  const ownerShare = Number((afterVat * (1 - artistRate)).toFixed(2));
+  return { vat, afterVat, artistShare, ownerShare };
 };
 
 export interface CreatePaymentParams {
@@ -39,8 +34,69 @@ export interface CreatePaymentParams {
   metadata?: Record<string, any>;
 }
 
+function mapRevenueSource(paymentType: string): string {
+  switch (paymentType) {
+    case 'super_thanks':
+    case 'tip':
+      return 'super_thanks';
+    case 'membership':
+      return 'membership';
+    case 'live_donation':
+      return 'livestream_gift';
+    case 'purchase':
+    default:
+      return 'premium_content';
+  }
+}
+
 /**
- * Create a pending payment record in Supabase.
+ * Resolve or ensure an active payment_provider_accounts row so payment_intents.provider_account_id NOT NULL constraint is satisfied.
+ */
+export async function resolveProviderAccountId(providerName: string = 'mtn_momo'): Promise<string> {
+  const cleanProvider = String(providerName || 'mtn_momo').toLowerCase();
+  const { data: existing } = await supabaseAdmin
+    .from('payment_provider_accounts')
+    .select('id')
+    .eq('provider_name', cleanProvider)
+    .eq('account_status', 'active')
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) return existing.id;
+
+  const { data: anyActive } = await supabaseAdmin
+    .from('payment_provider_accounts')
+    .select('id')
+    .eq('account_status', 'active')
+    .limit(1)
+    .maybeSingle();
+
+  if (anyActive?.id && cleanProvider === 'default') return anyActive.id;
+
+  const newId = randomUUID();
+  const now = new Date().toISOString();
+  await supabaseAdmin.from('payment_provider_accounts').insert({
+    id: newId,
+    provider_name: cleanProvider,
+    provider_type: cleanProvider === 'stripe' ? 'card' : 'mobile_money',
+    country_code: cleanProvider === 'stripe' ? 'US' : 'RW',
+    currency_code: cleanProvider === 'stripe' ? 'USD' : 'RWF',
+    account_reference: `${cleanProvider}_primary`,
+    account_status: 'active',
+    is_platform_default: cleanProvider === 'mtn_momo',
+    supports_payments: true,
+    supports_refunds: true,
+    supports_recurring_payments: cleanProvider === 'stripe',
+    configuration: {},
+    created_at: now,
+    updated_at: now,
+  });
+
+  return newId;
+}
+
+/**
+ * Create a pending payment_intent row in PostgreSQL.
  */
 export const createPayment = async ({
   userId,
@@ -54,50 +110,68 @@ export const createPayment = async ({
 }: CreatePaymentParams) => {
   const paymentId = randomUUID();
   const split = calculateSplit(amount);
+  const now = new Date().toISOString();
+  const providerAccountId = await resolveProviderAccountId(provider);
 
-  const payload: any = {
+  const intentPayload = {
     id: paymentId,
+    provider_account_id: providerAccountId,
     user_id: userId,
-    video_id: videoId || null,
-    artist_id: artistId || null,
-    payment_type: paymentType,
+    revenue_source: mapRevenueSource(paymentType),
+    source_record_id: videoId || metadata.live_stream_id || metadata.streamId || null,
+    currency_code: currency || 'RWF',
     amount: Number(amount),
-    currency: currency || 'RWF',
-    provider,
-    status: 'pending',
-    vat_amount: split.vat,
-    artist_share: split.artistShare,
-    owner_share: split.ownerShare,
-    metadata,
-    created_at: new Date().toISOString()
+    amount_received: 0,
+    amount_refunded: 0,
+    payment_status: 'pending',
+    requires_customer_action: false,
+    idempotency_key: `${provider}:${paymentId}`,
+    provider_metadata: {
+      ...metadata,
+      provider,
+      payment_type: paymentType,
+      video_id: videoId || null,
+      artist_id: artistId || null,
+      vat_amount: split.vat,
+      artist_share: split.artistShare,
+      owner_share: split.ownerShare
+    },
+    created_at: now,
+    updated_at: now
   };
 
   const { data, error } = await supabaseAdmin
-    .from('payments')
-    .insert(payload)
+    .from('payment_intents')
+    .insert(intentPayload)
     .select()
     .maybeSingle();
 
   if (error) {
-    console.error('[PaymentService] Error inserting payment:', error);
+    throw new Error(`Failed to record payment intent: ${error.message}`);
   }
 
-  // Audit log
   await logProviderCall(paymentId, provider, 'payment.initiated', {
     provider,
     amount,
     currency,
     paymentType,
-    userId,
-    metadata
+    userId
   }, { status: 'pending', paymentId });
 
-  return data || payload;
+  return {
+    ...(data || intentPayload),
+    user_id: userId,
+    video_id: videoId || null,
+    artist_id: artistId || null,
+    payment_type: paymentType,
+    currency: currency || 'RWF',
+    provider,
+    status: 'pending'
+  };
 };
 
 /**
- * 2.5 Log Every Provider Call
- * Records provider interactions, sanitizing keys, into payment_logs.
+ * Sanitize and audit provider interaction without hitting missing auxiliary tables.
  */
 export const logProviderCall = async (
   paymentId: string | null | undefined,
@@ -120,69 +194,54 @@ export const logProviderCall = async (
       return clone;
     };
 
-    await supabaseAdmin
-      .from('payment_logs')
-      .insert({
-        payment_id: paymentId || null,
-        event: `provider_${provider}_${endpoint}`,
-        payload: {
+    const userId = requestBody?.userId || null;
+    if (userId) {
+      await supabaseAdmin.from('user_security_events').insert({
+        user_id: userId,
+        event_type: `payment:${provider}:${endpoint}`,
+        event_description: `Payment provider call ${provider} (${endpoint})`,
+        event_metadata: {
+          payment_id: paymentId || null,
+          endpoint,
           request: sanitize(requestBody),
           response: sanitize(response),
-          timestamp: new Date().toISOString()
         },
-        created_at: new Date().toISOString()
       });
+    }
   } catch (err) {
     console.warn('[PaymentService] logProviderCall error:', err);
   }
 };
 
 /**
- * 2.2 Amount Verification
- * Before crediting wallets, verify the webhook amount matches the DB amount.
+ * Verify webhook amount against stored payment_intents record.
  */
 export const verifyAmountMatches = async (paymentId: string, webhookAmount?: number | null): Promise<boolean> => {
   if (webhookAmount === undefined || webhookAmount === null) {
-    return true; // No amount provided to cross-verify
+    return true;
   }
 
-  const { data: payment } = await supabaseAdmin
-    .from('payments')
-    .select('amount, currency')
+  let { data: payment } = await supabaseAdmin
+    .from('payment_intents')
+    .select('id, amount, currency_code')
     .eq('id', paymentId)
     .maybeSingle();
 
   if (!payment) {
-    // Check by provider_reference
     const { data: byRef } = await supabaseAdmin
-      .from('payments')
-      .select('id, amount, currency')
-      .eq('provider_reference', paymentId)
+      .from('payment_intents')
+      .select('id, amount, currency_code')
+      .eq('provider_payment_reference', paymentId)
       .maybeSingle();
+    payment = byRef;
+  }
 
-    if (!byRef) {
-      throw new Error(`Payment not found for ID or reference: ${paymentId}`);
-    }
-
-    if (Math.abs(Number(byRef.amount) - Number(webhookAmount)) > 0.01) {
-      await supabaseAdmin.from('payment_logs').insert({
-        payment_id: byRef.id,
-        event: 'amount_mismatch',
-        payload: { expected: byRef.amount, received: webhookAmount, timestamp: new Date().toISOString() },
-        created_at: new Date().toISOString()
-      });
-      throw new Error(`Amount mismatch: expected ${byRef.amount}, received ${webhookAmount}`);
-    }
-    return true;
+  if (!payment) {
+    throw new Error(`Payment not found for ID or reference: ${paymentId}`);
   }
 
   if (Math.abs(Number(payment.amount) - Number(webhookAmount)) > 0.01) {
-    await supabaseAdmin.from('payment_logs').insert({
-      payment_id: paymentId,
-      event: 'amount_mismatch',
-      payload: { expected: payment.amount, received: webhookAmount, timestamp: new Date().toISOString() },
-      created_at: new Date().toISOString()
-    });
+    await logProviderCall(payment.id, 'webhook', 'amount_mismatch', { received: webhookAmount }, { expected: payment.amount });
     throw new Error(`Amount mismatch: expected ${payment.amount}, received ${webhookAmount}`);
   }
 
@@ -192,226 +251,151 @@ export const verifyAmountMatches = async (paymentId: string, webhookAmount?: num
 const processedWebhookSet = new Set<string>();
 
 /**
- * 2.1 Idempotency on Webhooks
- * Prevents double-crediting if a webhook is retried or delivered multiple times.
+ * Idempotent webhook execution backed by financial_transactions & in-memory cache.
  */
 export const processWebhookIdempotently = async (
   providerTransactionId: string,
   handler: () => Promise<any>
 ): Promise<any> => {
   if (!providerTransactionId) {
-    return await handler();
+    return handler();
   }
 
-  // 0. Fast-path in-memory idempotency check
   if (processedWebhookSet.has(providerTransactionId)) {
-    console.log(`[PaymentService] Webhook already processed (cache) for transaction: ${providerTransactionId}`);
     return { alreadyProcessed: true };
   }
 
-  // 1. Check if this provider_transaction_id has already been marked processed
-  let existingLogs: any[] | null = null;
-  try {
-    const logQuery = supabaseAdmin
-      .from('payment_logs')
-      .select('id, payment_id')
-      .eq('event', 'webhook_processed');
-    
-    if (typeof (logQuery as any)?.contains === 'function') {
-      const res = await (logQuery as any).contains('payload', { provider_transaction_id: providerTransactionId }).limit(1);
-      existingLogs = res.data;
-    }
-  } catch {
-    existingLogs = null;
-  }
-
-  if (existingLogs && existingLogs.length > 0) {
-    console.log(`[PaymentService] Webhook already processed for transaction: ${providerTransactionId}`);
-    return { alreadyProcessed: true, payment_id: existingLogs[0].payment_id };
-  }
-
-  // 2. Also check if a payment with this provider_transaction_id is already 'paid'
-  const { data: existingPayment } = await supabaseAdmin
-    .from('payments')
-    .select('id, status')
-    .eq('provider_transaction_id', providerTransactionId)
-    .eq('status', 'paid')
+  const { data: existingTx } = await supabaseAdmin
+    .from('financial_transactions')
+    .select('id, payment_intent_id')
+    .eq('provider_transaction_reference', providerTransactionId)
+    .eq('transaction_status', 'succeeded')
     .maybeSingle();
 
-  if (existingPayment) {
-    console.log(`[PaymentService] Payment ${existingPayment.id} already paid for transaction: ${providerTransactionId}`);
-    return { alreadyProcessed: true, payment_id: existingPayment.id };
+  if (existingTx) {
+    processedWebhookSet.add(providerTransactionId);
+    return { alreadyProcessed: true, payment_id: existingTx.payment_intent_id };
   }
 
-  // 3. Execute the handler
   const result = await handler();
-
-  // 4. Record in idempotency cache & log processed marker
   processedWebhookSet.add(providerTransactionId);
-  try {
-    const paymentId = result?.payment_id || result?.id || null;
-    await supabaseAdmin.from('payment_logs').insert({
-      payment_id: paymentId,
-      event: 'webhook_processed',
-      payload: {
-        provider_transaction_id: providerTransactionId,
-        timestamp: new Date().toISOString()
-      },
-      created_at: new Date().toISOString()
-    });
-  } catch (logErr) {
-    console.warn('[PaymentService] Error recording webhook_processed log:', logErr);
-  }
-
   return result;
 };
 
-/**
- * 3.1 & 3.2 Notifications Integration on Payment Success
- */
+async function resolveCreatorChannelId(artistOrChannelId?: string | null): Promise<string | null> {
+  if (!artistOrChannelId) return null;
+  const { data: channel } = await supabaseAdmin
+    .from('creator_channels')
+    .select('id')
+    .eq('id', artistOrChannelId)
+    .maybeSingle();
+  if (channel?.id) return channel.id;
+
+  const { data: artist } = await supabaseAdmin
+    .from('artist_profiles')
+    .select('primary_contact_user_id, created_by_user_id')
+    .eq('id', artistOrChannelId)
+    .maybeSingle();
+
+  const ownerId = artist?.primary_contact_user_id || artist?.created_by_user_id;
+  if (!ownerId) return null;
+
+  const { data: ownedChannel } = await supabaseAdmin
+    .from('creator_channels')
+    .select('id')
+    .eq('owner_user_id', ownerId)
+    .maybeSingle();
+  return ownedChannel?.id || null;
+}
+
 export const notifyOnPaymentSuccess = async (payment: any) => {
   try {
-    const { user_id, artist_id, video_id, payment_type, amount, currency = 'RWF' } = payment;
+    const meta = payment.metadata || {};
+    const userId = payment.user_id;
+    const videoId = payment.video_id || meta.video_id || null;
+    const artistId = payment.artist_id || meta.artist_id || null;
+    const paymentType = payment.payment_type || meta.payment_type || 'purchase';
+    const amount = Number(payment.amount || 0);
+    const currency = payment.currency || payment.currency_code || 'RWF';
 
-    // Fetch video title if present
     let videoTitle = 'Content';
-    if (video_id) {
+    if (videoId) {
       const { data: video } = await supabaseAdmin
         .from('videos')
         .select('title')
-        .eq('id', video_id)
+        .eq('id', videoId)
         .maybeSingle();
       if (video?.title) videoTitle = video.title;
     }
 
-    // Fetch buyer name
-    let buyerName = 'A Fan';
-    if (user_id) {
+    let buyerName = 'A Supporter';
+    if (userId) {
       const { data: profile } = await supabaseAdmin
         .from('profiles')
-        .select('full_name, username')
-        .eq('id', user_id)
+        .select('display_name, username')
+        .eq('user_id', userId)
         .maybeSingle();
-      if (profile?.full_name || profile?.username) {
-        buyerName = profile.full_name || profile.username;
+      if (profile?.display_name || profile?.username) {
+        buyerName = profile.display_name || profile.username;
       }
     }
 
-    const formattedAmount = `${Number(amount).toLocaleString()} ${currency}`;
+    const formattedAmount = `${amount.toLocaleString()} ${currency}`;
+    const split = calculateSplit(amount);
 
-    if (payment_type === 'purchase') {
-      // 1. Video purchased -> User: "Purchase successful: {video_title}" -> link /watch/{video_id}
-      if (user_id) {
-        createNotification({
-          userId: user_id,
+    if (paymentType === 'purchase') {
+      if (userId) {
+        await createNotification({
+          userId,
           recipientType: 'user',
           type: 'new_purchase',
           title: 'Purchase Successful',
           message: `Purchase successful: ${videoTitle}`,
-          link: `/watch/${video_id}`,
-          relatedId: video_id
+          link: `/watch/${videoId}`,
+          relatedId: videoId
         });
       }
-
-      // 2. Video purchased -> Artist: "New sale: {video_title} — {amount} {currency}" -> link /artist/earnings
-      if (artist_id) {
-        createNotification({
-          artistId: artist_id,
+      if (artistId) {
+        await createNotification({
+          artistId,
           recipientType: 'artist',
           type: 'new_purchase',
           title: 'New Video Sale',
           message: `New sale: ${videoTitle} — ${formattedAmount}`,
           link: '/artist/earnings',
-          relatedId: video_id
+          relatedId: videoId
         });
-
-        // 3. Wallet credited -> Artist: "You earned {amount} {currency} from {video_title}." -> link /artist/wallet
-        const split = calculateSplit(Number(amount));
-        const formattedShare = `${split.artistShare.toLocaleString()} ${currency}`;
-        createNotification({
-          artistId: artist_id,
+        await createNotification({
+          artistId,
           recipientType: 'artist',
           type: 'wallet_credit',
           title: 'Wallet Credited',
-          message: `You earned ${formattedShare} from ${videoTitle}.`,
+          message: `You earned ${split.artistShare.toLocaleString()} ${currency} from ${videoTitle}.`,
           link: '/artist/wallet',
           relatedId: payment.id
         });
       }
-    } else if (payment_type === 'super_thanks') {
-      // Super Thanks sent -> Artist: "{user_name} sent you {amount} {currency}" -> link /watch/{video_id}
-      if (artist_id) {
-        createNotification({
-          artistId: artist_id,
+    } else if (paymentType === 'super_thanks' || paymentType === 'live_donation') {
+      const streamId = meta.live_stream_id || meta.streamId;
+      if (artistId) {
+        await createNotification({
+          artistId,
           recipientType: 'artist',
           type: 'super_thanks',
-          title: 'Super Thanks Received',
+          title: paymentType === 'live_donation' ? 'Live Gift Received' : 'Super Thanks Received',
           message: `${buyerName} sent you ${formattedAmount}`,
-          link: video_id ? `/watch/${video_id}` : '/artist/super-thanks',
-          relatedId: payment.id
-        });
-
-        const split = calculateSplit(Number(amount));
-        const formattedShare = `${split.artistShare.toLocaleString()} ${currency}`;
-        createNotification({
-          artistId: artist_id,
-          recipientType: 'artist',
-          type: 'wallet_credit',
-          title: 'Wallet Credited',
-          message: `You earned ${formattedShare} from Super Thanks.`,
-          link: '/artist/wallet',
+          link: streamId ? `/live/${streamId}` : videoId ? `/watch/${videoId}` : '/artist/earnings',
           relatedId: payment.id
         });
       }
-
-      // Super Thanks sent -> User: "Thank you! Your Super Thanks was sent." -> link /watch/{video_id}
-      if (user_id) {
-        createNotification({
-          userId: user_id,
+      if (userId) {
+        await createNotification({
+          userId,
           recipientType: 'user',
           type: 'super_thanks',
-          title: 'Super Thanks Sent',
-          message: 'Thank you! Your Super Thanks was sent.',
-          link: video_id ? `/watch/${video_id}` : '/dashboard',
-          relatedId: payment.id
-        });
-      }
-    } else if (payment_type === 'live_donation') {
-      const streamId = payment.metadata?.live_stream_id || payment.metadata?.streamId;
-      // Live donation -> Artist: "{user_name} sent you {amount} {currency}"
-      if (artist_id) {
-        createNotification({
-          artistId: artist_id,
-          recipientType: 'artist',
-          type: 'super_thanks',
-          title: 'Live Super Thanks Received',
-          message: `${buyerName} sent you ${formattedAmount} on your live stream!`,
-          link: streamId ? `/live/${streamId}` : '/artist/live',
-          relatedId: payment.id
-        });
-
-        const split = calculateSplit(Number(amount));
-        const formattedShare = `${split.artistShare.toLocaleString()} ${currency}`;
-        createNotification({
-          artistId: artist_id,
-          recipientType: 'artist',
-          type: 'wallet_credit',
-          title: 'Wallet Credited',
-          message: `You earned ${formattedShare} from Live Super Thanks.`,
-          link: '/artist/wallet',
-          relatedId: payment.id
-        });
-      }
-
-      // User confirmation
-      if (user_id) {
-        createNotification({
-          userId: user_id,
-          recipientType: 'user',
-          type: 'super_thanks',
-          title: 'Live Super Thanks Sent',
-          message: 'Thank you! Your Super Thanks was sent on live stream.',
-          link: streamId ? `/live/${streamId}` : '/dashboard',
+          title: 'Support Sent',
+          message: `Thank you! Your ${formattedAmount} contribution was confirmed.`,
+          link: streamId ? `/live/${streamId}` : videoId ? `/watch/${videoId}` : '/dashboard',
           relatedId: payment.id
         });
       }
@@ -421,22 +405,17 @@ export const notifyOnPaymentSuccess = async (payment: any) => {
   }
 };
 
-/**
- * 3.1 & 3.2 Notifications Integration on Payment Failure
- */
 export const notifyOnPaymentFailure = async (payment: any, reason?: string) => {
   try {
     if (!payment?.user_id) return;
-    const videoId = payment.video_id;
-    const link = videoId ? `/watch/${videoId}` : '/dashboard';
-
-    createNotification({
+    const videoId = payment.metadata?.video_id;
+    await createNotification({
       userId: payment.user_id,
       recipientType: 'user',
       type: 'payment_failed',
       title: 'Payment Failed',
       message: reason || 'Payment failed. Please try again.',
-      link,
+      link: videoId ? `/watch/${videoId}` : '/dashboard',
       relatedId: payment.id
     });
   } catch (err) {
@@ -444,46 +423,52 @@ export const notifyOnPaymentFailure = async (payment: any, reason?: string) => {
   }
 };
 
-/**
- * Mark payment as failed and dispatch failure notification.
- */
 export const markPaymentAsFailed = async (paymentId: string, reason?: string) => {
-  const { data: payment } = await supabaseAdmin
-    .from('payments')
+  const now = new Date().toISOString();
+  const { data: existing } = await supabaseAdmin
+    .from('payment_intents')
+    .select('*')
+    .or(`id.eq.${paymentId},provider_payment_reference.eq.${paymentId}`)
+    .maybeSingle();
+
+  if (!existing) return null;
+
+  const { data: updated } = await supabaseAdmin
+    .from('payment_intents')
     .update({
-      status: 'failed',
-      metadata: { failure_reason: reason || 'Payment declined or timed out' }
+      payment_status: 'failed',
+      failure_message: reason || 'Payment declined or timed out',
+      provider_metadata: {
+        ...(existing.provider_metadata || {}),
+        failure_reason: reason || 'Payment declined or timed out'
+      },
+      updated_at: now
     })
-    .or(`id.eq.${paymentId},provider_reference.eq.${paymentId}`)
+    .eq('id', existing.id)
     .select('*')
     .maybeSingle();
 
-  if (payment) {
-    await notifyOnPaymentFailure(payment, reason);
+  if (updated) {
+    await notifyOnPaymentFailure(updated, reason);
   }
-
-  return payment;
+  return updated;
 };
 
 /**
- * Update payment status and execute entitlements upon real provider confirmation.
+ * Mark payment_intent as succeeded and execute real entitlements + ledger entries in PostgreSQL.
  */
 export const markPaymentAsPaid = async (paymentId: string, providerTransactionId?: string) => {
-  console.log(`[PaymentService] Processing payment confirmation for ID: ${paymentId}`);
-
-  // Fetch payment record
   let { data: payment } = await supabaseAdmin
-    .from('payments')
+    .from('payment_intents')
     .select('*')
     .eq('id', paymentId)
     .maybeSingle();
 
   if (!payment) {
-    // Try matching by provider_reference
     const { data: byRef } = await supabaseAdmin
-      .from('payments')
+      .from('payment_intents')
       .select('*')
-      .eq('provider_reference', paymentId)
+      .eq('provider_payment_reference', paymentId)
       .maybeSingle();
     payment = byRef;
   }
@@ -492,259 +477,202 @@ export const markPaymentAsPaid = async (paymentId: string, providerTransactionId
     throw new Error(`Payment with reference/id ${paymentId} not found`);
   }
 
-  if (payment.status === 'paid') {
-    console.log(`[PaymentService] Payment ${payment.id} is already marked as paid.`);
-    return payment;
+  if (payment.payment_status === 'succeeded') {
+    return { ...payment, status: 'paid' };
   }
 
+  const meta = payment.provider_metadata || {};
+  const videoId = meta.video_id || null;
+  const artistId = meta.artist_id || null;
+  const paymentType = meta.payment_type || 'purchase';
+  const currency = payment.currency_code || 'RWF';
   const split = calculateSplit(Number(payment.amount));
   const completedAt = new Date().toISOString();
+  const resolvedProviderTxId = providerTransactionId || payment.provider_payment_reference || randomUUID();
 
-  // 1. Update payment record
-  const { error: updateError } = await supabaseAdmin
-    .from('payments')
+  await supabaseAdmin
+    .from('payment_intents')
     .update({
-      status: 'paid',
-      provider_transaction_id: providerTransactionId || payment.provider_transaction_id || `txn_${Date.now()}`,
-      vat_amount: split.vat,
-      artist_share: split.artistShare,
-      owner_share: split.ownerShare,
-      completed_at: completedAt
+      payment_status: 'succeeded',
+      amount_received: Number(payment.amount),
+      succeeded_at: completedAt,
+      provider_payment_reference: resolvedProviderTxId,
+      provider_metadata: {
+        ...meta,
+        vat_amount: split.vat,
+        artist_share: split.artistShare,
+        owner_share: split.ownerShare,
+        completed_at: completedAt
+      },
+      updated_at: completedAt
     })
     .eq('id', payment.id);
 
-  if (updateError) {
-    console.error('[PaymentService] Error updating payment to paid:', updateError);
-  }
+  const creatorChannelId = await resolveCreatorChannelId(artistId);
 
-  // 2. Grant access or record donation based on payment_type
-  if (payment.payment_type === 'purchase' && payment.video_id) {
-    // Check if purchase already exists (idempotency guard)
-    const { data: existingPurchase } = await supabaseAdmin
-      .from('purchases')
+  const { data: finTx } = await supabaseAdmin
+    .from('financial_transactions')
+    .insert({
+      id: randomUUID(),
+      payment_intent_id: payment.id,
+      user_id: payment.user_id,
+      creator_channel_id: creatorChannelId,
+      transaction_type: 'payment',
+      revenue_source: mapRevenueSource(paymentType),
+      source_record_id: videoId || meta.live_stream_id || null,
+      currency_code: currency,
+      gross_amount: Number(payment.amount),
+      fee_amount: split.vat,
+      net_amount: split.afterVat,
+      transaction_status: 'succeeded',
+      provider_transaction_reference: resolvedProviderTxId,
+      description: `PAYTUNE ${paymentType} confirmed`,
+      processed_at: completedAt,
+      created_at: completedAt
+    })
+    .select()
+    .maybeSingle();
+
+  if (paymentType === 'purchase' && videoId && creatorChannelId) {
+    const { data: existingGrant } = await supabaseAdmin
+      .from('premium_content_access_grants')
       .select('id')
-      .eq('payment_id', payment.id)
+      .eq('user_id', payment.user_id)
+      .eq('content_id', videoId)
+      .is('revoked_at', null)
       .maybeSingle();
 
-    if (!existingPurchase) {
-      const receiptNumber = `PT-RCP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-      const { error: purchaseErr } = await supabaseAdmin
-        .from('purchases')
-        .insert({
-          user_id: payment.user_id,
-          video_id: payment.video_id,
-          payment_id: payment.id,
-          amount_paid: payment.amount,
-          currency: payment.currency || 'RWF',
-          artist_share: split.artistShare,
-          owner_share: split.ownerShare,
-          receipt_number: receiptNumber,
-          purchased_at: completedAt
-        });
-
-      // Synchronize in-memory store so immediate unlocks always reflect
-      try {
-        const store = getDbStore();
-        if (store) {
-          if (!store.purchases) store.purchases = [];
-          const exists = store.purchases.some((p: any) => String(p.payment_id) === String(payment.id));
-          if (!exists) {
-            store.purchases.push({
-              id: `purchase-${Date.now()}`,
-              user_id: String(payment.user_id),
-              video_id: String(payment.video_id),
-              payment_id: String(payment.id),
-              amount_paid: payment.amount,
-              currency: payment.currency || 'RWF',
-              artist_share: split.artistShare,
-              owner_share: split.ownerShare,
-              receipt_number: receiptNumber,
-              purchased_at: completedAt
-            });
-          }
+    if (!existingGrant) {
+      await supabaseAdmin.from('premium_content_access_grants').insert({
+        id: randomUUID(),
+        creator_channel_id: creatorChannelId,
+        user_id: payment.user_id,
+        content_type: 'video',
+        content_id: videoId,
+        granted_at: completedAt,
+        grant_reason: 'purchase',
+        grant_metadata: {
+          payment_intent_id: payment.id,
+          transaction_reference: resolvedProviderTxId
         }
-      } catch (storeErr) {
-        console.warn('[PaymentService] Store sync note:', storeErr);
-      }
-
-      if (purchaseErr) {
-        console.error('[PaymentService] Error creating purchase record:', purchaseErr);
-      } else {
-        console.log(`[PaymentService] Purchase created for user ${payment.user_id} and video ${payment.video_id}`);
-      }
-
-      // Increment video purchases count / view metrics
-      try {
-        const { data: v } = await supabaseAdmin
-          .from('videos')
-          .select('purchases_count')
-          .eq('id', payment.video_id)
-          .maybeSingle();
-        if (v) {
-          await supabaseAdmin
-            .from('videos')
-            .update({ purchases_count: (Number(v.purchases_count) || 0) + 1 })
-            .eq('id', payment.video_id);
-        }
-      } catch {
-        // ignore
-      }
+      });
     }
-  } else if (payment.payment_type === 'super_thanks' && payment.artist_id) {
-    const { data: existingThanks } = await supabaseAdmin
-      .from('super_thanks')
-      .select('id')
-      .eq('payment_id', payment.id)
-      .maybeSingle();
-
-    if (!existingThanks) {
-      const { error: thanksErr } = await supabaseAdmin
-        .from('super_thanks')
-        .insert({
-          user_id: payment.user_id,
-          artist_id: payment.artist_id,
-          video_id: payment.video_id || null,
-          payment_id: payment.id,
-          amount: payment.amount,
-          currency: payment.currency || 'RWF',
-          message: payment.metadata?.message || null,
-          is_public: true,
-          created_at: completedAt
-        });
-
-      if (thanksErr) {
-        console.error('[PaymentService] Error recording super thanks:', thanksErr);
-      }
-    }
-  } else if (payment.payment_type === 'live_donation') {
-    // Priority 4: Super Thanks on Live Streams
-    const streamId = payment.metadata?.live_stream_id || payment.metadata?.streamId;
+  } else if (paymentType === 'super_thanks' && creatorChannelId) {
+    await supabaseAdmin.from('super_thanks').insert({
+      id: randomUUID(),
+      creator_channel_id: creatorChannelId,
+      sender_user_id: payment.user_id,
+      content_type: meta.live_stream_id ? 'livestream' : 'video',
+      content_id: meta.live_stream_id || videoId || creatorChannelId,
+      currency_code: currency,
+      amount: Number(payment.amount),
+      public_message: meta.message || null,
+      is_message_public: true,
+      event_status: 'confirmed',
+      payment_provider: meta.provider || 'payment_intent',
+      provider_payment_reference: resolvedProviderTxId,
+      confirmed_at: completedAt,
+      created_at: completedAt
+    });
+  } else if (paymentType === 'live_donation') {
+    const streamId = meta.live_stream_id || meta.streamId;
     if (streamId) {
-      // 1. Insert live_donations
-      const { data: existingDonation } = await supabaseAdmin
-        .from('live_donations')
-        .select('id')
-        .eq('payment_id', payment.id)
-        .maybeSingle();
-
-      if (!existingDonation) {
-        await supabaseAdmin
-          .from('live_donations')
-          .insert({
-            stream_id: streamId,
-            user_id: payment.user_id,
-            artist_id: payment.artist_id,
-            payment_id: payment.id,
-            amount: payment.amount,
-            currency: payment.currency || 'RWF',
-            message: payment.metadata?.message || null,
-            created_at: completedAt
-          });
+      let senderName = 'Supporter';
+      if (payment.user_id) {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('display_name, username')
+          .eq('user_id', payment.user_id)
+          .maybeSingle();
+        if (profile?.display_name || profile?.username) {
+          senderName = profile.display_name || profile.username;
+        }
       }
 
-      // 2. Insert highlighted Super Chat message in live_chat_messages
-      const { data: existingChat } = await supabaseAdmin
-        .from('live_chat_messages')
-        .select('id')
-        .eq('payment_id', payment.id)
-        .maybeSingle();
+      const chatId = randomUUID();
+      await supabaseAdmin.from('livestream_chat_messages').insert({
+        id: chatId,
+        livestream_id: streamId,
+        user_id: payment.user_id,
+        message_text: meta.message || `Sent ${payment.amount} ${currency} Super Thanks!`,
+        message_status: 'visible',
+        is_pinned: false,
+        is_edited: false,
+        created_at: completedAt,
+        metadata: { message_type: 'super_thanks', amount: Number(payment.amount), currency },
+      });
 
-      if (!existingChat) {
-        // Resolve user display name
-        let senderName = 'A Supporter';
-        if (payment.user_id) {
-          const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('full_name, username')
-            .eq('id', payment.user_id)
-            .maybeSingle();
-          if (profile?.full_name || profile?.username) {
-            senderName = profile.full_name || profile.username;
-          }
-        }
-
-        const superChatMessage = {
-          id: `superchat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      const io = getNotificationIO();
+      if (io) {
+        io.to(`stream:${streamId}`).emit('chat:message', {
+          id: chatId,
           stream_id: streamId,
           user_id: payment.user_id,
           user_name: senderName,
-          message: payment.metadata?.message || `Sent ${payment.amount} ${payment.currency || 'RWF'} Super Thanks!`,
+          message: meta.message || `Sent ${payment.amount} ${currency} Super Thanks!`,
           is_super_chat: true,
           super_chat_amount: Number(payment.amount),
-          payment_id: payment.id,
           created_at: completedAt
-        };
-
-        await supabaseAdmin
-          .from('live_chat_messages')
-          .insert(superChatMessage);
-
-        // Also trigger realtime event
-        dispatchRealtimeEvent('live_chat_messages', 'INSERT', superChatMessage);
+        });
       }
     }
   }
 
-  // 3. Credit artist wallet
-  if (payment.artist_id) {
-    try {
-      await supabaseAdmin.rpc('increment_artist_balance', {
-        artist_uuid: payment.artist_id,
-        amount: split.artistShare
+  if (creatorChannelId) {
+    const { data: earningAccount } = await supabaseAdmin
+      .from('creator_earning_accounts')
+      .select('id, available_balance')
+      .eq('creator_channel_id', creatorChannelId)
+      .maybeSingle();
+
+    if (earningAccount) {
+      await supabaseAdmin.from('creator_earning_transactions').insert({
+        id: randomUUID(),
+        earning_account_id: earningAccount.id,
+        financial_transaction_id: finTx?.id || null,
+        revenue_source: mapRevenueSource(paymentType),
+        earning_status: 'available',
+        currency_code: currency,
+        gross_amount: Number(payment.amount),
+        platform_fee: Number((split.vat + split.ownerShare).toFixed(2)),
+        creator_amount: split.artistShare,
+        source_record_id: videoId || meta.live_stream_id || payment.id,
+        available_at: completedAt,
+        description: `Creator 70% share for ${paymentType}`,
+        metadata: { payment_intent_id: payment.id },
+        created_at: completedAt
       });
-    } catch (rpcErr) {
-      console.warn('[PaymentService] increment_artist_balance RPC note:', rpcErr);
-    }
 
-    // Also update artists table balance
-    try {
-      const { data: artistRecord } = await supabaseAdmin
-        .from('artists')
-        .select('total_earnings, pending_balance')
-        .eq('id', payment.artist_id)
-        .maybeSingle();
-
-      if (artistRecord) {
-        const curTotal = Number(artistRecord.total_earnings) || 0;
-        const curPending = Number(artistRecord.pending_balance) || 0;
-        await supabaseAdmin
-          .from('artists')
-          .update({
-            total_earnings: Number((curTotal + split.artistShare).toFixed(2)),
-            pending_balance: Number((curPending + split.artistShare).toFixed(2))
-          })
-          .eq('id', payment.artist_id);
-      }
-    } catch (artErr) {
-      console.error('[PaymentService] Error updating artist record:', artErr);
+      await supabaseAdmin
+        .from('creator_earning_accounts')
+        .update({
+          available_balance: Number((Number(earningAccount.available_balance || 0) + split.artistShare).toFixed(2)),
+          last_transaction_at: completedAt,
+          updated_at: completedAt
+        })
+        .eq('id', earningAccount.id);
     }
   }
 
-  // 4. Credit platform wallet
-  try {
-    await supabaseAdmin.rpc('increment_platform_balance', {
-      amount: split.ownerShare
-    });
-  } catch (platErr) {
-    console.warn('[PaymentService] increment_platform_balance RPC note:', platErr);
-  }
-
-  // 5. Payment Log
-  await logProviderCall(payment.id, payment.provider || 'system', 'payment.completed', {
+  await logProviderCall(payment.id, meta.provider || 'system', 'payment.completed', {
     paymentId: payment.id,
-    providerTransactionId,
+    providerTransactionId: resolvedProviderTxId,
     completedAt,
     split
-  }, { status: 'paid' });
+  }, { status: 'succeeded' });
 
-  // 6. Trigger Priority 3 Notifications
-  await notifyOnPaymentSuccess(payment);
+  await notifyOnPaymentSuccess({
+    ...payment,
+    video_id: videoId,
+    artist_id: artistId,
+    payment_type: paymentType,
+    currency
+  });
 
   return {
     ...payment,
     status: 'paid',
     completed_at: completedAt,
-    provider_transaction_id: providerTransactionId
+    provider_transaction_id: resolvedProviderTxId
   };
 };

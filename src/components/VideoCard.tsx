@@ -129,12 +129,11 @@ export default function VideoCard({ video, trending, onDismiss }: VideoCardProps
 
           {/* Watch Progress Bar (if watched/continue watching) */}
           {typeof video.progress_percent === 'number' && video.progress_percent > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-800 z-20">
-              <div
-                className="h-full bg-red-600 transition-all duration-300"
-                style={{ width: `${Math.min(100, Math.max(0, video.progress_percent))}%` }}
-              />
-            </div>
+            <progress
+              value={Math.min(100, Math.max(0, video.progress_percent))}
+              max={100}
+              className="absolute bottom-0 left-0 right-0 w-full h-1 z-20 appearance-none [&::-webkit-progress-bar]:bg-neutral-800 [&::-webkit-progress-value]:bg-red-600 [&::-moz-progress-bar]:bg-red-600"
+            />
           )}
 
           {/* Duration Badge (Bottom Right) */}

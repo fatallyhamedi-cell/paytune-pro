@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import axios from "axios";
+import { api } from "../lib/api";
 import { ArtistDashboardLayout, ArtistStudioTab } from "../components/artist/ArtistDashboardLayout";
 import { OverviewTab } from "../components/artist/OverviewTab";
 import { VideosTab } from "../components/artist/VideosTab";
@@ -33,14 +33,14 @@ export default function ArtistDashboard() {
   const fetchDashboard = async () => {
     try {
       setError(null);
-      const res = await axios.get("/api/artist/dashboard");
+      const res = await api.get("/api/artist/dashboard");
       setDashboardData(res.data);
     } catch (err: any) {
       console.error("Failed to fetch artist dashboard:", err);
       // Fallback try with userId if needed
       if (user?.id) {
         try {
-          const fallbackRes = await axios.get(`/api/artist/${user.id}/dashboard`);
+          const fallbackRes = await api.get(`/api/artist/${user.id}/dashboard`);
           setDashboardData(fallbackRes.data);
           return;
         } catch {
@@ -198,8 +198,8 @@ export default function ArtistDashboard() {
         isOpen={withdrawModalOpen}
         onClose={() => setWithdrawModalOpen(false)}
         availableBalance={Number(summary?.current_balance || summary?.pending_balance || 0)}
-        artistId={artist?.id || 'artist-1'}
-        defaultPhone={artist?.momo_code || artist?.phone || '0788112233'}
+        artistId={artist?.id || ''}
+        defaultPhone={artist?.momo_code || artist?.phone || ''}
         onSuccess={fetchDashboard}
       />
 

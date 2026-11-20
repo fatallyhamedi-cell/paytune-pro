@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Sparkles, Smartphone, CreditCard, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../lib/api';
 
 interface LiveSuperThanksModalProps {
   isOpen: boolean;
@@ -32,6 +32,27 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'awaiting_prompt' | 'success'>('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPollTimers = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      clearPollTimers();
+      setPaymentStatus('idle');
+    }
+    return () => clearPollTimers();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -66,9 +87,6 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('paytune_auth_token') || localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
       const payload = {
         paymentType: 'live_donation',
         live_stream_id: streamId,
@@ -81,20 +99,22 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
         message: message.trim() || 'Sent Super Thanks!'
       };
 
-      const res = await axios.post('/api/payments/initiate', payload, { headers });
+      const res = await api.post('/api/payments/initiate', payload);
       const data = res.data;
 
       if (data.success && data.paymentId) {
         setPaymentStatus('awaiting_prompt');
         setStatusMessage(data.message || 'Payment initiated! Please confirm the prompt on your phone.');
 
+        clearPollTimers();
         // Poll for confirmation
         const paymentId = data.paymentId;
-        const interval = setInterval(async () => {
+        pollIntervalRef.current = setInterval(async () => {
           try {
-            const statusRes = await axios.get(`/api/payments/${paymentId}/status`, { headers });
-            if (statusRes.data?.status === 'paid') {
-              clearInterval(interval);
+            const statusRes = await api.get(`/api/payments/${paymentId}/status`);
+            const txStatus = statusRes.data?.status;
+            if (txStatus === 'paid' || txStatus === 'completed' || txStatus === 'success') {
+              clearPollTimers();
               setPaymentStatus('success');
               setStatusMessage('Super Thanks sent successfully! Your message will now shine in live chat.');
               if (onSuccess) onSuccess({ amount: currentAmount, message, paymentId });
@@ -102,8 +122,8 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
                 onClose();
                 setPaymentStatus('idle');
               }, 2500);
-            } else if (statusRes.data?.status === 'failed') {
-              clearInterval(interval);
+            } else if (txStatus === 'failed' || txStatus === 'cancelled') {
+              clearPollTimers();
               setError('Payment was declined or timed out. Please try again.');
               setPaymentStatus('idle');
             }
@@ -113,7 +133,11 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
         }, 3000);
 
         // Timeout polling after 60s
-        setTimeout(() => clearInterval(interval), 60000);
+        pollTimeoutRef.current = setTimeout(() => {
+          clearPollTimers();
+          setError('Payment confirmation timed out. Please check your phone or try again.');
+          setPaymentStatus('idle');
+        }, 60000);
       } else {
         setError(data.error || 'Failed to initiate payment');
       }
@@ -142,8 +166,7 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div 
-                className="w-9 h-9 rounded-2xl flex items-center justify-center text-black font-bold shadow-xs"
-                style={{ background: 'linear-gradient(135deg, #FFB300 0%, #FF8F00 100%)' }}
+                className="w-9 h-9 rounded-2xl flex items-center justify-center text-black font-bold shadow-xs bg-gradient-to-br from-amber-400 to-orange-500"
               >
                 <Sparkles className="w-5 h-5 fill-black" />
               </div>
@@ -293,7 +316,7 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
                   </label>
                   <input
                     type="tel"
-                    placeholder="e.g., 0788123456 or 250788123456"
+                    placeholder="e.g., 078XXXXXXX or 25078XXXXXXX"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     className="w-full text-xs font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 focus:outline-none focus:border-[#FFB300]"
@@ -305,8 +328,7 @@ export const LiveSuperThanksModal: React.FC<LiveSuperThanksModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-2xl font-black text-xs text-black uppercase tracking-wider transition-all shadow-md shadow-purple-600/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #FFB300 0%, #FF8F00 100%)' }}
+                className="w-full py-3 px-4 rounded-2xl font-black text-xs text-black uppercase tracking-wider transition-all shadow-md shadow-purple-600/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-br from-amber-400 to-orange-500 hover:brightness-95"
               >
                 {loading ? (
                   <>

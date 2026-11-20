@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { randomUUID } from 'crypto';
 import { supabase } from '../config/supabase';
+import { supabaseProjectInfo } from '../../../src/config/supabase';
 
 export async function createSignedUploadUrl(req: any, res: Response) {
   try {
@@ -35,7 +36,7 @@ export async function createSignedUploadUrl(req: any, res: Response) {
     }
 
     const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(objectPath);
-    const publicUrl = urlData?.publicUrl || `https://reuekwbqdjtwqzpyqtuc.supabase.co/storage/v1/object/public/${bucket}/${objectPath}`;
+    const publicUrl = urlData?.publicUrl || `${supabaseProjectInfo.url}/storage/v1/object/public/${bucket}/${objectPath}`;
 
     return res.json({
       signedUrl: signedData?.signedUrl || `/api/artist/upload/mock-signed?bucket=${bucket}&path=${encodeURIComponent(objectPath)}`,

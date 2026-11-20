@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import { api } from "../lib/api";
 
 export interface MasterWithdrawal {
   id: string;
@@ -23,18 +23,11 @@ export const useMasterWithdrawals = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const getHeaders = useCallback(() => {
-    const token = localStorage.getItem("master_token") || localStorage.getItem("admin_token") || "master_token";
-    return { Authorization: `Bearer ${token}` };
-  }, []);
-
   const fetchWithdrawals = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const headers = getHeaders();
-      const res = await axios.get("/api/master/withdrawals", {
-        headers,
+      const res = await api.get("/api/master/withdrawals", {
         params: { status: statusFilter }
       });
       if (res.data) {
@@ -43,11 +36,11 @@ export const useMasterWithdrawals = () => {
       }
     } catch (err: any) {
       console.error("useMasterWithdrawals error:", err);
-      setError(err.message || "Failed to load withdrawal requests");
+      setError(err.response?.data?.error || err.message || "Failed to load withdrawal requests");
     } finally {
       setLoading(false);
     }
-  }, [getHeaders, statusFilter]);
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchWithdrawals();
@@ -56,8 +49,7 @@ export const useMasterWithdrawals = () => {
   const processWithdrawal = async (id: string) => {
     try {
       setProcessingId(id);
-      const headers = getHeaders();
-      const res = await axios.post(`/api/master/withdrawals/${id}/process`, {}, { headers });
+      const res = await api.post(`/api/master/withdrawals/${id}/process`, {});
       fetchWithdrawals();
       return res.data;
     } finally {
@@ -67,8 +59,7 @@ export const useMasterWithdrawals = () => {
 
   const batchProcess = async () => {
     if (selectedIds.length === 0) return;
-    const headers = getHeaders();
-    const res = await axios.post("/api/master/withdrawals/batch-process", { ids: selectedIds }, { headers });
+    const res = await api.post("/api/master/withdrawals/batch-process", { ids: selectedIds });
     setSelectedIds([]);
     fetchWithdrawals();
     return res.data;

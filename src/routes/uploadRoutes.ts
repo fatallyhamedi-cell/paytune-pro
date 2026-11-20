@@ -1,178 +1,421 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
-import { optionalAuthenticate } from '../middleware/auth';
-import { getDbStore, notifyMutation } from '../config/supabase_mock';
+import crypto from 'crypto';
+import { rawSupabaseAdmin, supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
+import { cacheService } from '../services/cacheService';
 
 const router = Router();
 
-// Image upload limiter: 15 MB
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 15 * 1024 * 1024 },
 });
 
-// Audio upload limiter: 100 MB
 const audioUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 },
 });
 
-const ensureUploadsDir = (subdir?: string) => {
-  const baseDir = typeof process !== 'undefined' && typeof process.cwd === 'function' ? process.cwd() : '.';
-  const uploadsDir = subdir ? path.join(baseDir, 'public', 'uploads', subdir) : path.join(baseDir, 'public', 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  return uploadsDir;
-};
+const generalMediaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 500 * 1024 * 1024 },
+});
 
-/**
- * Common upload processor:
- * 1. Tries Supabase Storage bucket ('avatars', 'banners', 'audio', 'artwork')
- * 2. Falls back to local public directory /uploads/
- */
+function wrapMulterAny(uploader: multer.Multer) {
+  const middleware = uploader.any();
+  return (req: Request, res: Response, next: NextFunction) => {
+    middleware(req, res, (err: any) => {
+      if (!err) return next();
+      if (err instanceof multer.MulterError) {
+        const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+        return res.status(status).json({ error: err.message || 'Upload validation failed', code: err.code });
+      }
+      return res.status(400).json({ error: err.message || 'Upload parsing failed' });
+    });
+  };
+}
+
+function pickUploadedFile(req: Request, preferredNames: string[]): Express.Multer.File | undefined {
+  if (req.file) return req.file;
+  const files = req.files;
+  if (Array.isArray(files)) {
+    for (const name of preferredNames) {
+      const found = files.find((f) => f.fieldname === name);
+      if (found) return found;
+    }
+    return files[0];
+  }
+  if (files && typeof files === 'object') {
+    for (const name of preferredNames) {
+      const arr = (files as Record<string, Express.Multer.File[]>)[name];
+      if (arr?.[0]) return arr[0];
+    }
+  }
+  return undefined;
+}
+
+async function ensurePublicBucket(client: typeof supabaseAdmin, bucketName: string) {
+  try {
+    const { data: existing } = await client.storage.getBucket(bucketName);
+    if (!existing) {
+      await client.storage.createBucket(bucketName, { public: true });
+    }
+  } catch {
+    // Bucket already provisioned or managed externally
+  }
+}
+
 async function processFileUpload(
   file: Express.Multer.File,
   bucketName: string,
-  prefix: string,
-  subdir: string = ''
-): Promise<{ url: string; size: number; mime: string; originalName: string }> {
-  const ext = path.extname(file.originalname).toLowerCase() || (bucketName === 'audio' ? '.mp3' : '.jpg');
+  prefix: string
+): Promise<{ url: string; storagePath: string; bucket: string; size: number; mime: string; originalName: string }> {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase Storage is not configured. Configure Supabase environment variables to upload media.');
+  }
+
+  const ext =
+    path.extname(file.originalname).toLowerCase() ||
+    (bucketName === 'audio' ? '.mp3' : bucketName === 'videos' ? '.mp4' : '.jpg');
   const safeBase = path
     .basename(file.originalname, ext)
     .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .slice(0, 30);
-  const fileName = `${prefix}-${safeBase}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
+    .slice(0, 30) || 'media';
+  const fileName = `${prefix}-${safeBase}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}${ext}`;
 
-  // 1. Try Supabase Storage
-  if (isSupabaseConfigured()) {
-    try {
-      try {
-        await supabaseAdmin.storage.createBucket(bucketName, { public: true });
-      } catch {
-        // Bucket may already exist
-      }
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  await ensurePublicBucket(client, bucketName);
 
-      const { data, error } = await supabaseAdmin.storage.from(bucketName).upload(fileName, file.buffer, {
-        contentType: file.mimetype || (bucketName === 'audio' ? 'audio/mpeg' : 'image/jpeg'),
-        upsert: true,
-      });
+  const { data, error } = await client.storage.from(bucketName).upload(fileName, file.buffer, {
+    contentType:
+      file.mimetype ||
+      (bucketName === 'audio' ? 'audio/mpeg' : bucketName === 'videos' ? 'video/mp4' : 'image/jpeg'),
+    upsert: true,
+  });
 
-      if (!error && data) {
-        const { data: publicData } = supabaseAdmin.storage.from(bucketName).getPublicUrl(fileName);
-        if (publicData?.publicUrl) {
-          return {
-            url: publicData.publicUrl,
-            size: file.size,
-            mime: file.mimetype,
-            originalName: file.originalname,
-          };
-        }
-      }
-    } catch (sbError) {
-      console.warn(`Supabase storage upload to '${bucketName}' notice:`, sbError);
-    }
+  if (error || !data) {
+    throw new Error(error?.message || `Failed to upload file to Supabase Storage bucket '${bucketName}'.`);
   }
 
-  // 2. Fallback: Save to local public/uploads directory
-  try {
-    const targetDir = ensureUploadsDir(subdir);
-    const filePath = path.join(targetDir, fileName);
-    fs.writeFileSync(filePath, file.buffer);
-    const webPath = subdir ? `/uploads/${subdir}/${fileName}` : `/uploads/${fileName}`;
-    return {
-      url: webPath,
-      size: file.size,
-      mime: file.mimetype,
-      originalName: file.originalname,
-    };
-  } catch (fsErr) {
-    console.warn('Local filesystem write notice, falling back to data URL:', fsErr);
-    // 3. Fallback: Return base64 data URI
-    return {
-      url: `data:${file.mimetype || 'image/jpeg'};base64,${file.buffer.toString('base64')}`,
-      size: file.size,
-      mime: file.mimetype,
-      originalName: file.originalname,
-    };
+  const { data: publicData } = client.storage.from(bucketName).getPublicUrl(fileName);
+  if (!publicData?.publicUrl) {
+    throw new Error(`Unable to resolve public URL for uploaded object in '${bucketName}'.`);
   }
+
+  return {
+    url: publicData.publicUrl,
+    storagePath: data.path || fileName,
+    bucket: bucketName,
+    size: file.size,
+    mime: file.mimetype,
+    originalName: file.originalname,
+  };
 }
 
-// Record asset into database registry
-function logMediaAsset(asset: {
+async function logMediaAsset(asset: {
   userId?: string;
-  artistId?: string;
   assetType: 'avatar' | 'banner' | 'artwork' | 'audio' | 'video' | 'image';
-  url: string;
+  bucket: string;
+  storagePath: string;
+  publicUrl: string;
   originalName: string;
   fileSize: number;
   mimeType: string;
-  metadata?: any;
+  extraMeta?: Record<string, any>;
 }) {
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  if (!client || !asset.userId) return null;
+
+  const purposeMap: Record<string, string> = {
+    avatar: 'artist_avatar',
+    banner: 'artist_banner',
+    artwork: 'album_artwork',
+    audio: 'music_source',
+    video: 'video_source',
+    image: 'other',
+  };
+
   try {
-    const store = getDbStore();
-    if (!store.media_assets) store.media_assets = [];
-    store.media_assets.push({
-      id: `asset-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      user_id: asset.userId || null,
-      artist_id: asset.artistId || null,
-      asset_type: asset.assetType,
-      url: asset.url,
-      original_name: asset.originalName,
-      file_size: asset.fileSize,
-      mime_type: asset.mimeType,
-      metadata: asset.metadata || {},
-      created_at: new Date().toISOString(),
-    });
-    notifyMutation();
+    const now = new Date().toISOString();
+    const { data } = await client
+      .from('media_assets')
+      .insert({
+        owner_user_id: asset.userId,
+        uploaded_by_user_id: asset.userId,
+        original_file_name: asset.originalName,
+        file_extension: path.extname(asset.originalName).replace('.', '') || null,
+        mime_type: asset.mimeType || 'application/octet-stream',
+        media_kind: asset.assetType === 'audio' ? 'audio' : asset.assetType === 'video' ? 'video' : 'image',
+        media_purpose: purposeMap[asset.assetType] || 'other',
+        storage_provider: 'supabase',
+        storage_bucket: asset.bucket,
+        storage_path: asset.storagePath,
+        file_size_bytes: asset.fileSize,
+        processing_status: 'completed',
+        metadata: { public_url: asset.publicUrl, ...(asset.extraMeta || {}) },
+        uploaded_at: now,
+        processing_completed_at: now,
+      })
+      .select('*')
+      .maybeSingle();
+    return data;
   } catch (err) {
-    console.warn('Error recording media asset:', err);
+    console.warn('Error persisting media_assets metadata:', err);
+    return null;
   }
 }
 
-// ==========================================
-// 1. AVATAR UPLOAD (Square 1:1, max 10MB)
-// ==========================================
+// Root authenticated media upload endpoint: POST /api/upload and POST /api/artist/upload
+router.post(
+  '/',
+  authenticate,
+  wrapMulterAny(generalMediaUpload),
+  async (req: Request, res: Response) => {
+    const file = pickUploadedFile(req, ['file', 'video', 'media', 'audio', 'image', 'thumbnail', 'avatar', 'banner', 'artwork']);
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    if (!isSupabaseConfigured()) {
+      return res.status(503).json({ error: 'Supabase Storage is not configured.' });
+    }
+
+    try {
+      const user = (req as any).user;
+      const userId = user?.id || user?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { title, description = '', contentType, bucket: requestedBucket, category, isPaid, price, is_free, price_rwf } = req.body;
+      const mime = String(file.mimetype || '').toLowerCase();
+
+      let bucketName = String(requestedBucket || '').trim().toLowerCase();
+      let assetType: 'avatar' | 'banner' | 'artwork' | 'audio' | 'video' | 'image' = 'image';
+
+      if (mime.startsWith('video/') || contentType === 'video' || contentType === 'short') {
+        bucketName = bucketName || 'videos';
+        assetType = 'video';
+      } else if (mime.startsWith('audio/') || contentType === 'audio') {
+        bucketName = bucketName || 'audio';
+        assetType = 'audio';
+      } else {
+        const requested = bucketName || 'avatars';
+        assetType = requested === 'artwork' ? 'artwork' : requested === 'banners' ? 'banner' : 'image';
+        bucketName = requested === 'artwork' ? 'thumbnails' : requested;
+      }
+
+      const result = await processFileUpload(file, bucketName, userId.slice(0, 12));
+
+      const mediaAsset = await logMediaAsset({
+        userId,
+        assetType,
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
+        originalName: result.originalName,
+        fileSize: result.size,
+        mimeType: result.mime,
+        extraMeta: {
+          title: title || null,
+          description: description || null,
+          content_type: contentType || assetType,
+          is_paid: isPaid === 'true' || isPaid === true || is_free === 'false',
+          price: Number(price || price_rwf || 0),
+        },
+      });
+
+      let videoRecord: any = null;
+      if (assetType === 'video' && title && String(title).trim()) {
+        const db = rawSupabaseAdmin || supabaseAdmin;
+        const { data: channel } = await db
+          .from('creator_channels')
+          .select('id, channel_name')
+          .or(`owner_user_id.eq.${userId},created_by_user_id.eq.${userId}`)
+          .limit(1)
+          .maybeSingle();
+
+        const { data: artistProfile } = await db
+          .from('artist_profiles')
+          .select('id, artist_name')
+          .or(`primary_contact_user_id.eq.${userId},created_by_user_id.eq.${userId}`)
+          .limit(1)
+          .maybeSingle();
+
+        if (channel && mediaAsset?.id) {
+          const isShort = contentType === 'short';
+          const paidFlag = !isShort && (isPaid === 'true' || isPaid === true || is_free === 'false');
+          const resolvedPriceRwf = paidFlag ? Number(price || price_rwf || 0) : 0;
+          const now = new Date().toISOString();
+          const slug = `${String(title).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) || 'video'}-${crypto.randomBytes(3).toString('hex')}`;
+
+          const { data: insertedVid } = await db
+            .from('videos')
+            .insert({
+              creator_channel_id: channel.id,
+              artist_profile_id: artistProfile?.id || null,
+              created_by_user_id: userId,
+              video_type: isShort ? 'short' : 'regular',
+              title: String(title).trim(),
+              description: description || null,
+              slug,
+              source_media_asset_id: mediaAsset.id,
+              visibility: 'public',
+              publication_status: 'published',
+              processing_status: 'completed',
+              moderation_status: 'approved',
+              is_free: !paidFlag,
+              is_paywalled: paidFlag,
+              published_at: now,
+              metadata: {
+                video_url: result.url,
+                preview_url: result.url,
+                thumbnail_url: result.url,
+                category: isShort ? 'Shorts' : category || 'Music',
+                price_rwf: resolvedPriceRwf,
+                price_usd: resolvedPriceRwf > 0 ? Number((resolvedPriceRwf / 1400).toFixed(2)) : 0,
+                artist_id: artistProfile?.id || channel.id,
+                artist_name: artistProfile?.artist_name || channel.channel_name,
+                views: 0,
+                view_count: 0,
+                likes: 0,
+                like_count: 0,
+              },
+            })
+            .select('*')
+            .maybeSingle();
+
+          videoRecord = insertedVid || null;
+          if (videoRecord) {
+            await Promise.all([
+              cacheService.del('paytune:videos:trending'),
+              cacheService.del('paytune:videos:new'),
+              cacheService.del('paytune:videos:catalog:all'),
+            ]);
+          }
+        }
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Upload successful',
+        url: result.url,
+        publicUrl: result.url,
+        bucket: result.bucket,
+        path: result.storagePath,
+        file: {
+          path: result.storagePath,
+          bucket: result.bucket,
+          original_name: result.originalName,
+          mime_type: result.mime,
+          size: result.size,
+          url: result.url,
+        },
+        media: mediaAsset,
+        video: videoRecord,
+      });
+    } catch (err: any) {
+      console.error('Upload route error:', err);
+      return res.status(500).json({ error: err.message || 'Upload failed.' });
+    }
+  }
+);
+
+async function resolveOwnedArtist(user: any, requestedArtistId?: string) {
+  const client = rawSupabaseAdmin || supabaseAdmin;
+  if (!client || !user?.id) return null;
+
+  const isPrivileged = ['master', 'MASTER_ADMIN', 'admin'].includes(String(user.role || ''));
+  const targetId = requestedArtistId || user.artistId;
+
+  if (targetId && !isPrivileged) {
+    const { data: owned } = await client
+      .from('artist_profiles')
+      .select('id, created_by_user_id, primary_contact_user_id')
+      .eq('id', targetId)
+      .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+      .maybeSingle();
+    if (owned) return owned;
+  }
+
+  if (targetId && isPrivileged) {
+    const { data: adminTarget } = await client
+      .from('artist_profiles')
+      .select('id, created_by_user_id, primary_contact_user_id')
+      .or(`id.eq.${targetId},created_by_user_id.eq.${targetId},primary_contact_user_id.eq.${targetId}`)
+      .limit(1)
+      .maybeSingle();
+    if (adminTarget) return adminTarget;
+  }
+
+  const { data: selfArtist } = await client
+    .from('artist_profiles')
+    .select('id, created_by_user_id, primary_contact_user_id')
+    .or(`created_by_user_id.eq.${user.id},primary_contact_user_id.eq.${user.id}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (requestedArtistId && !isPrivileged && selfArtist && selfArtist.id !== requestedArtistId && requestedArtistId !== user.id) {
+    return null;
+  }
+
+  return selfArtist || null;
+}
+
 router.post(
   '/avatar',
-  optionalAuthenticate,
-  imageUpload.single('avatar'),
+  authenticate,
+  wrapMulterAny(imageUpload),
   async (req: Request, res: Response) => {
-    const file = req.file || (req as any).files?.file?.[0] || (req as any).files?.image?.[0];
+    const file = pickUploadedFile(req, ['avatar', 'file', 'image']);
     if (!file) {
       return res.status(400).json({ error: 'No image file provided.' });
     }
 
     try {
-      const result = await processFileUpload(file, 'avatars', 'avatar', 'avatars');
       const user = (req as any).user;
+      if (!user?.id) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
 
-      logMediaAsset({
-        userId: user?.id,
-        artistId: req.body.artist_id || user?.id,
+      const requestedArtistId = req.body.artist_id ? String(req.body.artist_id) : undefined;
+      const ownedArtist = await resolveOwnedArtist(user, requestedArtistId);
+      if (requestedArtistId && !ownedArtist) {
+        return res.status(403).json({ error: 'Unauthorized to modify this artist profile' });
+      }
+
+      const result = await processFileUpload(file, 'avatars', user.id.slice(0, 12));
+
+      await logMediaAsset({
+        userId: user.id,
         assetType: 'avatar',
-        url: result.url,
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
         mimeType: result.mime,
       });
 
-      // Update artist or user profile in store if present
-      const store = getDbStore();
-      const artistId = req.body.artist_id || user?.id;
-      if (artistId && store.artists) {
-        const artist = store.artists.find(
-          (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-        );
-        if (artist) {
-          artist.avatar_url = result.url;
-          artist.profile_image = result.url;
-          artist.updated_at = new Date().toISOString();
-          notifyMutation();
+      const client = rawSupabaseAdmin || supabaseAdmin;
+      const now = new Date().toISOString();
+      if (client) {
+        if (ownedArtist) {
+          await client
+            .from('artist_profiles')
+            .update({ avatar_path: result.url, updated_at: now })
+            .eq('id', ownedArtist.id);
         }
+        await client
+          .from('creator_channels')
+          .update({ avatar_path: result.url, updated_at: now })
+          .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`);
+        await client
+          .from('profiles')
+          .update({ avatar_storage_path: result.url, updated_at: now })
+          .eq('user_id', user.id);
       }
 
       res.json({ success: true, url: result.url });
@@ -183,68 +426,59 @@ router.post(
   }
 );
 
-// ==========================================
-// 2. YOUTUBE-STYLE BANNER UPLOAD & FOCAL COORDS
-// (2560x1440 16:9 canvas, safe zone 1546x423)
-// ==========================================
 router.post(
   '/banner',
-  optionalAuthenticate,
-  imageUpload.single('banner'),
+  authenticate,
+  wrapMulterAny(imageUpload),
   async (req: Request, res: Response) => {
-    const file = req.file || (req as any).files?.file?.[0] || (req as any).files?.image?.[0];
+    const file = pickUploadedFile(req, ['banner', 'file', 'image']);
     if (!file) {
       return res.status(400).json({ error: 'No banner image file provided.' });
     }
 
     try {
-      const result = await processFileUpload(file, 'banners', 'banner', 'banners');
       const user = (req as any).user;
+      if (!user?.id) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const requestedArtistId = req.body.artist_id ? String(req.body.artist_id) : undefined;
+      const ownedArtist = await resolveOwnedArtist(user, requestedArtistId);
+      if (requestedArtistId && !ownedArtist) {
+        return res.status(403).json({ error: 'Unauthorized to modify this artist banner' });
+      }
+
+      const result = await processFileUpload(file, 'banners', user.id.slice(0, 12));
       const focalX = req.body.focal_x != null ? Number(req.body.focal_x) : 50;
       const focalY = req.body.focal_y != null ? Number(req.body.focal_y) : 50;
       const zoom = req.body.zoom != null ? Number(req.body.zoom) : 1;
-      const artistId = req.body.artist_id || user?.id;
 
-      const store = getDbStore();
-      if (!store.profile_covers) store.profile_covers = [];
-      store.profile_covers.push({
-        id: `cover-${Date.now()}`,
-        user_id: user?.id || null,
-        artist_id: artistId || null,
-        banner_url: result.url,
-        focal_x: focalX,
-        focal_y: focalY,
-        zoom: zoom,
-        safe_zone: { width: 1546, height: 423, canvas_width: 2560, canvas_height: 1440 },
-        created_at: new Date().toISOString(),
-      });
-
-      if (artistId && store.artists) {
-        const artist = store.artists.find(
-          (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-        );
-        if (artist) {
-          artist.banner_url = result.url;
-          artist.banner_image = result.url;
-          artist.banner_focal_x = focalX;
-          artist.banner_focal_y = focalY;
-          artist.banner_zoom = zoom;
-          artist.updated_at = new Date().toISOString();
-        }
-      }
-
-      logMediaAsset({
-        userId: user?.id,
-        artistId,
+      await logMediaAsset({
+        userId: user.id,
         assetType: 'banner',
-        url: result.url,
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
         mimeType: result.mime,
-        metadata: { focal_x: focalX, focal_y: focalY, zoom },
+        extraMeta: { focal_x: focalX, focal_y: focalY, zoom },
       });
 
-      notifyMutation();
+      const client = rawSupabaseAdmin || supabaseAdmin;
+      const now = new Date().toISOString();
+      if (client) {
+        if (ownedArtist) {
+          await client
+            .from('artist_profiles')
+            .update({ banner_path: result.url, updated_at: now })
+            .eq('id', ownedArtist.id);
+        }
+        await client
+          .from('creator_channels')
+          .update({ banner_path: result.url, updated_at: now })
+          .or(`owner_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`);
+      }
 
       res.json({
         success: true,
@@ -262,77 +496,87 @@ router.post(
   }
 );
 
-// Update banner focal coordinates without re-uploading image
-router.post('/banner-coordinates', optionalAuthenticate, async (req: Request, res: Response) => {
+router.post('/banner-coordinates', authenticate, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
     const { artist_id, focal_x, focal_y, zoom } = req.body;
-    const artistId = artist_id || user?.id;
+    const ownedArtist = await resolveOwnedArtist(user, artist_id ? String(artist_id) : undefined);
 
-    if (!artistId) {
-      return res.status(400).json({ success: false, message: 'Artist identifier required' });
+    if (!ownedArtist) {
+      return res.status(403).json({ success: false, message: 'Unauthorized or artist profile not found' });
     }
 
-    const store = getDbStore();
-    const artist = (store.artists || []).find(
-      (a: any) => String(a.id) === String(artistId) || String(a.user_id) === String(artistId)
-    );
+    const client = rawSupabaseAdmin || supabaseAdmin;
+    const now = new Date().toISOString();
+    const coords = {
+      focal_x: Number(focal_x ?? 50),
+      focal_y: Number(focal_y ?? 50),
+      zoom: Number(zoom ?? 1),
+    };
 
-    if (!artist) {
-      return res.status(404).json({ success: false, message: 'Artist profile not found' });
+    await client
+      .from('artist_profiles')
+      .update({ updated_at: now })
+      .eq('id', ownedArtist.id);
+
+    // Persist latest banner crop coordinates in the user's latest banner media_asset metadata
+    const { data: latestBanner } = await client
+      .from('media_assets')
+      .select('id, metadata')
+      .eq('owner_user_id', ownedArtist.created_by_user_id)
+      .eq('media_purpose', 'artist_banner')
+      .order('uploaded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestBanner?.id) {
+      const prevMeta = (latestBanner.metadata && typeof latestBanner.metadata === 'object' ? latestBanner.metadata : {}) as Record<string, any>;
+      await client
+        .from('media_assets')
+        .update({ metadata: { ...prevMeta, ...coords } })
+        .eq('id', latestBanner.id);
     }
-
-    artist.banner_focal_x = Number(focal_x ?? 50);
-    artist.banner_focal_y = Number(focal_y ?? 50);
-    artist.banner_zoom = Number(zoom ?? 1);
-    artist.updated_at = new Date().toISOString();
-
-    notifyMutation();
 
     return res.json({
       success: true,
-      message: 'Banner focal coordinates updated successfully',
-      focal_x: artist.banner_focal_x,
-      focal_y: artist.banner_focal_y,
-      zoom: artist.banner_zoom,
+      message: 'Banner focal coordinates saved',
+      ...coords,
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ==========================================
-// 3. AUDIO / MUSIC TRACK UPLOAD (MP3, WAV, FLAC, AAC)
-// ==========================================
 router.post(
   '/audio',
-  optionalAuthenticate,
-  audioUpload.single('audio'),
+  authenticate,
+  wrapMulterAny(audioUpload),
   async (req: Request, res: Response) => {
-    const file = req.file || (req as any).files?.file?.[0] || (req as any).files?.audio?.[0];
+    const file = pickUploadedFile(req, ['audio', 'file', 'media']);
     if (!file) {
       return res.status(400).json({ error: 'No audio track file provided.' });
     }
 
     try {
-      const result = await processFileUpload(file, 'audio', 'track', 'audio');
       const user = (req as any).user;
-      const artistId = req.body.artist_id || user?.id;
+      if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
+
+      const result = await processFileUpload(file, 'audio', user.id.slice(0, 12));
       const trackTitle = req.body.title || path.basename(file.originalname, path.extname(file.originalname));
 
-      logMediaAsset({
-        userId: user?.id,
-        artistId,
+      await logMediaAsset({
+        userId: user.id,
         assetType: 'audio',
-        url: result.url,
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
         mimeType: result.mime,
-        metadata: {
-          title: trackTitle,
-          genre: req.body.genre || 'Afrobeats',
-          isrc: req.body.isrc || null,
-        },
       });
 
       res.json({
@@ -350,28 +594,28 @@ router.post(
   }
 );
 
-// ==========================================
-// 4. ARTWORK / ALBUM COVER UPLOAD (1:1 Aspect Ratio)
-// ==========================================
 router.post(
   '/artwork',
-  optionalAuthenticate,
-  imageUpload.single('artwork'),
+  authenticate,
+  wrapMulterAny(imageUpload),
   async (req: Request, res: Response) => {
-    const file = req.file || (req as any).files?.file?.[0] || (req as any).files?.artwork?.[0];
+    const file = pickUploadedFile(req, ['artwork', 'file', 'image']);
     if (!file) {
       return res.status(400).json({ error: 'No artwork image provided.' });
     }
 
     try {
-      const result = await processFileUpload(file, 'artwork', 'art', 'artwork');
       const user = (req as any).user;
+      if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
 
-      logMediaAsset({
-        userId: user?.id,
-        artistId: req.body.artist_id || user?.id,
+      const result = await processFileUpload(file, 'thumbnails', user.id.slice(0, 12));
+
+      await logMediaAsset({
+        userId: user.id,
         assetType: 'artwork',
-        url: result.url,
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
         mimeType: result.mime,
@@ -385,21 +629,32 @@ router.post(
   }
 );
 
-// ==========================================
-// 5. GENERIC IMAGE UPLOAD
-// ==========================================
 router.post(
   '/image',
-  optionalAuthenticate,
-  imageUpload.single('image'),
+  authenticate,
+  wrapMulterAny(imageUpload),
   async (req: Request, res: Response) => {
-    const file = req.file || (req as any).files?.file?.[0];
+    const file = pickUploadedFile(req, ['image', 'file', 'avatar']);
     if (!file) {
       return res.status(400).json({ error: 'No image file provided.' });
     }
 
     try {
-      const result = await processFileUpload(file, 'avatars', 'img', 'images');
+      const user = (req as any).user;
+      if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
+
+      const result = await processFileUpload(file, 'avatars', user.id.slice(0, 12));
+      await logMediaAsset({
+        userId: user.id,
+        assetType: 'image',
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
+        originalName: result.originalName,
+        fileSize: result.size,
+        mimeType: result.mime,
+      });
+
       res.json({ success: true, url: result.url });
     } catch (err: any) {
       console.error('Image upload error:', err);

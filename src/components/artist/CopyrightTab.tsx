@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 import { 
   ShieldCheck, 
   AlertTriangle, 
@@ -22,6 +22,8 @@ export function CopyrightTab() {
   const [strikes, setStrikes] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmAcceptClaimId, setConfirmAcceptClaimId] = useState<string | null>(null);
 
   // Dispute Modal State
   const [selectedClaimForDispute, setSelectedClaimForDispute] = useState<CopyrightClaim | null>(null);
@@ -32,8 +34,8 @@ export function CopyrightTab() {
   const fetchArtistCopyrightData = async () => {
     try {
       const [claimsRes, strikesRes] = await Promise.all([
-        axios.get('/api/copyright/claims/my').catch(() => ({ data: { claims: [] } })),
-        axios.get('/api/copyright/strikes').catch(() => ({ data: { strikes: [] } }))
+        api.get('/api/copyright/claims/my').catch(() => ({ data: { claims: [] } })),
+        api.get('/api/copyright/strikes').catch(() => ({ data: { strikes: [] } }))
       ]);
 
       const myClaims = claimsRes.data?.claims || [];
@@ -70,7 +72,7 @@ export function CopyrightTab() {
 
     setSubmittingDispute(true);
     try {
-      const res = await axios.post('/api/copyright/claims/dispute', {
+      const res = await api.post('/api/copyright/claims/dispute', {
         claim_id: selectedClaimForDispute.id,
         reason: disputeReason,
         evidence: disputeEvidence
@@ -80,21 +82,21 @@ export function CopyrightTab() {
       setSelectedClaimForDispute(null);
       await fetchArtistCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to submit dispute');
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to submit dispute');
     } finally {
       setSubmittingDispute(false);
     }
   };
 
   const handleAcceptClaim = async (claimId: string) => {
-    if (!window.confirm('Accept this claim? 70% of video purchase earnings will be routed to the copyright holder.')) return;
-
+    setErrorMsg(null);
+    setConfirmAcceptClaimId(null);
     try {
-      await axios.post('/api/copyright/claims/accept', { claim_id: claimId });
+      await api.post('/api/copyright/claims/accept', { claim_id: claimId });
       setFeedback('Claim accepted. Revenue routing updated.');
       await fetchArtistCopyrightData();
     } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to accept claim');
+      setErrorMsg(err.response?.data?.error || err.message || 'Failed to accept claim');
     }
   };
 
@@ -160,7 +162,7 @@ export function CopyrightTab() {
         </div>
       </div>
 
-      {/* Feedback Banner */}
+      {/* Feedback & Error Banners */}
       {feedback && (
         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -168,6 +170,15 @@ export function CopyrightTab() {
             <span>{feedback}</span>
           </div>
           <button onClick={() => setFeedback(null)} className="text-xs underline">Dismiss</button>
+        </div>
+      )}
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg(null)} className="text-xs underline">Dismiss</button>
         </div>
       )}
 
@@ -241,7 +252,7 @@ export function CopyrightTab() {
                   {claim.status === 'active' && (
                     <>
                       <button
-                        onClick={() => handleAcceptClaim(claim.id)}
+                        onClick={() => setConfirmAcceptClaimId(claim.id)}
                         className="px-3.5 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-bold transition-all cursor-pointer"
                       >
                         Accept Claim
@@ -366,6 +377,36 @@ export function CopyrightTab() {
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* Accept Claim Confirmation Modal */}
+      {confirmAcceptClaimId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white dark:bg-[#141417] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 className="text-base font-black text-gray-950 dark:text-white">
+              Accept Copyright Claim?
+            </h3>
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+              Accepting this claim will permanently route 70% of this video&apos;s monetization revenue to the claimant. Are you sure you want to proceed?
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAcceptClaimId(null)}
+                className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAcceptClaim(confirmAcceptClaimId)}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold cursor-pointer"
+              >
+                Confirm Accept
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -39,9 +39,7 @@ export default function BannerUpload({
 
     setLoading(true);
     try {
-      const res = await api.post('/artist/upload/banner', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = await api.post('/artist/upload/banner', fd);
       if (res.data?.url) {
         onUploaded(res.data.url);
       }

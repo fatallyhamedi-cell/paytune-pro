@@ -8,10 +8,9 @@ import {
   CheckCircle2, 
   Phone, 
   Building2, 
-  ShieldCheck,
   Smartphone
 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../../lib/api';
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -32,7 +31,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
 }) => {
   const [amount, setAmount] = useState<number>(Math.min(availableBalance, 10000));
   const [paymentMethod, setPaymentMethod] = useState<'MTN Mobile Money' | 'Airtel Money' | 'Bank Transfer'>('MTN Mobile Money');
-  const [phone, setPhone] = useState(defaultPhone || '0788112233');
+  const [phone, setPhone] = useState(defaultPhone || '');
   const [bankName, setBankName] = useState('Bank of Kigali (BK)');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
@@ -76,7 +75,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
         payload.phone = phone;
       }
 
-      const res = await axios.post('/api/artist/withdraw', payload);
+      const res = await api.post('/api/artist/withdraw', payload);
       setSuccessData(res.data);
       onSuccess();
     } catch (err: any) {
@@ -133,7 +132,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
               <div className="bg-[#1F1F1F] p-4 rounded-xl border border-white/5 text-left mb-6 space-y-2">
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Reference:</span>
-                  <span className="font-mono text-white">{successData.withdrawal?.reference_code || 'PAYTUNE-WD-2026'}</span>
+                  <span className="font-mono text-white">{successData.withdrawal?.reference_code || '—'}</span>
                 </div>
                 <div className="flex justify-between text-xs text-gray-400">
                   <span>Amount:</span>
@@ -310,7 +309,7 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
                     <label className="block text-xs font-bold text-gray-300 mb-1.5">Account Holder Full Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Bruce Melodie"
+                      placeholder="Account Holder Full Name"
                       value={accountName}
                       onChange={(e) => setAccountName(e.target.value)}
                       required
@@ -359,22 +358,11 @@ export const WithdrawalModal: React.FC<WithdrawalModalProps> = ({
               </div>
 
               {error && (
-                <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-xl space-y-2">
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-xl">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                     <span>{error}</span>
                   </div>
-                  {error.includes("Phone verification is required") && (
-                    <div className="pt-1">
-                      <a
-                        href="/artist/verify-phone"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-black font-bold text-xs hover:bg-purple-400 transition"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Verify Phone via SMS Now</span>
-                      </a>
-                    </div>
-                  )}
                 </div>
               )}
 

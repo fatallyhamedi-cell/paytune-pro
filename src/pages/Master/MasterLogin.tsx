@@ -18,12 +18,15 @@ export default function MasterLogin({ onSuccess }: { onSuccess?: () => void } = 
       const res = await api.post('/auth/login', { email, password });
       
       // ✅ Check if the user is actually a master
-      const userRole = res.data?.user?.role;
-      if (userRole !== 'master' && userRole !== 'MASTER_ADMIN') {
+      const userRole = String(res.data?.user?.role || '').toLowerCase();
+      if (userRole !== 'master' && userRole !== 'master_admin') {
         throw new Error('This account does not have Master privileges.');
       }
 
-      const token = res.data.token || res.data.access_token || 'master_token';
+      const token = res.data?.token || res.data?.access_token;
+      if (!token) {
+        throw new Error('Authentication server did not return an access token.');
+      }
 
       // ✅ Save the token for the Master Dashboard
       localStorage.setItem('master_token', token);
@@ -32,6 +35,7 @@ export default function MasterLogin({ onSuccess }: { onSuccess?: () => void } = 
       localStorage.setItem('user_role', 'master');
       localStorage.setItem('master', JSON.stringify(res.data.user || { role: 'master', email }));
       localStorage.setItem('paytune_master_token', token);
+      localStorage.setItem('paytune_auth_token', token);
       localStorage.setItem('paytune_master_data', JSON.stringify(res.data.user || { role: 'master', email }));
 
       if (onSuccess) {
@@ -74,7 +78,7 @@ export default function MasterLogin({ onSuccess }: { onSuccess?: () => void } = 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-3 rounded-lg bg-[#2A2A2A] text-white border border-gray-700 focus:border-red-500 outline-none text-sm transition-colors"
-              placeholder="Password (e.g. PaytuneMaster2025!)"
+              placeholder="Enter Master password"
               required
             />
           </div>
