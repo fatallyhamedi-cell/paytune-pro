@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Play,
   Pause,
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { MusicTrack, useAudioPlayer } from '../../hooks/useAudioPlayer';
 import { api } from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
+import { notifyFollowingChanged } from '../../lib/followingEvents';
 
 interface MusicTrackCardProps {
   track: MusicTrack;
@@ -39,10 +41,16 @@ export default function MusicTrackCard({
     toggleLike,
   } = useAudioPlayer();
 
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [isFollowing, setIsFollowing] = useState(isFollowedInitial);
   const [followLoading, setFollowLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setIsFollowing(isFollowedInitial);
+  }, [isFollowedInitial]);
 
   const isCurrent = currentTrack?.id === track.id;
   const isThisPlaying = isCurrent && isPlaying;
@@ -73,6 +81,10 @@ export default function MusicTrackCard({
   const handleFollowToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!track.artist_id || followLoading) return;
+    if (!user) {
+      navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
 
     setFollowLoading(true);
     const nextState = !isFollowing;
@@ -84,6 +96,7 @@ export default function MusicTrackCard({
       } else {
         await api.delete(`/api/music/artists/${track.artist_id}/follow`);
       }
+      notifyFollowingChanged(user.id);
       onFollowToggled?.(track.artist_id, nextState);
     } catch {
       setIsFollowing(!nextState);

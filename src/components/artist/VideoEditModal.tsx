@@ -22,6 +22,10 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
   const [isFree, setIsFree] = useState(!!video?.is_free);
   const [priceRwf, setPriceRwf] = useState<number>(video?.price_rwf ?? 0);
   const [visibility, setVisibility] = useState(video?.visibility || 'public');
+  const [publicationStatus, setPublicationStatus] = useState(video?.publication_status || 'published');
+  const [scheduledAt, setScheduledAt] = useState(
+    video?.scheduled_at ? new Date(video.scheduled_at).toISOString().slice(0, 16) : ''
+  );
   const [previewDuration, setPreviewDuration] = useState<number>(video?.preview_duration || 30);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +34,10 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (publicationStatus === 'scheduled' && (!scheduledAt || Number.isNaN(new Date(scheduledAt).getTime()))) {
+      setError('Select a valid scheduled publication date.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -41,6 +49,8 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
         is_free: isFree,
         price_rwf: isFree ? 0 : priceRwf,
         visibility,
+        publication_status: publicationStatus,
+        scheduled_at: publicationStatus === 'scheduled' ? new Date(scheduledAt).toISOString() : null,
         preview_duration: previewDuration
       });
       onSuccess();
@@ -70,7 +80,7 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
               </div>
               <div>
                 <h3 className="font-bold text-lg text-white">Edit Video Details</h3>
-                <p className="text-xs text-gray-400">Modify metadata, pricing, and visibility</p>
+                <p className="text-xs text-gray-400">Modify metadata, pricing, visibility & schedule</p>
               </div>
             </div>
             <button
@@ -165,9 +175,41 @@ export const VideoEditModal: React.FC<VideoEditModalProps> = ({
                   <option value="public">Public (Everyone)</option>
                   <option value="unlisted">Unlisted (Direct link)</option>
                   <option value="private">Private (Only you)</option>
-                  <option value="draft">Draft</option>
                 </select>
               </div>
+            </div>
+
+            {/* Publication Status & Schedule */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                  Status
+                </label>
+                <select
+                  value={publicationStatus}
+                  onChange={(e) => setPublicationStatus(e.target.value)}
+                  className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#FFB300]"
+                >
+                  <option value="published">Published (Live)</option>
+                  <option value="draft">Draft (Hidden)</option>
+                  <option value="scheduled">Scheduled Release</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              {publicationStatus === 'scheduled' && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5">
+                    Release Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-[#FFB300]"
+                    required
+                  />
+                </div>
+              )}
             </div>
 
             {/* Pricing Model */}

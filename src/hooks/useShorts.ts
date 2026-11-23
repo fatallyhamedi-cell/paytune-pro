@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { notifyFollowingChanged } from '../lib/followingEvents';
 
 export interface ShortItem {
   id: string;
@@ -41,7 +42,7 @@ interface ShortsFeedResponse {
 
 export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
   const queryClient = useQueryClient();
-  const preloadedUrls = useRef<Set<string>>(new Set());
+  const preloadLinkRef = useRef<HTMLLinkElement | null>(null);
 
   // Infinite Query for shorts feed
   const {
@@ -158,6 +159,7 @@ export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['shortsFeed', sort] });
+      notifyFollowingChanged();
     }
   });
 
@@ -181,19 +183,41 @@ export function useShorts(sort: 'trending' | 'new' | 'following' = 'trending') {
     }
   });
 
-  // Helper to preload the upcoming video in browser cache
+  // Reuse a single preload link tag for only the next upcoming Short and remove on unmount
   const preloadNextVideo = useCallback((url?: string) => {
-    if (!url || preloadedUrls.current.has(url)) return;
+    if (typeof document === 'undefined') return;
+    if (!url) {
+      if (preloadLinkRef.current) {
+        preloadLinkRef.current.remove();
+        preloadLinkRef.current = null;
+      }
+      return;
+    }
     try {
-      preloadedUrls.current.add(url);
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'video';
-      link.href = url;
-      document.head.appendChild(link);
+      let link = preloadLinkRef.current;
+      if (!link) {
+        link = document.createElement('link');
+        link.id = 'paytune-short-preload';
+        link.rel = 'preload';
+        link.as = 'video';
+        document.head.appendChild(link);
+        preloadLinkRef.current = link;
+      }
+      if (link.href !== url) {
+        link.href = url;
+      }
     } catch {
       // ignore
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (preloadLinkRef.current) {
+        preloadLinkRef.current.remove();
+        preloadLinkRef.current = null;
+      }
+    };
   }, []);
 
   return {

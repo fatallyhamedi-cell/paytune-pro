@@ -6,6 +6,10 @@ import {
   uploadVideo,
   updateArtistVideo,
   deleteArtistVideo,
+  replaceArtistVideoMedia,
+  listVideoCaptions,
+  uploadVideoCaption,
+  deleteVideoCaption,
   getArtistEarnings,
   getEarningsBreakdown,
   getVideoAnalytics,
@@ -83,6 +87,26 @@ artistStudioRouter.post(
 );
 artistStudioRouter.put('/video/:id', authenticate, updateArtistVideo);
 artistStudioRouter.put('/videos/:id', authenticate, updateArtistVideo);
+artistStudioRouter.put(
+  '/video/:id/replace-media',
+  authenticate,
+  upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }, { name: 'file', maxCount: 1 }]),
+  replaceArtistVideoMedia
+);
+artistStudioRouter.put(
+  '/videos/:id/replace-media',
+  authenticate,
+  upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }, { name: 'file', maxCount: 1 }]),
+  replaceArtistVideoMedia
+);
+artistStudioRouter.get('/videos/:id/captions', authenticate, listVideoCaptions);
+artistStudioRouter.post(
+  '/videos/:id/captions',
+  authenticate,
+  upload.fields([{ name: 'caption', maxCount: 1 }, { name: 'subtitle', maxCount: 1 }, { name: 'file', maxCount: 1 }]),
+  uploadVideoCaption
+);
+artistStudioRouter.delete('/videos/:id/captions/:captionId', authenticate, deleteVideoCaption);
 artistStudioRouter.delete('/video/:id', authenticate, deleteArtistVideo);
 artistStudioRouter.delete('/videos/:id', authenticate, deleteArtistVideo);
 artistStudioRouter.post('/video/:id/regenerate-link', authenticate, regenerateVideoLink);

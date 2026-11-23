@@ -107,18 +107,25 @@ export const getShortsFeed = async (req: Request, res: Response) => {
 
   try {
     const client = db();
-    const { data, count, error } = await client
+    const { data, error } = await client
       .from('videos')
-      .select('*', { count: 'exact' })
+      .select('*')
       .eq('video_type', 'short')
       .eq('visibility', 'public')
       .eq('publication_status', 'published')
+      .neq('moderation_status', 'rejected')
+      .neq('moderation_status', 'restricted')
       .order('published_at', { ascending: false })
-      .range(numOffset, numOffset + numLimit - 1);
+      .limit(200);
 
     if (error) throw error;
 
-    const items = await enrichShorts(data || [], currentUserId);
+    const nowMs = Date.now();
+    const eligibleRows = (data || []).filter(
+      (v: any) => !v.scheduled_at || new Date(v.scheduled_at).getTime() <= nowMs
+    );
+
+    const items = await enrichShorts(eligibleRows, currentUserId);
 
     if (sort === 'following' && currentUserId) {
       items.sort((a, b) => (b.is_subscribed ? 1 : 0) - (a.is_subscribed ? 1 : 0));
@@ -126,12 +133,13 @@ export const getShortsFeed = async (req: Request, res: Response) => {
       items.sort((a, b) => (b.views + b.likes * 3) - (a.views + a.likes * 3));
     }
 
-    const total = count ?? items.length;
-    const hasMore = numOffset + items.length < total;
+    const total = items.length;
+    const paged = items.slice(numOffset, numOffset + numLimit);
+    const hasMore = numOffset + paged.length < total;
 
     return res.json({
-      items,
-      shorts: items,
+      items: paged,
+      shorts: paged,
       total,
       nextOffset: hasMore ? numOffset + numLimit : null,
       hasMore,
@@ -147,7 +155,8 @@ export const getShortsFeed = async (req: Request, res: Response) => {
  */
 export const getShortById = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const currentUserId = (req as any).user?.id;
+  const user = (req as any).user;
+  const currentUserId = user?.id;
 
   try {
     const client = db();
@@ -162,8 +171,67 @@ export const getShortById = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Short video not found' });
     }
 
+    const isMaster = user?.role === 'MASTER_ADMIN' || user?.role === 'master' || user?.role === 'admin';
+    let isOwner = Boolean(isMaster);
+    if (currentUserId && !isOwner) {
+      if (video.created_by_user_id && String(video.created_by_user_id) === String(currentUserId)) {
+        isOwner = true;
+      } else if (video.artist_profile_id) {
+        const { data: ap } = await client
+          .from('artist_profiles')
+          .select('id')
+          .eq('id', video.artist_profile_id)
+          .or(`created_by_user_id.eq.${currentUserId},primary_contact_user_id.eq.${currentUserId}`)
+          .maybeSingle();
+        if (ap) isOwner = true;
+      }
+    }
+
+    const isFuture = Boolean(video.scheduled_at && new Date(video.scheduled_at).getTime() > Date.now());
+    const blocked = video.moderation_status === 'rejected' || video.moderation_status === 'restricted';
+    const unpublished = video.publication_status && video.publication_status !== 'published';
+    const isPrivate = video.visibility === 'private';
+
+    if (!isOwner && (blocked || unpublished || isFuture || isPrivate)) {
+      return res.status(404).json({ error: 'Short video not found' });
+    }
+
     const [normalized] = await enrichShorts([video], currentUserId);
-    return res.json(normalized);
+    let captions: any[] = [];
+    try {
+      const { data: captionRows } = await client
+        .from('video_captions')
+        .select('id, language_code, track_label, track_type, is_default, media_asset_id')
+        .eq('video_id', id)
+        .eq('is_active', true);
+
+      if (captionRows && captionRows.length > 0) {
+        const ids = captionRows.map((c: any) => c.media_asset_id).filter(Boolean);
+        const { data: assets } = ids.length > 0
+          ? await client.from('media_assets').select('id, storage_bucket, storage_path, metadata').in('id', ids)
+          : { data: [] as any[] };
+        const map = new Map<string, any>((assets || []).map((a: any) => [String(a.id), a]));
+        captions = captionRows
+          .map((c: any) => {
+            const asset = map.get(String(c.media_asset_id));
+            let url = asset?.metadata?.public_url || '';
+            if (!url && asset?.storage_bucket && asset?.storage_path) {
+              url = client.storage.from(asset.storage_bucket).getPublicUrl(asset.storage_path).data?.publicUrl || '';
+            }
+            return {
+              id: String(c.id),
+              language_code: c.language_code || 'en',
+              label: c.track_label || 'English',
+              kind: c.track_type || 'subtitles',
+              is_default: Boolean(c.is_default),
+              url,
+            };
+          })
+          .filter((c) => Boolean(c.url));
+      }
+    } catch {}
+
+    return res.json({ ...normalized, captions });
   } catch (error: any) {
     console.error('getShortById error:', error);
     return res.status(500).json({ error: error.message || 'Failed to retrieve short' });

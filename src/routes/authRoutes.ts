@@ -45,7 +45,7 @@ function generateToken(user: { id: string; email: string; role?: string; fullNam
  */
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, username } = req.body || {};
+    const { email, password, fullName, username, termsAccepted } = req.body || {};
 
     const errors: Record<string, string> = {};
     if (!email || typeof email !== 'string' || !email.trim()) {
@@ -62,6 +62,9 @@ router.post('/register', async (req: Request, res: Response) => {
       errors.fullName = 'Full name is required.';
     } else if (fullName.trim().length < 2) {
       errors.fullName = 'Full name must be at least 2 characters.';
+    }
+    if (termsAccepted === false) {
+      errors.termsAccepted = 'You must accept the Terms of Service and Privacy Policy.';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -139,6 +142,7 @@ router.post('/register', async (req: Request, res: Response) => {
         ? 'Account registered successfully.'
         : 'Account created. Please check your email to confirm before signing in.',
       token: data.session?.access_token || null,
+      refreshToken: data.session?.refresh_token || null,
       redirectTo: data.session ? '/dashboard' : '/auth',
       user: {
         id: data.user.id,
@@ -152,6 +156,50 @@ router.post('/register', async (req: Request, res: Response) => {
       success: false,
       error: 'server_error',
       message: err?.message || 'An unexpected error occurred during registration.'
+    });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Triggers Supabase Auth password reset email without enumerating accounts.
+ */
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email || !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'validation_failed',
+        message: 'Please provide a valid email address.',
+      });
+    }
+
+    const originHeader = req.headers.origin;
+    const fallbackOrigin = process.env.CLIENT_URL || 'http://localhost:3000';
+    const baseRedirect = typeof originHeader === 'string' && /^https?:\/\//i.test(originHeader)
+      ? originHeader
+      : fallbackOrigin;
+    const redirectTo = `${baseRedirect.replace(/\/+$/, '')}/auth/callback?type=recovery`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error && error.message?.toLowerCase().includes('rate limit')) {
+      return res.status(429).json({
+        success: false,
+        error: 'rate_limited',
+        message: 'Too many password reset requests. Please wait a few minutes before retrying.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'If an account matches this email, a password reset link has been sent.',
+    });
+  } catch {
+    return res.status(500).json({
+      success: false,
+      error: 'server_error',
+      message: 'Unable to process password reset request right now.',
     });
   }
 });

@@ -1,9 +1,11 @@
-import { supabaseAdmin } from '../config/supabase';
+import { rawSupabaseAdmin, supabaseAdmin } from '../config/supabase';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
+
+const storageClient = () => rawSupabaseAdmin || supabaseAdmin;
 
 /**
  * Write a buffer to a temp file
@@ -41,7 +43,7 @@ export const generatePreview = (inputPath: string, outputPath: string): Promise<
       .output(outputPath)
       .outputOptions('-c copy') // Fast copy when possible
       .on('end', () => resolve())
-      .on('error', (err) => {
+      .on('error', () => {
         // Retry with transcoding if copy fails due to container codecs
         ffmpeg(inputPath)
           .setStartTime(0)
@@ -70,8 +72,8 @@ export const extractThumbnail = (inputPath: string, outputPath: string): Promise
         size: '1280x720'
       })
       .on('end', () => resolve())
-      .on('error', (err) => {
-        // Fallback to timestamp 0 if video is shorter than 3s
+      .on('error', () => {
+        // Fallback to timestamp 0.5 if video is shorter than 3s
         ffmpeg(inputPath)
           .screenshots({
             timestamps: ['0.5'],
@@ -129,7 +131,8 @@ export const uploadToStorage = async (
   buffer: Buffer,
   contentType: string
 ): Promise<string> => {
-  const { error } = await supabaseAdmin.storage
+  const client = storageClient();
+  const { error } = await client.storage
     .from(bucket)
     .upload(fileName, buffer, {
       contentType,
@@ -138,14 +141,18 @@ export const uploadToStorage = async (
     });
 
   if (error) {
-    console.warn(`[Supabase Storage] Warning uploading to ${bucket}: ${error.message}`);
+    throw new Error(`Supabase Storage upload failed for bucket '${bucket}': ${error.message}`);
   }
 
-  const { data: urlData } = supabaseAdmin.storage
+  const { data: urlData } = client.storage
     .from(bucket)
     .getPublicUrl(fileName);
 
-  return urlData?.publicUrl || `/uploads/${path.basename(fileName)}`;
+  if (!urlData?.publicUrl) {
+    throw new Error(`Failed to resolve public URL for '${bucket}/${fileName}'`);
+  }
+
+  return urlData.publicUrl;
 };
 
 export interface ProcessVideoParams {

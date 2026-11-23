@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import { AudioPlayerContext, MusicTrack } from '../hooks/useAudioPlayer';
+import { emitMediaPlay, subscribeMediaPlay } from '../lib/playbackBus';
 
 export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState<MusicTrack | null>(null);
@@ -23,11 +24,22 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [volume, isMuted]);
 
+  // Pause audio automatically whenever a Watch video or Short begins playing
+  useEffect(() => {
+    return subscribeMediaPlay(
+      (detail) => detail.kind === 'audio',
+      () => {
+        setIsPlaying(false);
+      }
+    );
+  }, []);
+
   // Handle Play / Pause commands
   useEffect(() => {
     if (!audioRef.current || !currentTrack) return;
 
     if (isPlaying) {
+      emitMediaPlay(`audio:${currentTrack.id}`, 'audio');
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {

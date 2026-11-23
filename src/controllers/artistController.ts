@@ -1,10 +1,13 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
+import path from 'path';
 import { rawSupabaseAdmin, supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
 import { cacheService } from '../services/cacheService';
 import { notifyArtistNewSubscriber } from '../services/notificationService';
 import { uploadVideo as uploadVideoHandler } from './artistVideoController';
 import { requestWithdrawal as requestWithdrawalHandler } from './withdrawalController';
+import { processAndUploadVideo } from '../services/videoService';
+import { validateUploadedMedia, deleteStorageObjects } from '../utils/uploadValidation';
 
 const getDb = () => rawSupabaseAdmin || supabaseAdmin;
 
@@ -206,7 +209,7 @@ function buildVideosFilter(ctx: NonNullable<Awaited<ReturnType<typeof resolveCre
   return parts.join(',');
 }
 
-function formatStudioVideo(v: any, stats?: { buyersCount?: number; totalEarned?: number; commentsCount?: number }) {
+function formatStudioVideo(v: any, stats?: { buyersCount?: number; totalEarned?: number; commentsCount?: number; captionsCount?: number }) {
   const meta = v.metadata && typeof v.metadata === 'object' ? v.metadata : {};
   const isShort = v.video_type === 'short' || Boolean(meta.is_short);
   const priceRwf = Number(meta.price_rwf || 0);
@@ -219,6 +222,7 @@ function formatStudioVideo(v: any, stats?: { buyersCount?: number; totalEarned?:
     title: v.title,
     description: v.description || '',
     category: meta.category || (isShort ? 'Shorts' : 'Music'),
+    media_type: isShort ? 'short' : meta.media_type || 'video',
     thumbnail_url: meta.thumbnail_url || '',
     video_url: meta.video_url || '',
     preview_url: meta.preview_url || meta.video_url || '',
@@ -229,11 +233,15 @@ function formatStudioVideo(v: any, stats?: { buyersCount?: number; totalEarned?:
     is_short: isShort,
     visibility: v.visibility || 'public',
     publication_status: v.publication_status || 'published',
-    status: v.publication_status === 'draft' ? 'draft' : v.visibility || 'public',
+    scheduled_at: v.scheduled_at || null,
+    status: v.publication_status === 'draft' ? 'draft' : v.publication_status === 'scheduled' ? 'scheduled' : v.publication_status === 'archived' ? 'archived' : v.visibility || 'public',
     views: Number(meta.view_count ?? meta.views ?? 0),
     likes: Number(meta.like_count ?? meta.likes ?? 0),
     unique_link: meta.unique_link || null,
     tags: Array.isArray(meta.tags) ? meta.tags : [],
+    chapters: Array.isArray(meta.chapters) ? meta.chapters : [],
+    language_code: meta.language_code || 'en',
+    captions_count: stats?.captionsCount ?? 0,
     buyers_count: stats?.buyersCount ?? 0,
     total_earned: stats?.totalEarned ?? 0,
     comments_count: stats?.commentsCount ?? 0,
@@ -574,7 +582,25 @@ export const getMyVideos = async (req: Request, res: Response) => {
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
-    return res.json((data || []).map((v: any) => formatStudioVideo(v)));
+
+    const videoIds = (data || []).map((v: any) => v.id);
+    const captionCounts = new Map<string, number>();
+    if (videoIds.length > 0) {
+      const { data: caps } = await db
+        .from('video_captions')
+        .select('video_id')
+        .in('video_id', videoIds)
+        .eq('is_active', true);
+      for (const c of caps || []) {
+        captionCounts.set(String(c.video_id), (captionCounts.get(String(c.video_id)) || 0) + 1);
+      }
+    }
+
+    return res.json(
+      (data || []).map((v: any) =>
+        formatStudioVideo(v, { captionsCount: captionCounts.get(String(v.id)) || 0 })
+      )
+    );
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -598,12 +624,30 @@ export const updateArtistVideo = async (req: Request, res: Response) => {
       (ctx.artistId && video.artist_profile_id === ctx.artistId);
     if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
 
-    const { title, description, category, price_rwf, price_usd, visibility, tags, is_free } = req.body;
+    const {
+      title,
+      description,
+      category,
+      price_rwf,
+      price_usd,
+      visibility,
+      tags,
+      is_free,
+      publication_status,
+      scheduled_release,
+      scheduled_at,
+      chapters,
+      language_code,
+      thumbnail_url,
+    } = req.body;
     const prevMeta = video.metadata && typeof video.metadata === 'object' ? { ...video.metadata } : {};
 
     if (category !== undefined) prevMeta.category = category;
     if (price_rwf !== undefined) prevMeta.price_rwf = Number(price_rwf);
     if (price_usd !== undefined) prevMeta.price_usd = Number(price_usd);
+    if (language_code !== undefined) prevMeta.language_code = String(language_code);
+    if (thumbnail_url !== undefined) prevMeta.thumbnail_url = String(thumbnail_url);
+    if (chapters !== undefined) prevMeta.chapters = chapters;
     if (tags !== undefined) {
       prevMeta.tags = Array.isArray(tags)
         ? tags
@@ -613,9 +657,10 @@ export const updateArtistVideo = async (req: Request, res: Response) => {
             .filter(Boolean);
     }
 
+    const now = new Date().toISOString();
     const patch: Record<string, any> = {
       metadata: prevMeta,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     };
     if (title !== undefined) patch.title = String(title).trim();
     if (description !== undefined) patch.description = description;
@@ -625,6 +670,29 @@ export const updateArtistVideo = async (req: Request, res: Response) => {
     if (is_free !== undefined) {
       patch.is_free = Boolean(is_free);
       patch.is_paywalled = !Boolean(is_free);
+    }
+
+    const rawSched = scheduled_release !== undefined ? scheduled_release : scheduled_at;
+    if (publication_status && ['draft', 'scheduled', 'published', 'archived'].includes(publication_status)) {
+      patch.publication_status = publication_status;
+      if (publication_status === 'published') {
+        patch.published_at = video.published_at || now;
+        patch.scheduled_at = null;
+      } else if (publication_status === 'scheduled') {
+        if (!rawSched || Number.isNaN(new Date(rawSched).getTime())) {
+          return res.status(400).json({ error: 'Valid scheduled date/time is required when scheduling' });
+        }
+        patch.scheduled_at = new Date(rawSched).toISOString();
+      } else if (publication_status === 'draft' || publication_status === 'archived') {
+        patch.scheduled_at = null;
+      }
+    } else if (rawSched !== undefined) {
+      if (rawSched && new Date(rawSched).getTime() > Date.now()) {
+        patch.publication_status = 'scheduled';
+        patch.scheduled_at = new Date(rawSched).toISOString();
+      } else {
+        patch.scheduled_at = null;
+      }
     }
 
     const { data: updated, error } = await db
@@ -649,6 +717,330 @@ export const updateArtistVideo = async (req: Request, res: Response) => {
   }
 };
 
+export const replaceArtistVideoMedia = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const { id } = req.params;
+  try {
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(401).json({ error: 'Artist authentication required' });
+
+    const db = getDb();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+
+    const ownsVideo =
+      video.created_by_user_id === ctx.ownerUserId ||
+      (ctx.channelId && video.creator_channel_id === ctx.channelId) ||
+      (ctx.artistId && video.artist_profile_id === ctx.artistId);
+    if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const videoFile = files?.video?.[0] || files?.file?.[0] || files?.media?.[0];
+    const thumbFile = files?.thumbnail?.[0] || files?.image?.[0];
+
+    let newVideoUrl = req.body?.video_url ? String(req.body.video_url).trim() : '';
+    let newPreviewUrl = req.body?.preview_url ? String(req.body.preview_url).trim() : '';
+    let newThumbUrl = req.body?.thumbnail_url ? String(req.body.thumbnail_url).trim() : '';
+    let newDuration = req.body?.duration ? Number(req.body.duration) : undefined;
+
+    if (!videoFile && !thumbFile && !newVideoUrl && !newThumbUrl) {
+      return res.status(400).json({ error: 'Provide a replacement video/thumbnail file or URL.' });
+    }
+
+    if (videoFile) {
+      const check = validateUploadedMedia(videoFile, 'video');
+      if (!check.valid) return res.status(400).json({ error: check.error || 'Invalid replacement video file' });
+    }
+    if (thumbFile) {
+      const check = validateUploadedMedia(thumbFile, 'image');
+      if (!check.valid) return res.status(400).json({ error: check.error || 'Invalid replacement thumbnail image' });
+    }
+
+    const oldMeta = video.metadata && typeof video.metadata === 'object' ? { ...video.metadata } : {};
+    const isShort = video.video_type === 'short';
+
+    if (videoFile) {
+      const processed = await processAndUploadVideo({
+        videoBuffer: videoFile.buffer,
+        thumbnailBuffer: thumbFile ? thumbFile.buffer : null,
+        originalName: videoFile.originalname,
+        artistId: ctx.primaryId,
+        metadata: { is_short: isShort },
+      });
+      newVideoUrl = processed.video_url;
+      newPreviewUrl = processed.preview_url;
+      if (!newThumbUrl && processed.thumbnail_url) newThumbUrl = processed.thumbnail_url;
+      newDuration = processed.duration;
+    } else if (thumbFile) {
+      const ext = path.extname(thumbFile.originalname).toLowerCase() || '.jpg';
+      const thumbPath = `${ctx.primaryId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}${ext}`;
+      const { error: upErr } = await db.storage
+        .from('thumbnails')
+        .upload(thumbPath, thumbFile.buffer, { contentType: thumbFile.mimetype || 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+      newThumbUrl = db.storage.from('thumbnails').getPublicUrl(thumbPath).data.publicUrl;
+    }
+
+    const updatedMeta = { ...oldMeta };
+    const cleanupQueue: Array<{ bucket: string; url?: string | null }> = [];
+
+    if (newVideoUrl) {
+      if (oldMeta.video_url && oldMeta.video_url !== newVideoUrl) {
+        cleanupQueue.push({ bucket: 'videos', url: oldMeta.video_url });
+      }
+      if (oldMeta.preview_url && oldMeta.preview_url !== newPreviewUrl && oldMeta.preview_url !== oldMeta.video_url) {
+        cleanupQueue.push({ bucket: 'previews', url: oldMeta.preview_url });
+      }
+      updatedMeta.video_url = newVideoUrl;
+      updatedMeta.preview_url = newPreviewUrl || newVideoUrl;
+    }
+
+    if (newThumbUrl) {
+      if (oldMeta.thumbnail_url && oldMeta.thumbnail_url !== newThumbUrl && oldMeta.thumbnail_url !== oldMeta.video_url) {
+        cleanupQueue.push({ bucket: 'thumbnails', url: oldMeta.thumbnail_url });
+      }
+      updatedMeta.thumbnail_url = newThumbUrl;
+    }
+
+    const now = new Date().toISOString();
+    const { data: updated, error: updErr } = await db
+      .from('videos')
+      .update({
+        duration_seconds: newDuration ?? video.duration_seconds,
+        metadata: updatedMeta,
+        updated_at: now,
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (updErr || !updated) {
+      return res.status(500).json({ error: updErr?.message || 'Failed to update replacement media' });
+    }
+
+    if (cleanupQueue.length > 0) {
+      await deleteStorageObjects(db, cleanupQueue);
+    }
+
+    await Promise.all([
+      cacheService.del('paytune:videos:trending'),
+      cacheService.del('paytune:videos:new'),
+      cacheService.del('paytune:videos:catalog:all'),
+      cacheService.del(`paytune:videos:related:${id}`),
+    ]);
+
+    return res.json({
+      success: true,
+      message: 'Media replaced successfully',
+      video: formatStudioVideo(updated),
+    });
+  } catch (err: any) {
+    console.error('replaceArtistVideoMedia error:', err);
+    return res.status(500).json({ error: err.message || 'Media replacement failed' });
+  }
+};
+
+export const listVideoCaptions = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const { id } = req.params;
+  try {
+    const db = getDb();
+    const { data: caps, error } = await db
+      .from('video_captions')
+      .select('id, video_id, media_asset_id, language_code, track_type, track_label, is_default, is_active, created_at')
+      .eq('video_id', id)
+      .eq('is_active', true)
+      .order('is_default', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const assetIds = (caps || []).map((c: any) => c.media_asset_id).filter(Boolean);
+    const assetMap = new Map<string, string>();
+    if (assetIds.length > 0) {
+      const { data: assets } = await db
+        .from('media_assets')
+        .select('id, storage_bucket, storage_path, metadata')
+        .in('id', assetIds);
+      for (const a of assets || []) {
+        const pub =
+          a.metadata?.public_url ||
+          db.storage.from(a.storage_bucket || 'media_assets').getPublicUrl(a.storage_path).data.publicUrl;
+        if (pub) assetMap.set(a.id, pub);
+      }
+    }
+
+    return res.json(
+      (caps || []).map((c: any) => ({
+        ...c,
+        url: assetMap.get(c.media_asset_id) || '',
+      }))
+    );
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+export const uploadVideoCaption = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const { id } = req.params;
+  try {
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(401).json({ error: 'Artist authentication required' });
+
+    const db = getDb();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+
+    const ownsVideo =
+      video.created_by_user_id === ctx.ownerUserId ||
+      (ctx.channelId && video.creator_channel_id === ctx.channelId) ||
+      (ctx.artistId && video.artist_profile_id === ctx.artistId);
+    if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const file = (req as any).file || files?.caption?.[0] || files?.subtitle?.[0] || files?.file?.[0];
+    let mediaAssetId = req.body?.media_asset_id ? String(req.body.media_asset_id) : null;
+    let publicUrl = req.body?.url ? String(req.body.url) : '';
+    const langCode = String(req.body?.language_code || 'en').toLowerCase().slice(0, 10) || 'en';
+    const trackLabel = String(req.body?.track_label || (langCode === 'rw' ? 'Kinyarwanda' : langCode === 'fr' ? 'Français' : 'English')).slice(0, 120);
+    const isDefault = req.body?.is_default === true || req.body?.is_default === 'true';
+    const now = new Date().toISOString();
+
+    if (file) {
+      const check = validateUploadedMedia(file, 'caption');
+      if (!check.valid) return res.status(400).json({ error: check.error || 'Invalid caption file' });
+
+      const ext = check.normalizedExt || '.vtt';
+      const objPath = `captions/${id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}${ext}`;
+      const { error: upErr } = await db.storage
+        .from('media_assets')
+        .upload(objPath, file.buffer, { contentType: check.detectedType || 'text/vtt', upsert: true });
+      if (upErr) throw upErr;
+
+      publicUrl = db.storage.from('media_assets').getPublicUrl(objPath).data.publicUrl;
+
+      const { data: assetRow, error: assetErr } = await db
+        .from('media_assets')
+        .insert({
+          owner_user_id: ctx.ownerUserId,
+          uploaded_by_user_id: ctx.ownerUserId,
+          original_file_name: file.originalname,
+          file_extension: ext.replace('.', ''),
+          mime_type: check.detectedType || 'text/vtt',
+          media_kind: 'subtitle',
+          media_purpose: 'subtitle_file',
+          storage_provider: 'supabase',
+          storage_bucket: 'media_assets',
+          storage_path: objPath,
+          file_size_bytes: file.size,
+          processing_status: 'completed',
+          metadata: { public_url: publicUrl },
+          uploaded_at: now,
+          processing_completed_at: now,
+        })
+        .select('id')
+        .single();
+      if (assetErr) throw assetErr;
+      mediaAssetId = assetRow.id;
+    }
+
+    if (!mediaAssetId) {
+      return res.status(400).json({ error: 'Provide a .vtt or .srt caption file.' });
+    }
+
+    // Ensure referenced language exists in live `languages` table to honor FK cleanly
+    await db.from('languages').upsert(
+      {
+        language_code: langCode,
+        name_en: trackLabel,
+        native_name: trackLabel,
+        is_active: true,
+        updated_at: now,
+      },
+      { onConflict: 'language_code' }
+    );
+
+    if (isDefault) {
+      await db.from('video_captions').update({ is_default: false }).eq('video_id', id);
+    }
+
+    const { data: insertedCaption, error: capErr } = await db
+      .from('video_captions')
+      .insert({
+        video_id: id,
+        media_asset_id: mediaAssetId,
+        language_code: langCode,
+        track_type: 'subtitles',
+        track_label: trackLabel,
+        is_default: isDefault,
+        is_auto_generated: false,
+        is_active: true,
+        processing_status: 'completed',
+      })
+      .select('*')
+      .single();
+
+    if (capErr) throw capErr;
+
+    return res.status(201).json({
+      success: true,
+      caption: { ...insertedCaption, url: publicUrl },
+    });
+  } catch (err: any) {
+    console.error('uploadVideoCaption error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to save caption' });
+  }
+};
+
+export const deleteVideoCaption = async (req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
+
+  const { id, captionId } = req.params;
+  try {
+    const ctx = await resolveCreatorContext(req, false);
+    if (!ctx) return res.status(401).json({ error: 'Artist authentication required' });
+
+    const db = getDb();
+    const { data: video } = await db.from('videos').select('*').eq('id', id).maybeSingle();
+    if (!video) return res.status(404).json({ error: 'Video not found' });
+
+    const ownsVideo =
+      video.created_by_user_id === ctx.ownerUserId ||
+      (ctx.channelId && video.creator_channel_id === ctx.channelId) ||
+      (ctx.artistId && video.artist_profile_id === ctx.artistId);
+    if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
+
+    const { data: cap } = await db
+      .from('video_captions')
+      .select('id, media_asset_id')
+      .eq('id', captionId)
+      .eq('video_id', id)
+      .maybeSingle();
+
+    if (!cap) return res.status(404).json({ error: 'Caption track not found' });
+
+    await db.from('video_captions').delete().eq('id', captionId);
+    if (cap.media_asset_id) {
+      const { data: asset } = await db
+        .from('media_assets')
+        .select('storage_bucket, storage_path')
+        .eq('id', cap.media_asset_id)
+        .maybeSingle();
+      if (asset?.storage_path) {
+        await deleteStorageObjects(db, [{ bucket: asset.storage_bucket || 'media_assets', path: asset.storage_path }]);
+      }
+      await db.from('media_assets').delete().eq('id', cap.media_asset_id);
+    }
+
+    return res.json({ success: true, message: 'Caption track removed' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 export const deleteArtistVideo = async (req: Request, res: Response) => {
   if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured.' });
 
@@ -667,8 +1059,20 @@ export const deleteArtistVideo = async (req: Request, res: Response) => {
       (ctx.artistId && video.artist_profile_id === ctx.artistId);
     if (!ownsVideo) return res.status(403).json({ error: 'Unauthorized' });
 
+    const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
+    await deleteStorageObjects(db, [
+      { bucket: 'videos', url: meta.video_url },
+      { bucket: 'previews', url: meta.preview_url },
+      { bucket: 'thumbnails', url: meta.thumbnail_url },
+    ]);
+
     const { error } = await db.from('videos').delete().eq('id', id);
     if (error) return res.status(500).json({ error: error.message });
+
+    const assetIds = [video.source_media_asset_id, video.thumbnail_media_asset_id].filter(Boolean);
+    if (assetIds.length > 0) {
+      await db.from('media_assets').delete().in('id', assetIds);
+    }
 
     await Promise.all([
       cacheService.del('paytune:videos:trending'),
@@ -698,7 +1102,7 @@ export const getArtistById = async (req: Request, res: Response) => {
     const db = getDb();
     const filter = buildVideosFilter(ctx);
 
-    const [videosRes, followsRes, socialRes, tiersRes] = await Promise.all([
+    const [videosRes, followsRes, socialRes, tiersRes, bannerAssetRes] = await Promise.all([
       filter ? db.from('videos').select('*').or(filter) : Promise.resolve({ data: [] }),
       ctx.artistId
         ? db.from('artist_follows').select('id', { count: 'exact', head: true }).eq('artist_id', ctx.artistId)
@@ -718,10 +1122,29 @@ export const getArtistById = async (req: Request, res: Response) => {
             .eq('is_active', true)
             .order('display_order', { ascending: true })
         : Promise.resolve({ data: [] }),
+      ctx.ownerUserId
+        ? db
+            .from('media_assets')
+            .select('metadata')
+            .eq('owner_user_id', ctx.ownerUserId)
+            .eq('media_purpose', 'artist_banner')
+            .order('uploaded_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
+    const bannerMeta = bannerAssetRes?.data?.metadata && typeof bannerAssetRes.data.metadata === 'object'
+      ? bannerAssetRes.data.metadata
+      : {};
+
     const videoList = (videosRes.data || []).filter(
-      (v: any) => v.visibility === 'public' && v.publication_status === 'published'
+      (v: any) =>
+        v.visibility === 'public' &&
+        v.publication_status === 'published' &&
+        v.record_status !== 'deleted' &&
+        v.moderation_status !== 'rejected' &&
+        (!v.scheduled_at || new Date(v.scheduled_at).getTime() <= Date.now())
     );
     const totalViews = videoList.reduce((sum: number, v: any) => sum + Number(v.metadata?.view_count ?? v.metadata?.views ?? 0), 0);
     const totalSubscribers = followsRes.count || 0;
@@ -739,6 +1162,9 @@ export const getArtistById = async (req: Request, res: Response) => {
       profile_image: ctx.avatarUrl,
       bio: ctx.bio,
       banner_image: ctx.bannerUrl,
+      banner_focal_x: bannerMeta.focal_x ?? 50,
+      banner_focal_y: bannerMeta.focal_y ?? 50,
+      banner_zoom: bannerMeta.zoom ?? 1,
       social_links: socials,
       is_verified: ctx.isVerified,
       featured_video_id: regularVideos[0]?.id || videoList[0]?.id || null,
@@ -1035,15 +1461,36 @@ export const toggleArtistSubscribe = async (req: Request, res: Response) => {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let isSubscribed = false;
-    if (existing) {
-      await db.from('artist_follows').delete().eq('id', existing.id);
+    let isSubscribed = Boolean(existing);
+    if (req.method === 'DELETE') {
+      if (existing) {
+        const { error: delErr } = await db
+          .from('artist_follows')
+          .delete()
+          .eq('artist_id', ctx.artistId)
+          .eq('user_id', user.id);
+        if (delErr) throw delErr;
+      }
       isSubscribed = false;
-    } else {
-      await db.from('artist_follows').insert({
+    } else if (existing && req.body?.action !== 'follow') {
+      const { error: delErr } = await db
+        .from('artist_follows')
+        .delete()
+        .eq('artist_id', ctx.artistId)
+        .eq('user_id', user.id);
+      if (delErr) throw delErr;
+      isSubscribed = false;
+    } else if (!existing) {
+      const { error: insErr } = await db.from('artist_follows').insert({
+        id: crypto.randomUUID(),
         artist_id: ctx.artistId,
         user_id: user.id,
       });
+      if (insErr && insErr.code !== '23505') {
+        throw insErr;
+      }
+      isSubscribed = true;
+    } else {
       isSubscribed = true;
     }
 
@@ -1054,7 +1501,7 @@ export const toggleArtistSubscribe = async (req: Request, res: Response) => {
 
     const finalCount = count || 0;
 
-    if (isSubscribed) {
+    if (isSubscribed && !existing) {
       try {
         notifyArtistNewSubscriber(ctx.artistId, user);
       } catch (notifErr) {
@@ -1063,10 +1510,13 @@ export const toggleArtistSubscribe = async (req: Request, res: Response) => {
     }
 
     return res.json({
+      success: true,
       subscribed: isSubscribed,
       followed: isSubscribed,
+      following: isSubscribed,
       subscriber_count: finalCount,
       follower_count: finalCount,
+      followers_count: finalCount,
     });
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Failed to update subscription.' });
@@ -1850,7 +2300,7 @@ export const getArtistSettings = async (req: Request, res: Response) => {
     if (!ctx) return res.status(404).json({ error: 'Artist not found' });
 
     const db = getDb();
-    const [socialRes, payoutRes, notifRes] = await Promise.all([
+    const [socialRes, payoutRes, notifRes, bannerAssetRes] = await Promise.all([
       ctx.artistId
         ? db.from('artist_social_links').select('platform_name, platform_url').eq('artist_id', ctx.artistId)
         : Promise.resolve({ data: [] }),
@@ -1867,8 +2317,21 @@ export const getArtistSettings = async (req: Request, res: Response) => {
       ctx.ownerUserId
         ? db.from('user_notification_preferences').select('*').eq('user_id', ctx.ownerUserId).maybeSingle()
         : Promise.resolve({ data: null }),
+      ctx.ownerUserId
+        ? db
+            .from('media_assets')
+            .select('metadata')
+            .eq('owner_user_id', ctx.ownerUserId)
+            .eq('media_purpose', 'artist_banner')
+            .order('uploaded_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
+    const bannerMeta = bannerAssetRes?.data?.metadata && typeof bannerAssetRes.data.metadata === 'object'
+      ? bannerAssetRes.data.metadata
+      : {};
     const socials = normalizeSocialLinks(socialRes.data);
     if (ctx.websiteUrl && !socials.website) socials.website = ctx.websiteUrl;
 
@@ -1885,6 +2348,9 @@ export const getArtistSettings = async (req: Request, res: Response) => {
       avatar_url: ctx.avatarUrl,
       banner_image: ctx.bannerUrl,
       banner_url: ctx.bannerUrl,
+      banner_focal_x: bannerMeta.focal_x ?? 50,
+      banner_focal_y: bannerMeta.focal_y ?? 50,
+      banner_zoom: bannerMeta.zoom ?? 1,
       phone: momoPhone,
       momo_code: momoPhone,
       momo_provider: momoProvider,
@@ -1899,6 +2365,9 @@ export const getArtistSettings = async (req: Request, res: Response) => {
         profile_image: ctx.avatarUrl,
         banner_url: ctx.bannerUrl,
         banner_image: ctx.bannerUrl,
+        banner_focal_x: bannerMeta.focal_x ?? 50,
+        banner_focal_y: bannerMeta.focal_y ?? 50,
+        banner_zoom: bannerMeta.zoom ?? 1,
         phone: momoPhone,
         momo_code: momoPhone,
         momo_provider: momoProvider,
@@ -1919,6 +2388,9 @@ export const getArtistSettings = async (req: Request, res: Response) => {
         profile_image: ctx.avatarUrl,
         banner_url: ctx.bannerUrl,
         banner_image: ctx.bannerUrl,
+        banner_focal_x: bannerMeta.focal_x ?? 50,
+        banner_focal_y: bannerMeta.focal_y ?? 50,
+        banner_zoom: bannerMeta.zoom ?? 1,
         country: ctx.countryCode,
         social_links: socials,
       },

@@ -150,18 +150,28 @@ export const addToWishlist = async (req: Request, res: Response) => {
       return res.json({ success: true, alreadyIn: true, message: 'Already saved to Watch Later.' });
     }
 
-    const { count } = await client
-      .from('playlist_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('playlist_id', playlist.id);
+    const [{ count }, { data: maxPosRow }] = await Promise.all([
+      client
+        .from('playlist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('playlist_id', playlist.id),
+      client
+        .from('playlist_items')
+        .select('position')
+        .eq('playlist_id', playlist.id)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
+    const nextPos = Math.max(1, Number(maxPosRow?.position || 0) + 1);
     const { data: inserted, error: insErr } = await client
       .from('playlist_items')
       .insert({
         playlist_id: playlist.id,
         content_type: video.video_type === 'short' ? 'short' : 'video',
         content_id: videoId,
-        position: count || 0,
+        position: nextPos,
         added_by_user_id: user.id,
       })
       .select('*')

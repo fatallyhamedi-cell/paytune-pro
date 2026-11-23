@@ -398,6 +398,7 @@ export const ShortsFeed: React.FC = () => {
               <ShortsPlayer
                 short={short}
                 isActive={index === activeIndex}
+                shouldLoadMedia={Math.abs(index - activeIndex) <= 1}
                 isMuted={isMuted}
                 onToggleMute={() => setIsMuted(prev => !prev)}
                 onLike={() => toggleLike(short.id)}

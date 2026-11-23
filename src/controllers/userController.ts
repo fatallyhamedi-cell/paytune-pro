@@ -469,8 +469,23 @@ export const searchLibrary = async (req: Request, res: Response) => {
 };
 
 export const getFollowingArtists = async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'private, no-store');
   const reqUser = (req as any).user;
-  if (!reqUser?.id) return res.json([]);
+  const rawLimit = req.query.limit !== undefined ? parseInt(String(req.query.limit), 10) : undefined;
+  const rawOffset = req.query.offset !== undefined ? parseInt(String(req.query.offset), 10) : 0;
+  const limit = rawLimit && !Number.isNaN(rawLimit) ? Math.min(100, Math.max(1, rawLimit)) : 50;
+  const offset = !Number.isNaN(rawOffset) ? Math.max(0, rawOffset) : 0;
+  const wantsEnvelope =
+    req.query.envelope === '1' ||
+    req.query.paginated === '1' ||
+    req.query.limit !== undefined ||
+    req.query.offset !== undefined;
+
+  if (!reqUser?.id) {
+    return wantsEnvelope
+      ? res.json({ artists: [], total: 0, hasMore: false, limit, offset })
+      : res.json([]);
+  }
   if (!isSupabaseConfigured()) return res.status(503).json({ error: 'Database not configured' });
 
   const db = getDb();
@@ -482,20 +497,86 @@ export const getFollowingArtists = async (req: Request, res: Response) => {
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
-    if (!follows || follows.length === 0) return res.json([]);
+    if (!follows || follows.length === 0) {
+      return wantsEnvelope
+        ? res.json({ artists: [], total: 0, hasMore: false, limit, offset })
+        : res.json([]);
+    }
 
-    const artistIds = follows.map((f: any) => f.artist_id);
-    const [artistsRes, videosRes, followCountsRes] = await Promise.all([
-      db.from('artist_profiles').select('*').in('id', artistIds),
-      db.from('videos').select('id, artist_profile_id').in('artist_profile_id', artistIds),
+    const artistIds = Array.from(new Set(follows.map((f: any) => String(f.artist_id)).filter(Boolean)));
+    const [artistsRes, videosRes, followCountsRes, watchHistoryRes, audioPlaysRes] = await Promise.all([
+      db
+        .from('artist_profiles')
+        .select('id, artist_name, artist_handle, avatar_path, bio_en, bio_rw, verification_status, approval_status, record_status, updated_at')
+        .in('id', artistIds)
+        .neq('record_status', 'suspended'),
+      db
+        .from('videos')
+        .select('id, artist_profile_id, published_at, created_at')
+        .in('artist_profile_id', artistIds)
+        .eq('visibility', 'public'),
       db.from('artist_follows').select('artist_id').in('artist_id', artistIds),
+      db
+        .from('video_watch_history')
+        .select('video_id, last_watched_at')
+        .eq('user_id', reqUser.id)
+        .order('last_watched_at', { ascending: false })
+        .limit(40),
+      db
+        .from('music_play_events')
+        .select('track_id, played_at')
+        .eq('user_id', reqUser.id)
+        .order('played_at', { ascending: false })
+        .limit(40),
     ]);
 
     const artistMap = new Map<string, any>((artistsRes.data || []).map((a: any) => [String(a.id), a]));
     const videoCounts: Record<string, number> = {};
+    const videoToArtist = new Map<string, string>();
+    const latestUploadAt: Record<string, number> = {};
     for (const v of videosRes.data || []) {
-      if (v.artist_profile_id) videoCounts[v.artist_profile_id] = (videoCounts[v.artist_profile_id] || 0) + 1;
+      const aid = v.artist_profile_id ? String(v.artist_profile_id) : '';
+      if (!aid) continue;
+      videoCounts[aid] = (videoCounts[aid] || 0) + 1;
+      videoToArtist.set(String(v.id), aid);
+      const ts = new Date(v.published_at || v.created_at || 0).getTime() || 0;
+      if (ts > (latestUploadAt[aid] || 0)) {
+        latestUploadAt[aid] = ts;
+      }
     }
+
+    const lastInteractedAt: Record<string, number> = {};
+    for (const wh of watchHistoryRes.data || []) {
+      const aid = videoToArtist.get(String(wh.video_id));
+      if (!aid) continue;
+      const ts = new Date(wh.last_watched_at || 0).getTime() || 0;
+      if (ts > (lastInteractedAt[aid] || 0)) {
+        lastInteractedAt[aid] = ts;
+      }
+    }
+
+    const playedTrackIds = Array.from(
+      new Set((audioPlaysRes.data || []).map((p: any) => String(p.track_id)).filter(Boolean))
+    );
+    if (playedTrackIds.length > 0) {
+      const { data: trackLinks } = await db
+        .from('music_tracks')
+        .select('id, primary_artist_id')
+        .in('id', playedTrackIds)
+        .in('primary_artist_id', artistIds);
+      const trackToArtist = new Map<string, string>(
+        (trackLinks || []).map((t: any) => [String(t.id), String(t.primary_artist_id)])
+      );
+      for (const play of audioPlaysRes.data || []) {
+        const aid = trackToArtist.get(String(play.track_id));
+        if (!aid) continue;
+        const ts = new Date(play.played_at || 0).getTime() || 0;
+        if (ts > (lastInteractedAt[aid] || 0)) {
+          lastInteractedAt[aid] = ts;
+        }
+      }
+    }
+
     const subCounts: Record<string, number> = {};
     for (const fc of followCountsRes.data || []) {
       if (fc.artist_id) subCounts[fc.artist_id] = (subCounts[fc.artist_id] || 0) + 1;
@@ -503,24 +584,59 @@ export const getFollowingArtists = async (req: Request, res: Response) => {
 
     const followed = follows
       .map((f: any) => {
-        const artist = artistMap.get(f.artist_id);
+        const aid = String(f.artist_id);
+        const artist = artistMap.get(aid);
         if (!artist) return null;
+        const followedTs = new Date(f.created_at || 0).getTime() || 0;
+        const recentInteractionTs = lastInteractedAt[aid] || 0;
+        const recentUploadTs = latestUploadAt[aid] || 0;
+        const activityScore = Math.max(followedTs, recentInteractionTs, recentUploadTs);
+
         return {
           id: f.id,
           artist_id: artist.id,
           full_name: artist.artist_name,
+          artist_name: artist.artist_name,
           username: artist.artist_handle,
           profile_image: artist.avatar_path || '',
+          avatar_url: artist.avatar_path || '',
           subscriber_count: subCounts[artist.id] || 0,
           is_verified: artist.verification_status === 'verified' || artist.approval_status === 'approved',
           bio: artist.bio_en || artist.bio_rw || '',
           video_count: videoCounts[artist.id] || 0,
           followed_at: f.created_at,
+          last_interacted_at: recentInteractionTs ? new Date(recentInteractionTs).toISOString() : null,
+          _activityScore: activityScore,
+          _recentInteractionTs: recentInteractionTs,
+          _followedTs: followedTs,
         };
       })
-      .filter(Boolean);
+      .filter((item: any): item is NonNullable<typeof item> => Boolean(item))
+      .sort((a: any, b: any) => {
+        if (b._recentInteractionTs !== a._recentInteractionTs) {
+          return b._recentInteractionTs - a._recentInteractionTs;
+        }
+        if (b._activityScore !== a._activityScore) {
+          return b._activityScore - a._activityScore;
+        }
+        return b._followedTs - a._followedTs;
+      })
+      .map(({ _activityScore, _recentInteractionTs, _followedTs, ...cleanItem }: any) => cleanItem);
 
-    return res.json(followed);
+    const total = followed.length;
+    const paged = followed.slice(offset, offset + limit);
+
+    if (wantsEnvelope) {
+      return res.json({
+        artists: paged,
+        total,
+        hasMore: offset + paged.length < total,
+        limit,
+        offset,
+      });
+    }
+
+    return res.json(paged);
   } catch (err: any) {
     console.error('getFollowingArtists error:', err);
     return res.status(500).json({ error: err.message || 'Failed to load followed artists' });

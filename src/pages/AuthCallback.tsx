@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { AlertCircle, CheckCircle2, Loader2, Music } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { api } from "../lib/api";
+import { queryClient } from "../lib/queryClient";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export default function AuthCallback() {
           throw new Error(decodeURIComponent(urlError));
         }
 
+        const authType = searchParams.get("type") || hashParams.get("type");
         const code = searchParams.get("code");
         let session = null;
 
@@ -43,31 +45,59 @@ export default function AuthCallback() {
         }
 
         if (!session?.access_token) {
-          throw new Error("No active authentication session was returned from Google.");
+          throw new Error("No active authentication session was returned.");
         }
+
+        localStorage.removeItem("artist_token");
+        localStorage.removeItem("paytune_artist_token");
+        localStorage.removeItem("artist");
+        localStorage.removeItem("artist_id");
+        localStorage.removeItem("paytune_artist_data");
+        localStorage.removeItem("master_token");
+        localStorage.removeItem("paytune_master_token");
+        localStorage.removeItem("paytune_custom_session");
+        queryClient.clear();
 
         localStorage.setItem("paytune_auth_token", session.access_token);
         api.defaults.headers.common["Authorization"] = `Bearer ${session.access_token}`;
 
+        if (authType === "recovery") {
+          window.dispatchEvent(new Event("paytune-auth-changed"));
+          if (!active) return;
+          setStatus("success");
+          setMessage("Verified reset link. Opening password update screen...");
+          setTimeout(() => {
+            if (active) navigate("/auth?mode=reset-password", { replace: true });
+          }, 300);
+          return;
+        }
+
         let targetRoute = "/dashboard";
+        let resolvedRole = "user";
         try {
           const meRes = await api.get("/api/auth/me", {
             headers: { Authorization: `Bearer ${session.access_token}` },
           });
-          const role = String(meRes.data?.user?.role || meRes.data?.roleData?.role || "user").toLowerCase();
-          if (role === "master" || role === "master_admin" || role === "admin") {
+          resolvedRole = String(meRes.data?.user?.role || meRes.data?.roleData?.role || "user").toLowerCase();
+          if (resolvedRole === "master" || resolvedRole === "master_admin" || resolvedRole === "admin") {
             targetRoute = "/master";
-          } else if (role === "artist") {
+          } else if (resolvedRole === "artist") {
             targetRoute = "/artist/dashboard";
           }
         } catch {
-          // Fall back to /dashboard if profile lookup is delayed
+          // Fall back to /dashboard for ordinary Google listeners
         }
 
         const savedRedirect = sessionStorage.getItem("paytune_oauth_redirect");
         if (savedRedirect) {
           sessionStorage.removeItem("paytune_oauth_redirect");
-          if (savedRedirect.startsWith("/")) {
+          const isRestrictedCreatorRoute =
+            savedRedirect.startsWith("/artist/dashboard") || savedRedirect.startsWith("/master");
+          if (
+            savedRedirect.startsWith("/") &&
+            !savedRedirect.startsWith("/artist/login") &&
+            (!isRestrictedCreatorRoute || resolvedRole === "artist" || resolvedRole === "master" || resolvedRole === "admin")
+          ) {
             targetRoute = savedRedirect;
           }
         }

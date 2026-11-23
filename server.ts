@@ -44,6 +44,7 @@ import { setNotificationIO, notifyOnMembershipJoined, notifyOnSuperThanks } from
 import { detectCountryFromRequest } from "./src/services/geoService";
 import { monitoringService } from "./src/services/monitoringService";
 import { cacheService } from "./src/services/cacheService";
+import { startScheduledPublisher } from "./src/services/schedulerService";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -465,7 +466,7 @@ app.get("/api/artist/:artistId/dashboard", artistStudioRouter);
 // --- Shorts API Endpoints ---
 app.post("/api/artist/short/upload", authenticate, checkRole('artist'), upload.fields([{ name: 'video', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]), async (req: any, res: any) => {
   const user = req.user;
-  const { title, description, visibility } = req.body;
+  const { title, description, visibility, publication_status, scheduled_at, scheduled_release } = req.body;
 
   if (!isSupabaseConfigured()) {
     return res.status(503).json({ error: "Supabase not configured." });
@@ -524,6 +525,15 @@ app.post("/api/artist/short/upload", authenticate, checkRole('artist'), upload.f
       updated_at: now
     });
 
+    const rawSched = scheduled_release || scheduled_at;
+    const isFutureSched = Boolean(rawSched && new Date(rawSched).getTime() > Date.now());
+    const normalizedPubStatus =
+      publication_status === 'draft'
+        ? 'draft'
+        : publication_status === 'scheduled' || isFutureSched
+          ? 'scheduled'
+          : 'published';
+
     const shortId = crypto.randomUUID();
     const { data: video, error } = await supabaseAdmin
       .from('videos')
@@ -539,16 +549,18 @@ app.post("/api/artist/short/upload", authenticate, checkRole('artist'), upload.f
         duration_seconds: processed.duration || 0,
         source_media_asset_id: sourceMediaId,
         visibility: visibility || 'public',
-        publication_status: 'published',
+        publication_status: normalizedPubStatus,
         processing_status: 'completed',
         moderation_status: 'approved',
         is_free: true,
         is_paywalled: false,
-        published_at: now,
+        scheduled_at: normalizedPubStatus === 'scheduled' && rawSched ? new Date(rawSched).toISOString() : null,
+        published_at: normalizedPubStatus === 'published' ? now : null,
         metadata: {
           video_url: processed.video_url,
           preview_url: processed.preview_url,
-          thumbnail_url: processed.thumbnail_url
+          thumbnail_url: processed.thumbnail_url,
+          publication_status: normalizedPubStatus,
         },
         created_at: now,
         updated_at: now
@@ -837,7 +849,18 @@ app.post("/api/videos/:id/wishlist", authenticate, async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
   try {
-    let { data: list } = await supabaseAdmin
+    const { data: video, error: vidErr } = await supabaseAdmin
+      .from('videos')
+      .select('id, video_type')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (vidErr) throw vidErr;
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    let { data: list, error: listErr } = await supabaseAdmin
       .from('playlists')
       .select('id')
       .eq('owner_user_id', user.id)
@@ -845,13 +868,16 @@ app.post("/api/videos/:id/wishlist", authenticate, async (req, res) => {
       .eq('title', 'Wishlist')
       .maybeSingle();
 
+    if (listErr) throw listErr;
+
     if (!list) {
-      const { data: legacyList } = await supabaseAdmin
+      const { data: legacyList, error: legacyErr } = await supabaseAdmin
         .from('playlists')
         .select('id')
         .eq('owner_user_id', user.id)
         .eq('title', 'Wishlist')
         .maybeSingle();
+      if (legacyErr) throw legacyErr;
       list = legacyList;
     }
 
@@ -872,46 +898,61 @@ app.post("/api/videos/:id/wishlist", authenticate, async (req, res) => {
       list = created;
     }
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: existingErr } = await supabaseAdmin
       .from('playlist_items')
       .select('id')
       .eq('playlist_id', list.id)
       .eq('content_id', id)
       .maybeSingle();
 
+    if (existingErr) throw existingErr;
+
     let inWishlist = false;
     if (existing) {
-      await supabaseAdmin.from('playlist_items').delete().eq('id', existing.id);
+      const { error: delErr } = await supabaseAdmin
+        .from('playlist_items')
+        .delete()
+        .eq('id', existing.id);
+      if (delErr) throw delErr;
       inWishlist = false;
     } else {
-      const { count: currentCount } = await supabaseAdmin
+      const { data: maxPosRow, error: maxPosErr } = await supabaseAdmin
         .from('playlist_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('playlist_id', list.id);
+        .select('position')
+        .eq('playlist_id', list.id)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (maxPosErr) throw maxPosErr;
 
-      await supabaseAdmin.from('playlist_items').insert({
+      const nextPos = Math.max(1, Number(maxPosRow?.position || 0) + 1);
+      const { error: insErr } = await supabaseAdmin.from('playlist_items').insert({
         playlist_id: list.id,
-        content_type: 'video',
+        content_type: video.video_type === 'short' ? 'short' : 'video',
         content_id: id,
-        position: currentCount || 0,
+        position: nextPos,
         added_by_user_id: user.id
       });
+      if (insErr) throw insErr;
       inWishlist = true;
     }
 
-    const { count: updatedCount } = await supabaseAdmin
+    const { count: updatedCount, error: updCountErr } = await supabaseAdmin
       .from('playlist_items')
       .select('id', { count: 'exact', head: true })
       .eq('playlist_id', list.id);
+    if (updCountErr) throw updCountErr;
 
-    await supabaseAdmin
+    const { error: updErr } = await supabaseAdmin
       .from('playlists')
       .update({ items_count: updatedCount || 0, updated_at: new Date().toISOString() })
       .eq('id', list.id);
+    if (updErr) throw updErr;
 
-    return res.json({ inWishlist });
+    return res.json({ inWishlist, itemsCount: updatedCount || 0 });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('[Wishlist Toggle Error]', err);
+    res.status(500).json({ error: err.message || 'Failed to update wishlist' });
   }
 });
 
@@ -2347,6 +2388,7 @@ async function startServer() {
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`PAYTUNE Server running on http://localhost:${PORT}`);
+    startScheduledPublisher(30_000);
   });
 }
 

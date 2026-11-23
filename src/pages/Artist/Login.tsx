@@ -38,14 +38,16 @@ export default function ArtistLogin() {
     setInfoMessage('');
 
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !password) {
+    const submittedPassword = password;
+    if (!cleanEmail || !submittedPassword) {
       setError('Please enter both your email address and password.');
       return;
     }
 
+    setPassword('');
     setLoading(true);
     try {
-      const res = await login(cleanEmail, password);
+      const res = await login(cleanEmail, submittedPassword);
       if (res?.isRejected) {
         setError(`Application Rejected: ${res.artist?.rejection_reason || 'Please contact support@paytune.com'}`);
         return;
@@ -127,12 +129,20 @@ export default function ArtistLogin() {
             </div>
 
             <div>
-              <label
-                htmlFor="artist-login-password"
-                className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
-              >
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="artist-login-password"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400"
+                >
+                  Password
+                </label>
+                <Link
+                  to="/auth?mode=forgot"
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -148,7 +158,7 @@ export default function ArtistLogin() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 cursor-pointer"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -178,8 +188,8 @@ export default function ArtistLogin() {
           <div className="mt-6 pt-5 border-t border-gray-200 dark:border-white/10 text-center space-y-2 text-sm">
             <p className="text-gray-600 dark:text-gray-400">
               New artist on PAYTUNE?{' '}
-              <Link to="/artist/signup" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
-                Create an artist account
+              <Link to="/artist/register" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+                Join as an Artist
               </Link>
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500">

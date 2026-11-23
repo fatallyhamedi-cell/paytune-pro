@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 import { 
@@ -29,7 +30,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function SettingsPage() {
-  const { user, roleData, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+  const { user, roleData, refreshProfile, signOut } = useAuth();
   const [activeSegment, setActiveSegment] = useState<"user" | "artist" | "master">("user");
   
   // Loading & statuses
@@ -379,8 +381,8 @@ export default function SettingsPage() {
     try {
       await api.post("/api/user/delete-account");
       setShowDeleteModal(false);
-      // Log out
-      window.location.href = "/auth";
+      await signOut();
+      navigate("/auth", { replace: true });
     } catch (err: any) {
       setErrorMsg(err.message || "Delete account request failed.");
     }

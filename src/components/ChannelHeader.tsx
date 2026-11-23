@@ -83,13 +83,11 @@ export default function ChannelHeader({
             src={bannerImg}
             alt={`${artist.full_name} Channel Cover`}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover transition-transform duration-500 ease-out"
-            ref={(el) => {
-              if (el) {
-                el.style.objectPosition = `${focalX}% ${focalY}%`;
-                el.style.transform = `scale(${zoom})`;
-              }
+            style={{
+              objectPosition: `${focalX}% ${focalY}%`,
+              transform: `scale(${zoom})`,
             }}
+            className="w-full h-full object-cover transition-transform duration-500 ease-out"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-purple-900 via-purple-700 to-amber-500 flex items-center justify-center">

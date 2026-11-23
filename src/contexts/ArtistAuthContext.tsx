@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import api from '../services/api';
 import { supabase } from '../lib/supabase';
+import { queryClient } from '../lib/queryClient';
 
 export interface Artist {
   id: string;
@@ -59,6 +60,11 @@ function clearArtistKeys() {
   localStorage.removeItem('paytune_artist_data');
   localStorage.removeItem('paytune_auth_token');
   localStorage.removeItem('paytune_custom_session');
+  localStorage.removeItem('master_token');
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('paytune_master_token');
+  localStorage.removeItem('paytune_master_data');
+  localStorage.removeItem('master');
 }
 
 export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -74,6 +80,13 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const persistArtistSession = useCallback((token: string, artistData: Artist) => {
     if (typeof window !== 'undefined') {
+      localStorage.removeItem('master_token');
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('paytune_master_token');
+      localStorage.removeItem('paytune_master_data');
+      localStorage.removeItem('master');
+      queryClient.clear();
+
       localStorage.setItem('artist_token', token);
       localStorage.setItem('token', token);
       localStorage.setItem('paytune_artist_token', token);
@@ -115,13 +128,19 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
   }, []);
 
   const syncFromServer = useCallback(async () => {
-    const token =
+    const explicitArtistToken =
       localStorage.getItem('artist_token') ||
-      localStorage.getItem('paytune_artist_token') ||
+      localStorage.getItem('paytune_artist_token');
+    const cachedArtist =
+      localStorage.getItem('artist') ||
+      localStorage.getItem('paytune_artist_data');
+    const storedRole = localStorage.getItem('role');
+    const authToken =
+      explicitArtistToken ||
       localStorage.getItem('token') ||
       localStorage.getItem('paytune_auth_token');
 
-    if (!token) {
+    if (!authToken || (!explicitArtistToken && !cachedArtist && storedRole !== 'artist')) {
       setArtist(null);
       setLoading(false);
       return;
@@ -134,11 +153,12 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
         localStorage.setItem('artist', JSON.stringify(res.data.artist));
         localStorage.setItem('paytune_artist_data', JSON.stringify(res.data.artist));
         localStorage.setItem('artist_id', res.data.artist.id);
+      } else {
+        setArtist(null);
       }
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 401 || status === 403 || status === 404) {
-        // Not an active/valid artist token (e.g., ordinary user session or expired token)
         setArtist(null);
         localStorage.removeItem('artist');
         localStorage.removeItem('paytune_artist_data');
@@ -180,11 +200,11 @@ export const ArtistAuthProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const logout = () => {
     clearArtistKeys();
+    queryClient.clear();
     setArtist(null);
     supabase.auth.signOut().catch(() => {});
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('paytune-auth-changed'));
-      window.location.href = '/artist/login';
     }
   };
 

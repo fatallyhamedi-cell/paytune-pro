@@ -56,7 +56,14 @@ interface AdCreative {
   advertiser_name: string;
   budget_rwf: number;
   spent_rwf: number;
-  status: "active" | "paused" | "ended" | "draft";
+  status: "active" | "paused" | "ended" | "draft" | "pending_review" | "rejected";
+  creative_status?: string;
+  moderation_status?: string;
+  image_url?: string;
+  mobile_image_url?: string;
+  placement_type?: string;
+  cta_label?: string;
+  rejection_reason?: string | null;
   bid_model?: "cpm" | "cpc" | "cpa";
   bid_amount?: number;
   format?: "pre-roll" | "mid-roll" | "overlay" | "companion";
@@ -151,7 +158,9 @@ export function MasterAdsManager() {
   // Filters
   const [dateRange, setDateRange] = useState<"today" | "7d" | "30d" | "month" | "all">("7d");
   const [campaignSearch, setCampaignSearch] = useState("");
-  const [campaignStatusFilter, setCampaignStatusFilter] = useState<"all" | "active" | "paused" | "ended">("all");
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<"all" | "active" | "pending_review" | "paused" | "rejected" | "draft" | "ended">("all");
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; title: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("Creative does not meet PAYTUNE ad quality guidelines.");
 
   // Modals
   const [showCreateAdModal, setShowCreateAdModal] = useState(false);
@@ -312,6 +321,35 @@ export function MasterAdsManager() {
       }
     } catch {
       showNotice("error", "Failed to resume campaign");
+    }
+  };
+
+  const handleApproveCampaign = async (id: string, title: string) => {
+    try {
+      const res = await api.post(`/api/ads/master/${id}/approve`, {});
+      if (res.data?.success) {
+        showNotice("success", `Campaign "${title}" approved and activated.`);
+        fetchData();
+      }
+    } catch {
+      showNotice("error", "Failed to approve campaign");
+    }
+  };
+
+  const handleRejectCampaignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectTarget) return;
+    try {
+      const res = await api.post(`/api/ads/master/${rejectTarget.id}/reject`, {
+        reason: rejectReason.trim() || "Does not meet advertising guidelines.",
+      });
+      if (res.data?.success) {
+        showNotice("success", `Campaign "${rejectTarget.title}" rejected.`);
+        setRejectTarget(null);
+        fetchData();
+      }
+    } catch {
+      showNotice("error", "Failed to reject campaign");
     }
   };
 
@@ -534,7 +572,7 @@ export function MasterAdsManager() {
           <button
             id="btn-open-create-ad"
             onClick={() => setShowCreateAdModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-black text-xs shadow-lg shadow-purple-600/20 transition-all cursor-pointer transform active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs shadow-lg shadow-purple-600/20 transition-all cursor-pointer transform active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Create Campaign</span>
@@ -945,15 +983,18 @@ export function MasterAdsManager() {
                 className="px-2.5 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs focus:outline-none cursor-pointer"
               >
                 <option value="all">All Statuses</option>
+                <option value="pending_review">Pending Review</option>
                 <option value="active">Active Only</option>
                 <option value="paused">Paused Only</option>
+                <option value="rejected">Rejected Only</option>
+                <option value="draft">Draft Only</option>
                 <option value="ended">Ended Only</option>
               </select>
             </div>
 
             <button
               onClick={() => setShowCreateAdModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-bold text-xs shadow-md cursor-pointer transition-all shrink-0"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md cursor-pointer transition-all shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Launch Campaign</span>
@@ -1062,20 +1103,41 @@ export function MasterAdsManager() {
                             className={`px-2 py-1 rounded text-xs font-black uppercase tracking-wider ${
                               c.status === "active"
                                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                : c.status === "pending_review"
+                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
                                 : c.status === "paused"
                                 ? "bg-purple-600/20 text-purple-400 border border-purple-600/30"
                                 : "bg-red-500/20 text-red-400 border border-red-500/30"
                             }`}
                           >
-                            {c.status}
+                            {c.status.replace("_", " ")}
                           </span>
                         </td>
 
-                        {/* Actions: [Pause/Resume], [End], [Preview], [Delete] */}
+                        {/* Actions */}
                         <td className="p-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {/* Toggle Pause / Resume */}
-                            {c.status === "active" ? (
+                            {c.status === "pending_review" || c.creative_status === "pending_review" ? (
+                              <>
+                                <button
+                                  onClick={() => handleApproveCampaign(c.id, c.title)}
+                                  className="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs cursor-pointer flex items-center gap-1"
+                                  title="Approve Ad Campaign"
+                                >
+                                  <Check className="w-3 h-3" /> Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setRejectTarget({ id: c.id, title: c.title });
+                                    setRejectReason("Creative does not meet PAYTUNE ad quality guidelines.");
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 font-bold text-xs cursor-pointer flex items-center gap-1"
+                                  title="Reject Ad Campaign"
+                                >
+                                  <Ban className="w-3 h-3" /> Reject
+                                </button>
+                              </>
+                            ) : c.status === "active" ? (
                               <button
                                 onClick={() => handlePauseCampaign(c.id, c.title)}
                                 className="px-2.5 py-1 rounded bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 border border-purple-600/30 font-bold text-xs cursor-pointer transition-all"
@@ -1104,7 +1166,7 @@ export function MasterAdsManager() {
                               </button>
                             )}
 
-                            {/* Preview Video */}
+                            {/* Preview Creative */}
                             <button
                               onClick={() => setPreviewAd(c)}
                               className="p-1.5 rounded bg-neutral-800 hover:bg-neutral-700 text-purple-400 border border-neutral-700 cursor-pointer transition-all"
@@ -1731,33 +1793,74 @@ export function MasterAdsManager() {
             </div>
 
             <div className="relative aspect-video bg-black flex items-center justify-center">
-              <video
-                src={previewAd.video_url}
-                controls
-                autoPlay
-                className="w-full h-full object-contain"
-              />
+              {previewAd.video_url ? (
+                <video
+                  src={previewAd.video_url}
+                  controls
+                  autoPlay
+                  className="w-full h-full object-contain"
+                />
+              ) : previewAd.image_url || previewAd.thumbnail_url ? (
+                <img
+                  src={previewAd.image_url || previewAd.thumbnail_url}
+                  alt={previewAd.title}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <span className="text-xs text-neutral-500">No media preview URL attached</span>
+              )}
 
               {previewAd.click_url && (
                 <a
                   href={previewAd.click_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute bottom-16 right-4 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-neutral-950 font-black text-xs shadow-2xl transition-all"
+                  className="absolute bottom-16 right-4 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs shadow-2xl transition-all"
                 >
-                  <span>Visit Advertiser</span>
+                  <span>{previewAd.cta_label || "Visit Advertiser"}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
             </div>
 
             <div className="p-4 bg-neutral-900 text-xs text-neutral-400 flex items-center justify-between">
-              <span>Duration: {previewAd.duration_seconds}s • Format: {previewAd.format || "Pre-roll"}</span>
+              <span>Duration: {previewAd.duration_seconds}s • Format: {previewAd.placement_type || previewAd.format || "Pre-roll"}</span>
               <span className="font-mono text-purple-400 font-bold">
                 Budget: {previewAd.budget_rwf?.toLocaleString()} RWF
               </span>
             </div>
           </div>
+        </div>
+      )}
+      {/* Reject Ad Reason Modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+          <form onSubmit={handleRejectCampaignSubmit} className="w-full max-w-md rounded-2xl bg-[#1A1A1A] border border-neutral-800 p-6 shadow-2xl text-xs space-y-4">
+            <h3 className="text-sm font-bold text-white">Reject Ad: {rejectTarget.title}</h3>
+            <textarea
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white outline-none focus:border-red-500"
+              placeholder="Explain why this campaign was rejected..."
+              required
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectTarget(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </form>
         </div>
       )}
       {/* Action Confirmation Modal */}

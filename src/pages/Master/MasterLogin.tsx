@@ -1,25 +1,29 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { useMasterAuth } from '../../contexts/MasterAuthContext';
 
 export default function MasterLogin({ onSuccess }: { onSuccess?: () => void } = {}) {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('master@paytune.com');
+  const { loginMaster } = useMasterAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const submittedEmail = email.trim();
+    const submittedPassword = password;
+    setPassword('');
     setError('');
     setLoading(true);
 
     try {
-      const res = await api.post('/auth/login', { email, password });
-      
-      // ✅ Check if the user is actually a master
+      const res = await api.post('/auth/login', { email: submittedEmail, password: submittedPassword });
+
       const userRole = String(res.data?.user?.role || '').toLowerCase();
-      if (userRole !== 'master' && userRole !== 'master_admin') {
+      if (userRole !== 'master' && userRole !== 'master_admin' && userRole !== 'admin') {
         throw new Error('This account does not have Master privileges.');
       }
 
@@ -28,23 +32,20 @@ export default function MasterLogin({ onSuccess }: { onSuccess?: () => void } = 
         throw new Error('Authentication server did not return an access token.');
       }
 
-      // ✅ Save the token for the Master Dashboard
-      localStorage.setItem('master_token', token);
+      loginMaster(token, {
+        id: res.data?.user?.id || 'master-admin',
+        email: res.data?.user?.email || submittedEmail,
+        role: 'MASTER_ADMIN',
+        full_name: res.data?.user?.fullName || res.data?.user?.full_name || 'Platform Master Administrator',
+      });
       localStorage.setItem('token', token);
-      localStorage.setItem('role', 'master');
-      localStorage.setItem('user_role', 'master');
-      localStorage.setItem('master', JSON.stringify(res.data.user || { role: 'master', email }));
-      localStorage.setItem('paytune_master_token', token);
       localStorage.setItem('paytune_auth_token', token);
-      localStorage.setItem('paytune_master_data', JSON.stringify(res.data.user || { role: 'master', email }));
 
       if (onSuccess) {
         onSuccess();
       }
 
-      // Redirect to Master Dashboard
       navigate('/master', { replace: true });
-      
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Login failed');
     } finally {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Globe,
@@ -11,11 +11,14 @@ import {
   Settings,
   CheckCircle2,
   X,
+  Compass,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useArtistAuth } from '../contexts/ArtistAuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { FOLLOWING_CHANGED_EVENT } from '../lib/followingEvents';
 
 interface SidebarProps {
   mobile?: boolean;
@@ -23,6 +26,7 @@ interface SidebarProps {
   onClose?: () => void;
   onToggleCollapse?: () => void;
   user?: {
+    id?: string;
     full_name?: string;
     email?: string;
     username?: string;
@@ -33,30 +37,58 @@ export default function Sidebar({ mobile, collapsed = false, onClose, user: prop
   const location = useLocation();
   const { user: authUser, roleData } = useAuth();
   const { artist } = useArtistAuth();
+  const [brokenAvatars, setBrokenAvatars] = useState<Record<string, boolean>>({});
 
   const user = propUser || authUser;
+  const userId = (user as any)?.id || null;
   const isArtist = Boolean(artist || roleData?.role === 'artist' || roleData?.momo_code);
 
-  const { data: artistsData } = useQuery({
-    queryKey: ['artists', 'sidebar-follows'],
+  const {
+    data: followingData,
+    isLoading: followingLoading,
+    isError: followingError,
+    refetch: refetchFollowing,
+  } = useQuery({
+    queryKey: ['following-artists', 'sidebar', userId ?? 'anonymous'],
     queryFn: async () => {
-      try {
-        const res = await api.get('/api/artists');
-        return res.data;
-      } catch {
-        return { artists: [] };
+      const res = await api.get('/api/user/following/artists', {
+        params: { limit: 8, offset: 0, envelope: 1 },
+      });
+      const payload = res.data;
+      if (Array.isArray(payload)) {
+        return { artists: payload, total: payload.length };
       }
+      return {
+        artists: Array.isArray(payload?.artists) ? payload.artists : [],
+        total: Number(payload?.total ?? (payload?.artists?.length || 0)),
+      };
     },
-    staleTime: 5 * 60 * 1000,
+    enabled: Boolean(userId),
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 0,
+    retry: 1,
   });
 
-  const rawList = Array.isArray(artistsData) ? artistsData : artistsData?.artists || [];
-  const followedArtists = rawList.slice(0, 5).map((a: any) => {
+  useEffect(() => {
+    setBrokenAvatars({});
+  }, [userId]);
+
+  useEffect(() => {
+    const handleFollowingChanged = () => {
+      if (userId) {
+        refetchFollowing();
+      }
+    };
+    window.addEventListener(FOLLOWING_CHANGED_EVENT, handleFollowingChanged);
+    return () => window.removeEventListener(FOLLOWING_CHANGED_EVENT, handleFollowingChanged);
+  }, [userId, refetchFollowing]);
+
+  const rawList = userId ? (followingData?.artists || []) : [];
+  const totalFollowing = userId ? Number(followingData?.total ?? rawList.length) : 0;
+  const followedArtists = rawList.slice(0, 6).map((a: any) => {
     const rawName = a.full_name || a.artist_name || a.stage_name || a.name || 'Artist';
     return {
-      id: String(a.id),
+      id: String(a.artist_id || a.id),
       name: rawName,
       verified: Boolean(a.is_verified || a.verification_status === 'verified'),
       avatar: a.avatar_url || a.profile_image || a.avatar_path || '',
@@ -71,7 +103,8 @@ export default function Sidebar({ mobile, collapsed = false, onClose, user: prop
         !location.pathname.startsWith('/shorts') &&
         !location.pathname.startsWith('/music') &&
         !location.pathname.startsWith('/live') &&
-        !location.pathname.startsWith('/follows')
+        !location.pathname.startsWith('/follows') &&
+        !location.pathname.startsWith('/artists')
       );
     }
     if (path === '/shorts') {
@@ -83,6 +116,9 @@ export default function Sidebar({ mobile, collapsed = false, onClose, user: prop
     if (path === '/live') {
       return location.pathname.startsWith('/live');
     }
+    if (path === '/artists') {
+      return location.pathname === '/artists';
+    }
     if (path === '/follows') {
       return (
         location.pathname === '/follows' ||
@@ -91,7 +127,10 @@ export default function Sidebar({ mobile, collapsed = false, onClose, user: prop
       );
     }
     if (path === '/artist/dashboard' || path === '/artist/signup' || path === '/artist/login') {
-      return location.pathname.startsWith('/artist');
+      return (
+        location.pathname.startsWith('/artist/') &&
+        !location.pathname.startsWith('/artists')
+      );
     }
     if (path === '/settings') {
       return (
@@ -118,7 +157,7 @@ export default function Sidebar({ mobile, collapsed = false, onClose, user: prop
   const studioItem = isArtist
     ? { label: 'Studio', path: '/artist/dashboard', icon: BarChart3 }
     : user
-    ? { label: 'Become Artist', path: '/artist/signup', icon: Sparkles }
+    ? { label: 'Become Artist', path: '/artist/register', icon: Sparkles }
     : { label: 'Studio', path: '/artist/login', icon: BarChart3 };
 
   const navItems: Array<{
@@ -203,39 +242,103 @@ export default function Sidebar({ mobile, collapsed = false, onClose, user: prop
                 )}
               </Link>
 
-              {item.hasFollowedList && !isIconOnly && followedArtists.length > 0 && (
-                <div className="ml-4 pl-3 border-l border-gray-200 dark:border-gray-800 my-1.5 space-y-1">
-                  {followedArtists.map((a: any) => (
-                    <Link
-                      key={a.id}
-                      to={`/artist/${a.id}`}
-                      onClick={onClose}
-                      className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group"
-                      title={a.name}
-                    >
-                      <div className="relative flex-shrink-0">
-                        {a.avatar ? (
-                          <img
-                            src={a.avatar}
-                            alt={a.name}
-                            className="w-5 h-5 rounded-sm object-cover border border-gray-200 dark:border-gray-700"
-                          />
-                        ) : (
-                          <div className="w-5 h-5 rounded-sm bg-purple-100 dark:bg-purple-600/20 text-purple-700 dark:text-purple-300 font-bold text-[10px] flex items-center justify-center border border-purple-200 dark:border-purple-600/30">
-                            {a.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        {a.verified && (
-                          <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center ring-1 ring-white dark:ring-[#121212]">
-                            <CheckCircle2 className="w-2 h-2" />
-                          </span>
-                        )}
-                      </div>
-                      <span className="whitespace-nowrap truncate text-[12px] font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 transition-colors">
-                        {a.name}
-                      </span>
-                    </Link>
-                  ))}
+              {item.hasFollowedList && !isIconOnly && (
+                <div
+                  id="sidebar-following-artists"
+                  className="ml-2 mt-2 mb-2 pl-2.5 border-l border-gray-200 dark:border-gray-800 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between px-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Following Artists
+                    </span>
+                    {followedArtists.length > 0 && (
+                      <Link
+                        to="/follows"
+                        onClick={onClose}
+                        className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline whitespace-nowrap shrink-0"
+                      >
+                        See all{totalFollowing > 6 ? ` (${totalFollowing})` : ''}
+                      </Link>
+                    )}
+                  </div>
+
+                  {userId && followingLoading ? (
+                    <div className="space-y-1.5 px-1.5 py-1" aria-label="Loading followed artists">
+                      {[0, 1, 2].map((idx) => (
+                        <div key={idx} className="flex items-center gap-2 animate-pulse">
+                          <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-800 shrink-0" />
+                          <div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-800" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : userId && followingError ? (
+                    <div className="px-1.5 py-1 space-y-1">
+                      <p className="text-[11px] text-rose-500">Could not load follows.</p>
+                      <button
+                        type="button"
+                        onClick={() => refetchFollowing()}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
+                  ) : followedArtists.length === 0 ? (
+                    <div className="px-1.5 py-1 space-y-1.5">
+                      <p className="text-[11px] leading-snug text-gray-500 dark:text-gray-400">
+                        You haven&apos;t followed any artists yet.
+                      </p>
+                      <Link
+                        to="/artists"
+                        onClick={onClose}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                      >
+                        <Compass className="w-3 h-3" />
+                        <span>Discover Artists</span>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {followedArtists.map((a: any) => {
+                        const showAvatar = Boolean(a.avatar && !brokenAvatars[a.id]);
+                        return (
+                          <Link
+                            key={a.id}
+                            to={`/artist/${a.id}`}
+                            onClick={onClose}
+                            className="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors group"
+                            title={a.name}
+                          >
+                            <div className="relative flex-shrink-0">
+                              {showAvatar ? (
+                                <img
+                                  src={a.avatar}
+                                  alt={a.name}
+                                  referrerPolicy="no-referrer"
+                                  onError={() =>
+                                    setBrokenAvatars((prev) => ({ ...prev, [a.id]: true }))
+                                  }
+                                  className="w-5 h-5 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                                />
+                              ) : (
+                                <div className="w-5 h-5 rounded-full bg-purple-100 dark:bg-purple-600/20 text-purple-700 dark:text-purple-300 font-bold text-[10px] flex items-center justify-center border border-purple-200 dark:border-purple-600/30">
+                                  {a.name.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              {a.verified && (
+                                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full flex items-center justify-center ring-1 ring-white dark:ring-[#121212]">
+                                  <CheckCircle2 className="w-2 h-2" />
+                                </span>
+                              )}
+                            </div>
+                            <span className="whitespace-nowrap truncate text-[12px] font-medium text-gray-700 dark:text-gray-300 group-hover:text-[#7C3AED] dark:group-hover:text-purple-400 transition-colors">
+                              {a.name}
+                            </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -228,7 +228,9 @@ export const registerArtist = async (req: Request, res: Response) => {
     const authUserCtx = (req as any).user;
     const rawEmail = body.email;
     const rawPassword = body.password;
-    const rawFullName = body.fullName ?? body.full_name ?? body.artist_name ?? body.artistName;
+    const rawArtistName = body.artist_name ?? body.artistName ?? body.fullName ?? body.full_name;
+    const rawOwnerName = body.owner_name ?? body.ownerName ?? body.full_name ?? body.fullName ?? rawArtistName;
+    const rawFullName = rawArtistName;
     const rawHandle = body.artistHandle ?? body.artist_handle;
     const rawArtistType = body.artistType ?? body.artist_type;
     const rawPhone = body.phone;
@@ -236,6 +238,14 @@ export const registerArtist = async (req: Request, res: Response) => {
     const rawMomoCode = body.momoCode ?? body.momo_code;
     const rawMomoProvider = body.momoProvider ?? body.momo_provider;
     const rawBio = body.bio ?? body.bio_en;
+
+    if (body.termsAccepted === false) {
+      return res.status(400).json({
+        success: false,
+        error: 'validation_failed',
+        message: 'You must accept the PAYTUNE Terms of Service, Privacy Policy, and Creator Declaration.',
+      });
+    }
 
     const geo = await detectCountryFromRequest(req);
     const client = db();
@@ -267,6 +277,7 @@ export const registerArtist = async (req: Request, res: Response) => {
     if (authUserCtx?.id && !rawPassword) {
       const userId = String(authUserCtx.id);
       const artistName = String(rawFullName || '').trim();
+      const ownerName = String(rawOwnerName || artistName).trim() || artistName;
       const artistType = String(rawArtistType || 'solo').trim().toLowerCase();
 
       if (!artistName || artistName.length < 2 || artistName.length > 160) {
@@ -370,7 +381,7 @@ export const registerArtist = async (req: Request, res: Response) => {
         const { error: profErr } = await client.from('profiles').insert({
           user_id: userId,
           username: makeProfileUsername(normalizedHandle, userId),
-          display_name: artistName.slice(0, 100),
+          display_name: ownerName.slice(0, 100),
           bio: rawBio ? String(rawBio).trim().slice(0, 500) : null,
           country_code: targetCountry,
           preferred_language_code: 'en',
@@ -618,6 +629,7 @@ export const registerArtist = async (req: Request, res: Response) => {
     const resolvedCountry = phoneCheck.resolvedCountry;
     const cleanEmail = String(rawEmail).trim().toLowerCase();
     const cleanFullName = String(rawFullName).trim().slice(0, 160);
+    const cleanOwnerName = String(rawOwnerName || cleanFullName).trim().slice(0, 100) || cleanFullName;
     const handle = rawHandle
       ? normalizeArtistHandle(rawHandle)
       : slugifyHandle(cleanFullName || cleanEmail.split('@')[0]);
@@ -655,7 +667,8 @@ export const registerArtist = async (req: Request, res: Response) => {
       password: String(rawPassword),
       email_confirm: true,
       user_metadata: {
-        full_name: cleanFullName,
+        full_name: cleanOwnerName,
+        artist_name: cleanFullName,
         role: 'artist',
         ...(formattedPhone ? { phone: formattedPhone } : {}),
         country_code: resolvedCountry,
@@ -684,7 +697,7 @@ export const registerArtist = async (req: Request, res: Response) => {
         {
           user_id: userId,
           username: makeProfileUsername(handle, userId),
-          display_name: cleanFullName.slice(0, 100),
+          display_name: cleanOwnerName,
           bio: rawBio ? String(rawBio).trim().slice(0, 500) : null,
           country_code: resolvedCountry,
           preferred_language_code: 'en',

@@ -24,6 +24,7 @@ import { UpNextSidebar } from '../components/UpNextSidebar';
 import { PaymentModal } from '../components/PaymentModal';
 import { useRequireAuth } from '../hooks/useRequireAuth';
 import { useAuth } from '../hooks/useAuth';
+import { notifyFollowingChanged } from '../lib/followingEvents';
 
 export interface VideoDetail {
   id: string;
@@ -51,6 +52,14 @@ export interface VideoDetail {
   userLiked?: boolean;
   userSubscribed?: boolean;
   userRating?: number;
+  captions?: Array<{
+    id?: string;
+    language_code: string;
+    label?: string;
+    kind?: string;
+    url: string;
+    is_default?: boolean;
+  }>;
   artists?: {
     id: string;
     full_name: string;
@@ -220,7 +229,7 @@ export default function Watch() {
 
       try {
         if (newFollowingState) {
-          const res = await api.post(`/api/artists/${artistId}/follow`);
+          const res = await api.post(`/api/artists/${artistId}/follow`, { action: 'follow' });
           if (res.data?.followers_count !== undefined) {
             setFollowersCount(res.data.followers_count);
           }
@@ -230,6 +239,7 @@ export default function Watch() {
             setFollowersCount(res.data.followers_count);
           }
         }
+        notifyFollowingChanged(user?.id);
       } catch (err: any) {
         console.error('[Watch.tsx] Failed to toggle follow, reverting:', err);
         setIsFollowing(previousFollowing);
@@ -344,7 +354,7 @@ export default function Watch() {
         <p className="text-xs sm:text-sm text-gray-500 max-w-sm mb-6">{error || 'Video not found.'}</p>
         <Link
           to="/"
-          className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-400 text-black font-extrabold text-xs shadow-md"
+          className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-md transition-colors"
         >
           Return to Home
         </Link>
@@ -386,6 +396,7 @@ export default function Watch() {
               src={video.userOwns || video.is_free ? video.video_url : (video.preview_url || video.video_url)}
               videoId={video.id}
               video={video}
+              captions={video.captions || []}
               poster={video.thumbnail_url}
               savedProgress={savedProgress}
               hasNext={relatedVideos.length > 0}
@@ -417,7 +428,7 @@ export default function Watch() {
                 {!video.is_free && !video.userOwns ? (
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-400 text-black font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>Unlock Full Video ({video.price_rwf ? `${video.price_rwf.toLocaleString()} RWF` : '$0.50'})</span>
@@ -489,7 +500,7 @@ export default function Watch() {
                   className={`ml-2 px-4 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer shadow-xs ${
                     isFollowing
                       ? 'bg-gray-200 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-neutral-700'
-                      : 'bg-purple-600 hover:bg-purple-400 text-black'
+                      : 'bg-purple-600 hover:bg-purple-500 text-white'
                   }`}
                 >
                   {isFollowing ? 'Following' : 'Follow'}

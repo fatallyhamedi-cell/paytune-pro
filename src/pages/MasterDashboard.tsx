@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useMasterAuth } from "../contexts/MasterAuthContext";
 import { MasterDashboardLayout, MasterTab } from "../components/MasterDashboardLayout";
 import { MasterImpersonateBanner } from "../components/MasterImpersonateBanner";
 import { MasterOverview } from "../components/MasterOverview";
@@ -33,30 +35,29 @@ interface MasterDashboardProps {
 }
 
 export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {}) {
-  const { user, roleData, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { roleData, signOut } = useAuth();
+  const { logoutMaster, masterToken } = useMasterAuth();
 
-  // Authentication check: Either supabase user is master, or master_token is in localStorage
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const token = localStorage.getItem("master_token");
+    const token = masterToken || localStorage.getItem("master_token") || localStorage.getItem("paytune_master_token");
     const isMasterRole =
       roleData?.is_master === true ||
       roleData?.role === "master" ||
       roleData?.role === "MASTER_ADMIN" ||
-      user?.email === "master@paytune.com";
+      roleData?.role === "admin";
     return !!token || isMasterRole;
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("master_token");
+    const token = masterToken || localStorage.getItem("master_token") || localStorage.getItem("paytune_master_token");
     const isMasterRole =
       roleData?.is_master === true ||
       roleData?.role === "master" ||
       roleData?.role === "MASTER_ADMIN" ||
-      user?.email === "master@paytune.com";
-    if (token || isMasterRole) {
-      setIsAuthenticated(true);
-    }
-  }, [user, roleData]);
+      roleData?.role === "admin";
+    setIsAuthenticated(!!token || isMasterRole);
+  }, [masterToken, roleData]);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<MasterTab>(() => {
@@ -239,16 +240,12 @@ export default function MasterDashboard({ defaultTab }: MasterDashboardProps = {
 
   // Handle Master Logout
   const handleLogout = async () => {
-    localStorage.removeItem("master_token");
-    localStorage.removeItem("admin_token");
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("impersonate_token");
-    localStorage.removeItem("impersonate_artist_data");
+    logoutMaster();
     setIsAuthenticated(false);
     if (signOut) {
       await signOut();
     }
-    window.location.href = "/master-admin/login";
+    navigate("/master/login", { replace: true });
   };
 
   // If not authenticated, render MasterLogin directly

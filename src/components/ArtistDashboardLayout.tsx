@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useArtistAuth } from '../contexts/ArtistAuthContext';
 
 const tabs = [
@@ -17,6 +17,12 @@ const tabs = [
 export default function ArtistDashboardLayout() {
   const { artist, logout } = useArtistAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/artist/login', { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -38,7 +44,7 @@ export default function ArtistDashboardLayout() {
             ← View PAYTUNE
           </Link>
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-colors cursor-pointer"
           >
             Log out

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
+import { useMasterAuth } from "../contexts/MasterAuthContext";
 import {
   ShieldAlert,
   Lock,
@@ -17,6 +18,7 @@ import {
 export default function MasterAdminLogin() {
   const navigate = useNavigate();
   const { user, roleData, refreshProfile } = useAuth();
+  const { loginMaster } = useMasterAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,10 +52,15 @@ export default function MasterAdminLogin() {
       return;
     }
 
+    const submittedEmail = email.trim();
+    const submittedPassword = password.trim();
+    setPassword("");
+    setSecurityPin("");
+
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
+        email: submittedEmail,
+        password: submittedPassword,
       });
 
       if (authError || !data?.session || !data?.user) {
@@ -61,7 +68,6 @@ export default function MasterAdminLogin() {
         throw new Error(authError?.message || "Invalid administrative credentials.");
       }
 
-      // Verify master clearance via backend API using real Supabase JWT
       const verifyRes = await fetch("/api/master/stats", {
         headers: {
           Authorization: `Bearer ${data.session.access_token}`,
@@ -74,9 +80,12 @@ export default function MasterAdminLogin() {
         throw new Error("Access Denied: Account does not possess MASTER_ADMIN clearance.");
       }
 
-      localStorage.setItem("master_token", data.session.access_token);
-      localStorage.setItem("paytune_master_token", data.session.access_token);
-      localStorage.setItem("user_role", "master");
+      loginMaster(data.session.access_token, {
+        id: data.user.id,
+        email: data.user.email || submittedEmail,
+        role: "MASTER_ADMIN",
+        full_name: data.user.user_metadata?.full_name || "Platform Master Administrator",
+      });
 
       await refreshProfile();
       setSuccess("Master clearance validated. Redirecting to secure console...");
@@ -104,8 +113,7 @@ export default function MasterAdminLogin() {
           <ChevronLeft className="w-4 h-4" />
           Return to Public App
         </Link>
-        <div className="flex items-center gap-2 text-[11px] font-mono text-rose-400/90 bg-rose-950/40 border border-rose-900/40 px-3 py-1 rounded-full">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+        <div className="flex items-center gap-2 text-[11px] font-mono text-rose-400/90 bg-rose-950/40 border border-rose-900/40 px-3 py-1 rounded-md">
           RESTRICTED GATEWAY
         </div>
       </header>

@@ -207,11 +207,14 @@ async function loadActiveVideos(limit = 100): Promise<any[]> {
     throw error;
   }
 
+  const nowMs = Date.now();
   const activeRemote = (data || []).filter(
     (v: any) =>
       v.record_status !== 'deleted' &&
       v.moderation_status !== 'rejected' &&
-      v.moderation_status !== 'blocked' &&
+      v.moderation_status !== 'restricted' &&
+      (!v.publication_status || v.publication_status === 'published') &&
+      (!v.scheduled_at || new Date(v.scheduled_at).getTime() <= nowMs) &&
       (!v.visibility || v.visibility === 'public')
   );
 
@@ -412,21 +415,61 @@ export const getVideoDetails = async (req: Request, res: Response) => {
     ]);
 
     if (error) throw error;
-    if (!video) {
+    if (!video || video.record_status === 'deleted') {
       return res.status(404).json({ message: 'Video not found' });
     }
 
+    const isMaster = user?.role === 'MASTER_ADMIN' || user?.role === 'master' || user?.role === 'admin';
+    let isOwner = Boolean(isMaster);
+
+    if (userId && !isOwner) {
+      if (video.created_by_user_id && String(video.created_by_user_id) === String(userId)) {
+        isOwner = true;
+      } else if (video.artist_profile_id || video.creator_channel_id) {
+        try {
+          if (video.artist_profile_id) {
+            const { data: apRec } = await client
+              .from('artist_profiles')
+              .select('id')
+              .eq('id', video.artist_profile_id)
+              .or(`created_by_user_id.eq.${userId},primary_contact_user_id.eq.${userId}`)
+              .maybeSingle();
+            if (apRec) isOwner = true;
+          }
+          if (!isOwner && video.creator_channel_id) {
+            const { data: chRec } = await client
+              .from('creator_channels')
+              .select('id')
+              .eq('id', video.creator_channel_id)
+              .or(`owner_user_id.eq.${userId},created_by_user_id.eq.${userId}`)
+              .maybeSingle();
+            if (chRec) isOwner = true;
+          }
+        } catch {}
+      }
+    }
+
+    const isFutureScheduled = Boolean(video.scheduled_at && new Date(video.scheduled_at).getTime() > Date.now());
+    const isRejectedOrBlocked = video.moderation_status === 'rejected' || video.moderation_status === 'restricted';
+    const isPublished = !video.publication_status || video.publication_status === 'published';
+    const isPrivate = video.visibility === 'private';
+
+    if (!isOwner && (isRejectedOrBlocked || !isPublished || isFutureScheduled || isPrivate)) {
+      return res.status(404).json({ message: 'Video not found or not yet published' });
+    }
+
     const normalized = normalizeVideo(video, artistsMap);
-    let userOwns = Boolean(normalized.is_short || normalized.is_free);
+    let userOwns = Boolean(isOwner || normalized.is_short || normalized.is_free);
     let isMember = false;
     let minTier: any = null;
     let userLiked = false;
     let userSubscribed = false;
     let userRating = 0;
     let purchaseCount = 0;
+    let captions: Array<{ id: string; language_code: string; label: string; kind: string; is_default: boolean; url: string }> = [];
 
     try {
-      const [{ count }, { data: allRatings }] = await Promise.all([
+      const [{ count }, { data: allRatings }, { data: captionRows }] = await Promise.all([
         client
           .from('premium_content_access_grants')
           .select('id', { count: 'exact', head: true })
@@ -437,6 +480,12 @@ export const getVideoDetails = async (req: Request, res: Response) => {
           .select('user_id, rating')
           .eq('content_type', 'video')
           .eq('content_id', id),
+        client
+          .from('video_captions')
+          .select('id, language_code, track_label, track_type, is_default, media_asset_id, created_at')
+          .eq('video_id', id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true }),
       ]);
       purchaseCount = count || 0;
       if (Array.isArray(allRatings) && allRatings.length > 0) {
@@ -447,6 +496,33 @@ export const getVideoDetails = async (req: Request, res: Response) => {
           const mine = allRatings.find((r: any) => String(r.user_id) === String(userId));
           if (mine) userRating = Number(mine.rating || 0);
         }
+      }
+
+      if (Array.isArray(captionRows) && captionRows.length > 0) {
+        const assetIds = captionRows.map((c: any) => c.media_asset_id).filter(Boolean);
+        const { data: assetRows } = assetIds.length > 0
+          ? await client.from('media_assets').select('id, storage_bucket, storage_path, metadata').in('id', assetIds)
+          : { data: [] as any[] };
+        const assetMap = new Map<string, any>((assetRows || []).map((a: any) => [String(a.id), a]));
+
+        captions = captionRows
+          .map((c: any) => {
+            const asset = assetMap.get(String(c.media_asset_id));
+            let url = asset?.metadata?.public_url || '';
+            if (!url && asset?.storage_bucket && asset?.storage_path) {
+              const { data: urlData } = client.storage.from(asset.storage_bucket).getPublicUrl(asset.storage_path);
+              url = urlData?.publicUrl || '';
+            }
+            return {
+              id: String(c.id),
+              language_code: c.language_code || 'en',
+              label: c.track_label || c.language_code || 'English',
+              kind: c.track_type || 'subtitles',
+              is_default: Boolean(c.is_default),
+              url,
+            };
+          })
+          .filter((c) => Boolean(c.url));
       }
     } catch {
       purchaseCount = 0;
@@ -475,34 +551,20 @@ export const getVideoDetails = async (req: Request, res: Response) => {
             .maybeSingle();
           userSubscribed = Boolean(followRec);
         } catch {}
-
-        try {
-          const { data: artistRec } = await client
-            .from('artist_profiles')
-            .select('id')
-            .eq('id', normalized.artist_id)
-            .or(`created_by_user_id.eq.${userId},primary_contact_user_id.eq.${userId}`)
-            .maybeSingle();
-          if (artistRec) userOwns = true;
-        } catch {}
       }
 
       if (!userOwns) {
-        if (user?.role === 'MASTER_ADMIN' || user?.role === 'master' || user?.role === 'admin') {
-          userOwns = true;
-        } else {
-          try {
-            const { data: grant } = await client
-              .from('premium_content_access_grants')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('content_type', 'video')
-              .eq('content_id', id)
-              .is('revoked_at', null)
-              .maybeSingle();
-            if (grant) userOwns = true;
-          } catch {}
-        }
+        try {
+          const { data: grant } = await client
+            .from('premium_content_access_grants')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('content_type', 'video')
+            .eq('content_id', id)
+            .is('revoked_at', null)
+            .maybeSingle();
+          if (grant) userOwns = true;
+        } catch {}
       }
     }
 
@@ -512,6 +574,9 @@ export const getVideoDetails = async (req: Request, res: Response) => {
 
     res.json({
       ...normalized,
+      captions,
+      publication_status: video.publication_status || 'published',
+      scheduled_at: video.scheduled_at || null,
       userOwns,
       isMember,
       minTier,

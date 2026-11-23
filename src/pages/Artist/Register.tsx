@@ -12,6 +12,8 @@ import {
   AlertCircle,
   Loader2,
   Music2,
+  Sparkles,
+  FileText,
 } from 'lucide-react';
 import { useArtistAuth } from '../../contexts/ArtistAuthContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -22,9 +24,11 @@ export default function ArtistRegister() {
   const { user, refreshProfile } = useAuth();
 
   const [form, setForm] = useState({
-    full_name: '',
+    owner_name: '',
+    artist_name: '',
     artist_handle: '',
     artist_type: 'solo',
+    bio: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -32,6 +36,7 @@ export default function ArtistRegister() {
     momo_provider: 'MTN',
     momo_code: '',
   });
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,18 +47,41 @@ export default function ArtistRegister() {
     }
   }, [artist, navigate]);
 
+  useEffect(() => {
+    if (user) {
+      const prefillOwner = String(
+        (user as any)?.user_metadata?.full_name || user.email?.split('@')[0] || ''
+      ).trim();
+      if (prefillOwner) {
+        setForm((prev) => (prev.owner_name ? prev : { ...prev, owner_name: prefillOwner }));
+      }
+    }
+  }, [user]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
     setError('');
 
-    const cleanName = form.full_name.trim();
+    const cleanOwnerName = form.owner_name.trim();
+    const cleanArtistName = form.artist_name.trim();
+    const cleanBio = form.bio.trim();
     const cleanEmail = form.email.trim().toLowerCase();
     const cleanPhone = form.phone.trim();
     const cleanHandle = form.artist_handle.trim().replace(/^@/, '').toLowerCase();
 
-    if (cleanName.length < 2) {
-      setError('Artist or stage name must be at least 2 characters.');
+    if (cleanOwnerName.length < 2) {
+      setError('Account owner full name must be at least 2 characters.');
+      return;
+    }
+
+    if (cleanArtistName.length < 2) {
+      setError('Artist or stage display name must be at least 2 characters.');
+      return;
+    }
+
+    if (cleanBio.length < 10) {
+      setError('Artist biography must be at least 10 characters so listeners can learn about your sound.');
       return;
     }
 
@@ -77,12 +105,25 @@ export default function ArtistRegister() {
       return;
     }
 
+    if (!termsAccepted) {
+      setError('You must accept the Terms of Service, Privacy Policy, and Originality Declaration.');
+      return;
+    }
+
+    const submittedPassword = form.password;
+    setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }));
     setLoading(true);
+
     try {
       const payload: Record<string, any> = {
-        full_name: cleanName,
-        artist_name: cleanName,
+        owner_name: cleanOwnerName,
+        ownerName: cleanOwnerName,
+        full_name: cleanOwnerName,
+        artist_name: cleanArtistName,
+        artistName: cleanArtistName,
         artist_type: form.artist_type,
+        bio: cleanBio,
+        termsAccepted: true,
       };
       if (cleanHandle) payload.artist_handle = cleanHandle;
       if (cleanPhone) payload.phone = cleanPhone;
@@ -96,7 +137,7 @@ export default function ArtistRegister() {
 
       if (!user) {
         payload.email = cleanEmail;
-        payload.password = form.password;
+        payload.password = submittedPassword;
       }
 
       const res = await register(payload);
@@ -131,17 +172,17 @@ export default function ArtistRegister() {
             <span className="text-base tracking-wide">PAYTUNE</span>
           </Link>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
-            Create Artist Studio
+            Join PAYTUNE as an Artist
           </h1>
           <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
-            Publish music videos &amp; shorts, track analytics, and receive 70/30 payouts
+            Publish music videos, audio &amp; shorts, track analytics, and receive 70/30 payouts
           </p>
         </div>
 
         <div className="bg-white dark:bg-[#161616] border border-gray-200 dark:border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl shadow-black/5 dark:shadow-black/40">
           {user && (
             <div className="mb-5 p-3.5 rounded-xl bg-purple-50 dark:bg-purple-600/10 border border-purple-200 dark:border-purple-600/30 text-xs text-purple-900 dark:text-purple-200">
-              Signed in as <strong className="font-semibold">{user.email}</strong>. Completing this form will create and link your artist profile automatically.
+              Signed in as <strong className="font-semibold">{user.email}</strong>. Completing this form will create and link your unique artist studio profile.
             </div>
           )}
 
@@ -159,25 +200,49 @@ export default function ArtistRegister() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label
-                  htmlFor="artist-reg-name"
+                  htmlFor="artist-reg-owner"
                   className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
                 >
-                  Stage / Artist Name
+                  Account Owner Full Name
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    id="artist-reg-name"
+                    id="artist-reg-owner"
                     type="text"
-                    placeholder="e.g. Bruce Melodie"
-                    value={form.full_name}
-                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                    autoComplete="name"
+                    placeholder="Your legal / full name"
+                    value={form.owner_name}
+                    onChange={(e) => setForm({ ...form, owner_name: e.target.value })}
                     className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
                     required
                   />
                 </div>
               </div>
 
+              <div>
+                <label
+                  htmlFor="artist-reg-name"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                >
+                  Artist / Stage Name
+                </label>
+                <div className="relative">
+                  <Sparkles className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="artist-reg-name"
+                    type="text"
+                    placeholder="e.g. Bruce Melodie"
+                    value={form.artist_name}
+                    onChange={(e) => setForm({ ...form, artist_name: e.target.value })}
+                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label
                   htmlFor="artist-reg-type"
@@ -198,24 +263,46 @@ export default function ArtistRegister() {
                   <option value="other">Label / Other</option>
                 </select>
               </div>
+
+              <div>
+                <label
+                  htmlFor="artist-reg-handle"
+                  className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
+                >
+                  Studio Handle <span className="font-normal lowercase text-gray-400">(optional)</span>
+                </label>
+                <div className="relative">
+                  <AtSign className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="artist-reg-handle"
+                    type="text"
+                    placeholder="auto-generated if blank"
+                    value={form.artist_handle}
+                    onChange={(e) => setForm({ ...form, artist_handle: e.target.value })}
+                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm font-mono"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>
               <label
-                htmlFor="artist-reg-handle"
+                htmlFor="artist-reg-bio"
                 className="block text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1.5"
               >
-                Studio Handle <span className="font-normal lowercase text-gray-400">(optional)</span>
+                Artist Biography
               </label>
               <div className="relative">
-                <AtSign className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  id="artist-reg-handle"
-                  type="text"
-                  placeholder="auto-generated if blank"
-                  value={form.artist_handle}
-                  onChange={(e) => setForm({ ...form, artist_handle: e.target.value })}
-                  className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm font-mono"
+                <FileText className="w-4 h-4 text-gray-400 absolute left-3.5 top-3 pointer-events-none" />
+                <textarea
+                  id="artist-reg-bio"
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Describe your musical style, story, and what fans can expect on your channel..."
+                  value={form.bio}
+                  onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-[#222222] text-gray-900 dark:text-white border border-gray-200 dark:border-white/10 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 focus:outline-none text-sm resize-y"
+                  required
                 />
               </div>
             </div>
@@ -267,7 +354,7 @@ export default function ArtistRegister() {
                       <button
                         type="button"
                         onClick={() => setShowPassword((p) => !p)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 cursor-pointer"
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -346,6 +433,34 @@ export default function ArtistRegister() {
               </div>
             </div>
 
+            <div className="pt-2">
+              <label className="flex items-start gap-2.5 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                <input
+                  id="artist-reg-terms"
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0"
+                  required
+                />
+                <span className="leading-relaxed">
+                  I accept the{' '}
+                  <Link to="/legal?tab=terms" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+                    Terms of Service
+                  </Link>
+                  ,{' '}
+                  <Link to="/legal?tab=privacy" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+                    Privacy Policy
+                  </Link>
+                  , and{' '}
+                  <Link to="/legal?tab=artist-agreement" className="text-purple-600 dark:text-purple-400 font-semibold hover:underline">
+                    Artist Agreement
+                  </Link>
+                  , and confirm that uploaded music and video works are original or properly licensed.
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -373,9 +488,9 @@ export default function ArtistRegister() {
               </Link>
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500">
-              Looking for listener sign in?{' '}
+              Looking for ordinary listener sign in?{' '}
               <Link to="/auth" className="text-gray-700 dark:text-gray-300 hover:underline font-medium">
-                User Auth
+                User Sign In
               </Link>
             </p>
           </div>

@@ -322,18 +322,28 @@ export const addVideoToPlaylist = async (req: Request, res: Response) => {
       .eq('id', videoId)
       .maybeSingle();
 
-    const { count } = await client
-      .from('playlist_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('playlist_id', id);
+    const [{ count }, { data: maxPosRow }] = await Promise.all([
+      client
+        .from('playlist_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('playlist_id', id),
+      client
+        .from('playlist_items')
+        .select('position')
+        .eq('playlist_id', id)
+        .order('position', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
+    const nextPos = Math.max(1, Number(maxPosRow?.position || 0) + 1);
     const { data: entry, error } = await client
       .from('playlist_items')
       .insert({
         playlist_id: id,
         content_type: video?.video_type === 'short' ? 'short' : 'video',
         content_id: videoId,
-        position: count || 0,
+        position: nextPos,
         added_by_user_id: user.id,
       })
       .select('*')
@@ -423,7 +433,7 @@ export const reorderVideos = async (req: Request, res: Response) => {
       videoIds.map((vid: string, index: number) =>
         client
           .from('playlist_items')
-          .update({ position: index })
+          .update({ position: index + 1 })
           .eq('playlist_id', id)
           .eq('content_id', vid)
       )

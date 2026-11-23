@@ -240,17 +240,30 @@ export const VideosTab: React.FC<VideosTabProps> = ({
                       </div>
                     </td>
 
-                    {/* Visibility */}
+                    {/* Visibility & Publication Status */}
                     <td className="py-4 px-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                        video.visibility === 'public'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : video.visibility === 'unlisted'
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
-                      }`}>
-                        {video.visibility || 'public'}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                          video.visibility === 'public'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : video.visibility === 'unlisted'
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                        }`}>
+                          {video.visibility || 'public'}
+                        </span>
+                        {video.publication_status && video.publication_status !== 'published' && (
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            video.publication_status === 'scheduled'
+                              ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                              : video.publication_status === 'draft'
+                              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                              : 'bg-neutral-700/40 text-neutral-400 border border-neutral-600/30'
+                          }`}>
+                            {video.publication_status}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Monetization */}

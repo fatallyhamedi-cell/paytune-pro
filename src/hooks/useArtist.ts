@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from './useAuth';
+import { notifyFollowingChanged, FOLLOWING_CHANGED_EVENT } from '../lib/followingEvents';
 
 export interface ArtistProfile {
   id: string;
@@ -89,6 +90,19 @@ export function useArtist(artistIdOrUsername: string | undefined) {
     fetchArtist();
   }, [fetchArtist]);
 
+  useEffect(() => {
+    const handleSync = () => {
+      if (user && artist?.id) {
+        api
+          .get<{ subscribed: boolean }>(`/api/artists/${artist.id}/subscribe-status`)
+          .then((res) => setSubscribed(Boolean(res.data?.subscribed)))
+          .catch(() => {});
+      }
+    };
+    window.addEventListener(FOLLOWING_CHANGED_EVENT, handleSync);
+    return () => window.removeEventListener(FOLLOWING_CHANGED_EVENT, handleSync);
+  }, [user, artist?.id]);
+
   // Subscribe / Unsubscribe toggle
   const toggleSubscribe = async (): Promise<{ success: boolean; requiresAuth?: boolean; subscribed?: boolean }> => {
     if (!user) {
@@ -107,15 +121,21 @@ export function useArtist(artistIdOrUsername: string | undefined) {
     setSubscriberCount(newCount);
 
     try {
-      const res = await api.post<{ subscribed: boolean; subscriber_count: number }>(
-        `/api/artists/${artist.id}/subscribe`
-      );
+      const res = previousSubscribed
+        ? await api.delete<{ subscribed: boolean; subscriber_count: number }>(
+            `/api/artists/${artist.id}/follow`
+          )
+        : await api.post<{ subscribed: boolean; subscriber_count: number }>(
+            `/api/artists/${artist.id}/follow`,
+            { action: 'follow' }
+          );
       if (typeof res.data.subscribed === 'boolean') {
         setSubscribed(res.data.subscribed);
       }
       if (typeof res.data.subscriber_count === 'number') {
         setSubscriberCount(res.data.subscriber_count);
       }
+      notifyFollowingChanged(user.id);
       return { success: true, subscribed: res.data.subscribed };
     } catch (err: any) {
       console.error("Toggle subscribe error:", err);

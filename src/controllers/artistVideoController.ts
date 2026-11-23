@@ -6,6 +6,7 @@ import { processAndUploadVideo } from '../services/videoService';
 import { contentIdService } from '../services/contentIdService';
 import { notifySubscribersNewVideo } from '../services/notificationService';
 import { cacheService } from '../services/cacheService';
+import { validateUploadedMedia, deleteStorageObjects } from '../utils/uploadValidation';
 
 const getDb = () => rawSupabaseAdmin || supabaseAdmin;
 
@@ -170,13 +171,27 @@ export const uploadVideo = async (req: Request, res: Response) => {
       is_free,
       is_short,
       visibility = 'public',
+      publication_status,
       scheduled_release,
+      scheduled_at,
       chapters,
       tags,
+      language_code,
     } = req.body;
 
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const vidCheck = validateUploadedMedia(videoFile, 'video');
+    if (!vidCheck.valid) {
+      return res.status(400).json({ error: vidCheck.error || 'Invalid video file' });
+    }
+    if (thumbnailFile) {
+      const thumbCheck = validateUploadedMedia(thumbnailFile, 'image');
+      if (!thumbCheck.valid) {
+        return res.status(400).json({ error: thumbCheck.error || 'Invalid thumbnail image file' });
+      }
     }
 
     const isFree = is_free === 'true' || is_free === true;
@@ -208,6 +223,12 @@ export const uploadVideo = async (req: Request, res: Response) => {
       return idx >= 0 ? url.slice(idx + marker.length) : url;
     };
 
+    const uploadedObjectsForRollback = [
+      { bucket: 'videos', url: video_url },
+      preview_url ? { bucket: 'previews', url: preview_url } : null,
+      thumbnail_url && thumbnail_url !== video_url ? { bucket: 'thumbnails', url: thumbnail_url } : null,
+    ].filter(Boolean) as Array<{ bucket: string; url: string }>;
+
     const { data: videoAsset, error: vAssetErr } = await db
       .from('media_assets')
       .insert({
@@ -215,7 +236,7 @@ export const uploadVideo = async (req: Request, res: Response) => {
         uploaded_by_user_id: creator.ownerUserId,
         original_file_name: videoFile.originalname,
         file_extension: path.extname(videoFile.originalname).replace('.', '') || 'mp4',
-        mime_type: videoFile.mimetype || 'video/mp4',
+        mime_type: vidCheck.detectedType || videoFile.mimetype || 'video/mp4',
         media_kind: 'video',
         media_purpose: isShort ? 'short_source' : 'video_source',
         storage_provider: 'supabase',
@@ -232,6 +253,7 @@ export const uploadVideo = async (req: Request, res: Response) => {
       .single();
 
     if (vAssetErr || !videoAsset) {
+      await deleteStorageObjects(db, uploadedObjectsForRollback);
       return res.status(500).json({ error: vAssetErr?.message || 'Failed to register video media asset' });
     }
 
@@ -279,7 +301,14 @@ export const uploadVideo = async (req: Request, res: Response) => {
     const uniqueLink = visibility === 'unlisted' ? crypto.randomUUID().replace(/-/g, '') : null;
     const allowedVisibilities = new Set(['public', 'unlisted', 'private', 'members_only']);
     const normalizedVisibility = allowedVisibilities.has(String(visibility)) ? String(visibility) : 'public';
-    const isScheduled = Boolean(scheduled_release && new Date(scheduled_release).getTime() > Date.now());
+    const rawSched = scheduled_release || scheduled_at;
+    const isScheduledTime = Boolean(rawSched && new Date(rawSched).getTime() > Date.now());
+    const normalizedStatus =
+      publication_status === 'draft'
+        ? 'draft'
+        : publication_status === 'scheduled' || isScheduledTime
+          ? 'scheduled'
+          : 'published';
 
     const { data: insertedVideo, error: vidErr } = await db
       .from('videos')
@@ -295,13 +324,13 @@ export const uploadVideo = async (req: Request, res: Response) => {
         source_media_asset_id: videoAsset.id,
         thumbnail_media_asset_id: thumbnailAssetId,
         visibility: normalizedVisibility,
-        publication_status: isScheduled ? 'scheduled' : 'published',
+        publication_status: normalizedStatus,
         processing_status: 'completed',
         moderation_status: 'approved',
         is_free: isFree || isShort,
         is_paywalled: !(isFree || isShort),
-        scheduled_at: isScheduled ? new Date(scheduled_release).toISOString() : null,
-        published_at: isScheduled ? null : now,
+        scheduled_at: normalizedStatus === 'scheduled' && rawSched ? new Date(rawSched).toISOString() : null,
+        published_at: normalizedStatus === 'published' ? now : null,
         metadata: {
           video_url,
           preview_url,
@@ -312,6 +341,7 @@ export const uploadVideo = async (req: Request, res: Response) => {
           unique_link: uniqueLink,
           chapters: parsedChapters,
           tags: parsedTags,
+          language_code: language_code || 'en',
           artist_id: creator.artistId,
           artist_name: creator.displayName,
         },
@@ -320,6 +350,8 @@ export const uploadVideo = async (req: Request, res: Response) => {
       .single();
 
     if (vidErr || !insertedVideo) {
+      await deleteStorageObjects(db, uploadedObjectsForRollback);
+      await db.from('media_assets').delete().in('id', [videoAsset.id, thumbnailAssetId].filter(Boolean) as string[]);
       return res.status(500).json({ error: vidErr?.message || 'Failed to save video metadata' });
     }
 
@@ -342,7 +374,7 @@ export const uploadVideo = async (req: Request, res: Response) => {
       console.warn('Content ID scan notice:', cidErr);
     }
 
-    if (!isScheduled && normalizedVisibility === 'public') {
+    if (normalizedStatus === 'published' && normalizedVisibility === 'public') {
       void notifySubscribersNewVideo({
         id: insertedVideo.id,
         title: insertedVideo.title,
@@ -407,31 +439,20 @@ export const deleteVideo = async (req: Request, res: Response) => {
     }
 
     const meta = video.metadata && typeof video.metadata === 'object' ? video.metadata : {};
-    const extractPath = (url?: string, bucket?: string) => {
-      if (!url || !bucket) return null;
-      const marker = `/object/public/${bucket}/`;
-      const idx = url.indexOf(marker);
-      if (idx >= 0) return url.substring(idx + marker.length);
-      return null;
-    };
-
-    const videoPath = extractPath(meta.video_url, 'videos');
-    const previewPath = extractPath(meta.preview_url, 'previews');
-    const thumbPath = extractPath(meta.thumbnail_url, 'thumbnails');
-
-    const deletions = [
-      videoPath && db.storage.from('videos').remove([videoPath]),
-      previewPath && db.storage.from('previews').remove([previewPath]),
-      thumbPath && db.storage.from('thumbnails').remove([thumbPath]),
-    ].filter(Boolean);
-
-    if (deletions.length > 0) {
-      await Promise.allSettled(deletions as Promise<any>[]);
-    }
+    await deleteStorageObjects(db, [
+      { bucket: 'videos', url: meta.video_url },
+      { bucket: 'previews', url: meta.preview_url },
+      { bucket: 'thumbnails', url: meta.thumbnail_url },
+    ]);
 
     const { error: delErr } = await db.from('videos').delete().eq('id', id);
     if (delErr) {
       return res.status(500).json({ error: delErr.message });
+    }
+
+    const assetIds = [video.source_media_asset_id, video.thumbnail_media_asset_id].filter(Boolean);
+    if (assetIds.length > 0) {
+      await db.from('media_assets').delete().in('id', assetIds);
     }
 
     await Promise.all([
@@ -553,10 +574,13 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
       is_short,
       media_type,
       visibility = 'public',
+      publication_status,
       scheduled_release,
+      scheduled_at,
       chapters,
       tags,
       duration,
+      language_code,
     } = req.body;
 
     const resolvedVideoUrl = String(videoUrl || video_url || '').trim();
@@ -619,6 +643,10 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
       .single();
 
     if (vAssetErr || !videoAsset) {
+      await deleteStorageObjects(db, [
+        { bucket: inferredBucket, url: resolvedVideoUrl },
+        resolvedThumbnailUrl ? { bucket: 'thumbnails', url: resolvedThumbnailUrl } : { bucket: 'thumbnails', url: null },
+      ]);
       return res.status(500).json({ error: vAssetErr?.message || 'Failed to register uploaded media asset' });
     }
 
@@ -665,7 +693,14 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
     const uniqueLink = visibility === 'unlisted' ? crypto.randomUUID().replace(/-/g, '') : null;
     const allowedVisibilities = new Set(['public', 'unlisted', 'private', 'members_only']);
     const normalizedVisibility = allowedVisibilities.has(String(visibility)) ? String(visibility) : 'public';
-    const isScheduled = Boolean(scheduled_release && new Date(scheduled_release).getTime() > Date.now());
+    const rawSched = scheduled_release || scheduled_at;
+    const isScheduledTime = Boolean(rawSched && new Date(rawSched).getTime() > Date.now());
+    const normalizedStatus =
+      publication_status === 'draft'
+        ? 'draft'
+        : publication_status === 'scheduled' || isScheduledTime
+          ? 'scheduled'
+          : 'published';
 
     const { data: insertedVideo, error: vidErr } = await db
       .from('videos')
@@ -681,13 +716,13 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
         source_media_asset_id: videoAsset.id,
         thumbnail_media_asset_id: thumbnailAssetId,
         visibility: normalizedVisibility,
-        publication_status: isScheduled ? 'scheduled' : 'published',
+        publication_status: normalizedStatus,
         processing_status: 'completed',
         moderation_status: 'approved',
         is_free: isFree,
         is_paywalled: !isFree,
-        scheduled_at: isScheduled ? new Date(scheduled_release).toISOString() : null,
-        published_at: isScheduled ? null : now,
+        scheduled_at: normalizedStatus === 'scheduled' && rawSched ? new Date(rawSched).toISOString() : null,
+        published_at: normalizedStatus === 'published' ? now : null,
         metadata: {
           video_url: resolvedVideoUrl,
           preview_url: resolvedPreviewUrl || resolvedVideoUrl,
@@ -698,6 +733,7 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
           unique_link: uniqueLink,
           chapters: parsedChapters,
           tags: parsedTags,
+          language_code: language_code || 'en',
           artist_id: creator.artistId,
           artist_name: creator.displayName,
         },
@@ -706,6 +742,11 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
       .single();
 
     if (vidErr || !insertedVideo) {
+      await deleteStorageObjects(db, [
+        { bucket: inferredBucket, url: resolvedVideoUrl },
+        resolvedThumbnailUrl ? { bucket: 'thumbnails', url: resolvedThumbnailUrl } : { bucket: 'thumbnails', url: null },
+      ]);
+      await db.from('media_assets').delete().in('id', [videoAsset.id, thumbnailAssetId].filter(Boolean) as string[]);
       return res.status(500).json({ error: vidErr?.message || 'Failed to save video metadata' });
     }
 
@@ -728,7 +769,7 @@ export const completeVideoUpload = async (req: Request, res: Response) => {
       console.warn('Content ID scan notice:', cidErr);
     }
 
-    if (!isScheduled && normalizedVisibility === 'public') {
+    if (normalizedStatus === 'published' && normalizedVisibility === 'public') {
       void notifySubscribersNewVideo({
         id: insertedVideo.id,
         title: insertedVideo.title,

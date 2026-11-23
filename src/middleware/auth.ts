@@ -141,8 +141,6 @@ export const checkRole = (role: 'user' | 'artist' | 'master' | 'MASTER_ADMIN') =
     const db = rawSupabaseAdmin || supabaseAdmin || supabase;
 
     if (role === 'artist') {
-      const targetArtistId = user.artistId || user.id;
-
       let { data: artistProfile } = await db
         .from('artist_profiles')
         .select('*')
@@ -150,13 +148,22 @@ export const checkRole = (role: 'user' | 'artist' | 'master' | 'MASTER_ADMIN') =
         .limit(1)
         .maybeSingle();
 
-      if (!artistProfile && targetArtistId) {
-        const { data: byId } = await db
-          .from('artist_profiles')
-          .select('*')
-          .eq('id', targetArtistId)
+      if (!artistProfile) {
+        const { data: membership } = await db
+          .from('artist_members')
+          .select('artist_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1)
           .maybeSingle();
-        artistProfile = byId;
+        if (membership?.artist_id) {
+          const { data: memberArtist } = await db
+            .from('artist_profiles')
+            .select('*')
+            .eq('id', membership.artist_id)
+            .maybeSingle();
+          artistProfile = memberArtist || null;
+        }
       }
 
       const { data: channel } = await db

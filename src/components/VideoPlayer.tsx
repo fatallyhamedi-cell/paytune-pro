@@ -1,5 +1,6 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../lib/api';
+import { emitMediaPlay, subscribeMediaPlay } from '../lib/playbackBus';
 import {
   Play,
   Pause,
@@ -23,6 +24,15 @@ import {
   Loader2,
 } from 'lucide-react';
 
+export interface VideoCaptionTrack {
+  id?: string;
+  language_code: string;
+  label?: string;
+  kind?: string;
+  url: string;
+  is_default?: boolean;
+}
+
 export interface VideoPlayerProps {
   src?: string;
   videoId?: string;
@@ -37,8 +47,10 @@ export interface VideoPlayerProps {
     userOwns?: boolean;
     is_free?: boolean;
     price_rwf?: number;
+    captions?: VideoCaptionTrack[];
     [key: string]: any;
   };
+  captions?: VideoCaptionTrack[];
   poster?: string;
   savedProgress?: number;
   hasNext?: boolean;
@@ -59,6 +71,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
   videoId,
   video,
+  captions,
   poster,
   savedProgress = 0,
   hasNext = false,
@@ -99,8 +112,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     (video as any)?.audio_url ||
     '';
 
-  const effectiveId = videoId || video?.id || '';
+  const effectiveId = videoId || video?.id || effectiveSrc || 'watch-player';
   const effectivePoster = poster || video?.thumbnail_url || '';
+
+  const effectiveCaptions = useMemo<VideoCaptionTrack[]>(() => {
+    const raw = captions ?? video?.captions;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((item) => Boolean(item && item.url));
+  }, [captions, video?.captions]);
+
+  const applyCaptionTrackModes = useCallback((enabled: boolean) => {
+    const el = videoRef.current;
+    if (!el || !el.textTracks) return;
+    for (let i = 0; i < el.textTracks.length; i++) {
+      const track = el.textTracks[i];
+      if (!enabled) {
+        track.mode = 'hidden';
+      } else {
+        track.mode = i === 0 ? 'showing' : 'hidden';
+      }
+    }
+  }, []);
 
   // Reset states when video changes
   useEffect(() => {
@@ -110,7 +142,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setCurrentTime(0);
     setIsPlaying(false);
     setShowSettingsMenu(false);
-  }, [effectiveId, effectiveSrc]);
+    setCcEnabled(effectiveCaptions.some((c) => Boolean(c.is_default)));
+  }, [effectiveId, effectiveSrc, effectiveCaptions]);
+
+  // Keep HTML5 textTracks mode synchronized with ccEnabled toggle
+  useEffect(() => {
+    applyCaptionTrackModes(ccEnabled);
+  }, [ccEnabled, effectiveCaptions, effectiveSrc, applyCaptionTrackModes]);
+
+  // Pause Watch video cleanly when another player (Audio or Shorts) starts playing
+  useEffect(() => {
+    return subscribeMediaPlay(
+      (detail) => detail.sourceId === `video:${effectiveId}`,
+      () => {
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+        setIsPlaying(false);
+      }
+    );
+  }, [effectiveId]);
 
   useEffect(() => {
     if (video?.userOwns) {
@@ -241,17 +292,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       videoRef.current.currentTime = savedProgress;
       setCurrentTime(savedProgress);
     }
+    applyCaptionTrackModes(ccEnabled);
   };
 
   const handlePlayEvent = async () => {
+    emitMediaPlay(`video:${effectiveId}`, 'video');
     setIsPlaying(true);
     setIsBuffering(false);
     if (onPlay) onPlay();
 
-    if (!hasRecordedView && effectiveId) {
+    const apiVideoId = videoId || video?.id;
+    if (!hasRecordedView && apiVideoId) {
       setHasRecordedView(true);
       try {
-        await api.post(`/api/videos/${effectiveId}/view`);
+        await api.post(`/api/videos/${apiVideoId}/view`);
       } catch {
         // Non-blocking view telemetry
       }
@@ -376,7 +430,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           className={`w-full h-full object-contain bg-black cursor-pointer transition-all duration-300 ${
             paywallTriggered && isPaidNotOwned ? 'opacity-30 blur-sm' : ''
           }`}
-        />
+        >
+          {effectiveCaptions.map((track, idx) => (
+            <track
+              key={track.id || track.url || `${track.language_code}-${idx}`}
+              kind={(track.kind as 'subtitles' | 'captions' | 'descriptions' | 'chapters' | 'metadata') || 'subtitles'}
+              src={track.url}
+              srcLang={track.language_code || 'en'}
+              label={track.label || (track.language_code ? track.language_code.toUpperCase() : 'Subtitles')}
+              default={Boolean(track.is_default || (ccEnabled && idx === 0))}
+            />
+          ))}
+        </video>
 
         {/* TOP-RIGHT OVERLAY PILL: Subscribe/Follow + Remaining Time + Share/Report */}
         <div
@@ -558,11 +623,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <div className="flex items-center gap-3 sm:gap-4 relative">
                 <button
                   type="button"
-                  onClick={() => setCcEnabled((v) => !v)}
+                  onClick={() => {
+                    if (effectiveCaptions.length > 0) {
+                      setCcEnabled((v) => !v);
+                    }
+                  }}
+                  disabled={effectiveCaptions.length === 0}
                   aria-label="Toggle Subtitles"
-                  title={ccEnabled ? 'Subtitles On' : 'Subtitles Off'}
-                  className={`transition-colors cursor-pointer ${
-                    ccEnabled ? 'text-[#8B5CF6]' : 'text-white hover:text-[#8B5CF6]'
+                  title={
+                    effectiveCaptions.length === 0
+                      ? 'No subtitles available for this video'
+                      : ccEnabled
+                      ? 'Subtitles On'
+                      : 'Subtitles Off'
+                  }
+                  className={`transition-colors ${
+                    effectiveCaptions.length === 0
+                      ? 'text-white/30 cursor-not-allowed'
+                      : ccEnabled
+                      ? 'text-[#8B5CF6] cursor-pointer'
+                      : 'text-white hover:text-[#8B5CF6] cursor-pointer'
                   }`}
                 >
                   <Subtitles className="w-5 h-5" />

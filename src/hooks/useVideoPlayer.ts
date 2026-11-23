@@ -5,6 +5,7 @@ interface UseVideoPlayerProps {
   autoPlay?: boolean;
   loop?: boolean;
   initiallyMuted?: boolean;
+  shouldLoad?: boolean;
   onEnded?: () => void;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
 }
@@ -14,8 +15,9 @@ export function useVideoPlayer({
   autoPlay = false,
   loop = true,
   initiallyMuted = false,
+  shouldLoad = true,
   onEnded,
-  onTimeUpdate
+  onTimeUpdate,
 }: UseVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,30 +26,56 @@ export function useVideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isBuffering, setIsBuffering] = useState(true);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+
+  const onEndedRef = useRef(onEnded);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  const autoPlayRef = useRef(autoPlay);
+  const loopRef = useRef(loop);
+
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
+
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
+
+  useEffect(() => {
+    autoPlayRef.current = autoPlay;
+  }, [autoPlay]);
+
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
 
   // Play video with browser policy tolerance
   const play = useCallback(async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !shouldLoad || !src) return;
+    setPlaybackError(null);
     try {
       await videoRef.current.play();
       setIsPlaying(true);
       setIsBuffering(false);
     } catch (err: any) {
       // If unmuted playback was rejected by browser policy, fall back to muted
-      if (err?.name === 'NotAllowedError' && !videoRef.current.muted) {
+      if (err?.name === 'NotAllowedError' && videoRef.current && !videoRef.current.muted) {
         videoRef.current.muted = true;
         setIsMuted(true);
         try {
           await videoRef.current.play();
           setIsPlaying(true);
+          setIsBuffering(false);
         } catch {
           setIsPlaying(false);
+          setIsBuffering(false);
         }
       } else {
         setIsPlaying(false);
+        setIsBuffering(false);
       }
     }
-  }, []);
+  }, [shouldLoad, src]);
 
   const pause = useCallback(() => {
     if (!videoRef.current) return;
@@ -76,6 +104,15 @@ export function useVideoPlayer({
     setIsMuted(muted);
   }, []);
 
+  const retryPlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    setPlaybackError(null);
+    setIsBuffering(true);
+    video.load();
+    play();
+  }, [play]);
+
   // Sync initiallyMuted when prop changes
   useEffect(() => {
     setIsMuted(initiallyMuted);
@@ -85,59 +122,84 @@ export function useVideoPlayer({
     }
   }, [initiallyMuted]);
 
-  // Sync state and attach video element listeners
+  // Reset buffering state cleanly when element is suspended outside active window
+  useEffect(() => {
+    if (!shouldLoad) {
+      setIsPlaying(false);
+      setIsBuffering(false);
+      setPlaybackError(null);
+    }
+  }, [shouldLoad]);
+
+  // Attach stable listeners once per media source mount
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !shouldLoad || !src) return;
 
+    setPlaybackError(null);
     video.muted = isMuted;
     video.volume = 1.0;
 
     const handleWaiting = () => setIsBuffering(true);
     const handlePlaying = () => {
+      setPlaybackError(null);
       setIsBuffering(false);
       setIsPlaying(true);
+    };
+    const handleLoadedData = () => {
+      setPlaybackError(null);
+      setIsBuffering(false);
     };
     const handlePause = () => setIsPlaying(false);
     const handleLoadedMetadata = () => {
       setDuration(video.duration || 0);
       setIsBuffering(false);
-      if (autoPlay) {
+      if (autoPlayRef.current) {
         play();
       }
     };
     const handleTimeUpdate = () => {
-      if (!video) return;
       const curr = video.currentTime || 0;
       const dur = video.duration || 1;
       setCurrentTime(curr);
       setProgress((curr / dur) * 100);
-      onTimeUpdate?.(curr, dur);
+      onTimeUpdateRef.current?.(curr, dur);
     };
     const handleVideoEnded = () => {
-      if (loop) {
+      if (loopRef.current) {
         video.currentTime = 0;
         play();
       }
-      onEnded?.();
+      onEndedRef.current?.();
+    };
+    const handleError = () => {
+      setIsBuffering(false);
+      setIsPlaying(false);
+      setPlaybackError('Unable to stream this short right now.');
     };
 
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('playing', handlePlaying);
+    video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('pause', handlePause);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('ended', handleVideoEnded);
+    video.addEventListener('error', handleError);
 
     return () => {
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('ended', handleVideoEnded);
+      video.removeEventListener('error', handleError);
     };
-  }, [src, autoPlay, loop, isMuted, play, onEnded, onTimeUpdate]);
+    // Intentionally keep listener lifecycle stable across renders/mute changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, shouldLoad, play]);
 
   return {
     videoRef,
@@ -147,10 +209,12 @@ export function useVideoPlayer({
     currentTime,
     duration,
     isBuffering,
+    playbackError,
     play,
     pause,
+    retryPlay,
     togglePlay,
     toggleMute,
-    setMuteState
+    setMuteState,
   };
 }

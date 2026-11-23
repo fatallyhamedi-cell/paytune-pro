@@ -63,9 +63,40 @@ async function ensurePlacement(type: "video_preroll" | "video_midroll" | "video_
   return created;
 }
 
+async function ensureAdvertiserForUser(userId: string, name: string, email: string) {
+  const client = db();
+  const { data: owned } = await client
+    .from("advertiser_accounts")
+    .select("*")
+    .eq("owner_user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (owned) return owned;
+
+  const { data: created, error } = await client
+    .from("advertiser_accounts")
+    .insert({
+      id: crypto.randomUUID(),
+      owner_user_id: userId,
+      business_name: name,
+      contact_email: email || "ads@paytune.com",
+      advertiser_status: "approved",
+      verification_status: "verified",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return created;
+}
+
 /**
  * Public endpoint: GET /api/ads/video/:videoId
  * Paid videos & shorts NEVER show ads.
+ * Strictly requires campaign_status === 'active' AND creative_status === 'approved'.
  */
 export const getAdForVideo = async (req: Request, res: Response) => {
   if (!isSupabaseConfigured()) {
@@ -108,34 +139,40 @@ export const getAdForVideo = async (req: Request, res: Response) => {
     const nowIso = new Date().toISOString();
     const { data: campaigns } = await client
       .from("advertising_campaigns")
-      .select("*, advertiser_accounts(business_name)")
+      .select("*, advertiser_accounts(business_name), advertising_creatives(*)")
       .eq("campaign_status", "active")
       .order("created_at", { ascending: false });
 
-    const activeCampaigns = (campaigns || []).filter((c: any) => {
+    const eligibleCampaigns = (campaigns || []).filter((c: any) => {
       if (c.starts_at && c.starts_at > nowIso) return false;
       if (c.ends_at && c.ends_at < nowIso) return false;
       if (c.total_budget && Number(c.total_spend || 0) >= Number(c.total_budget)) return false;
-      return true;
+      const creatives = Array.isArray(c.advertising_creatives) ? c.advertising_creatives : [c.advertising_creatives].filter(Boolean);
+      return creatives.some(
+        (cr: any) =>
+          cr.creative_status === "approved" &&
+          cr.moderation_status !== "rejected" &&
+          Boolean(cr.metadata?.video_url)
+      );
     });
 
-    if (activeCampaigns.length === 0) {
+    if (eligibleCampaigns.length === 0) {
       return res.json({ has_ad: false, reason: "no_active_campaign" });
     }
 
-    // Prioritize campaigns explicitly targeting this videoId in metadata.target_video_id
-    const targeted = activeCampaigns.find((c: any) => String(c.metadata?.target_video_id || "") === String(videoId));
-    const chosenCampaign = targeted || activeCampaigns[0];
+    const targeted = eligibleCampaigns.find((c: any) => String(c.metadata?.target_video_id || "") === String(videoId));
+    const chosenCampaign = targeted || eligibleCampaigns[0];
+    const creatives = Array.isArray(chosenCampaign.advertising_creatives)
+      ? chosenCampaign.advertising_creatives
+      : [chosenCampaign.advertising_creatives].filter(Boolean);
+    const creative = creatives.find(
+      (cr: any) =>
+        cr.creative_status === "approved" &&
+        cr.moderation_status !== "rejected" &&
+        Boolean(cr.metadata?.video_url)
+    );
 
-    const { data: creative } = await client
-      .from("advertising_creatives")
-      .select("*")
-      .eq("campaign_id", chosenCampaign.id)
-      .in("creative_status", ["approved", "draft"])
-      .limit(1)
-      .maybeSingle();
-
-    if (!creative || !creative.metadata?.video_url) {
+    if (!creative) {
       return res.json({ has_ad: false, reason: "ad_creative_unavailable" });
     }
 
@@ -147,8 +184,9 @@ export const getAdForVideo = async (req: Request, res: Response) => {
         title: creative.headline || chosenCampaign.campaign_name,
         description: creative.description || chosenCampaign.campaign_description || "",
         video_url: creative.metadata.video_url,
-        thumbnail_url: creative.metadata.thumbnail_url || "",
+        thumbnail_url: creative.metadata.thumbnail_url || creative.metadata.image_url || "",
         click_url: creative.destination_url || chosenCampaign.landing_page_url || "",
+        cta_label: creative.call_to_action || "Learn More",
         duration_seconds: Number(creative.metadata.duration_seconds || 15),
         advertiser_name: chosenCampaign.advertiser_accounts?.business_name || "PAYTUNE Advertiser",
         skip_offset_seconds: 5,
@@ -162,6 +200,63 @@ export const getAdForVideo = async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("Error retrieving ad for video:", err);
     return res.status(500).json({ has_ad: false, error: err?.message || "Internal server error" });
+  }
+};
+
+/**
+ * Public endpoint: GET /api/ads/feed
+ * Returns strictly approved, active image/banner/promo placements.
+ */
+export const getFeedAds = async (_req: Request, res: Response) => {
+  if (!isSupabaseConfigured()) {
+    return res.json({ success: true, ads: [] });
+  }
+  try {
+    const client = db();
+    const nowIso = new Date().toISOString();
+    const { data: campaigns, error } = await client
+      .from("advertising_campaigns")
+      .select("*, advertiser_accounts(business_name), advertising_creatives(*)")
+      .eq("campaign_status", "active")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+
+    const ads: any[] = [];
+    for (const c of campaigns || []) {
+      if (c.starts_at && c.starts_at > nowIso) continue;
+      if (c.ends_at && c.ends_at < nowIso) continue;
+      if (c.total_budget && Number(c.total_spend || 0) >= Number(c.total_budget)) continue;
+      const creatives = Array.isArray(c.advertising_creatives) ? c.advertising_creatives : [c.advertising_creatives].filter(Boolean);
+      const approved = creatives.find(
+        (cr: any) =>
+          cr.creative_status === "approved" &&
+          cr.moderation_status !== "rejected" &&
+          Boolean(cr.metadata?.image_url || cr.metadata?.thumbnail_url || cr.metadata?.video_url)
+      );
+      if (!approved) continue;
+      ads.push({
+        id: c.id,
+        creative_id: approved.id,
+        title: approved.headline || c.campaign_name,
+        primary_text: approved.primary_text || "",
+        description: approved.description || c.campaign_description || "",
+        media_type: approved.media_type || "image",
+        image_url: approved.metadata?.image_url || approved.metadata?.thumbnail_url || "",
+        mobile_image_url: approved.metadata?.mobile_image_url || approved.metadata?.image_url || approved.metadata?.thumbnail_url || "",
+        video_url: approved.metadata?.video_url || "",
+        click_url: approved.destination_url || c.landing_page_url || "",
+        cta_label: approved.call_to_action || "Learn More",
+        placement_type: approved.metadata?.placement_type || "feed",
+        advertiser_name: c.advertiser_accounts?.business_name || "Sponsor",
+      });
+    }
+
+    return res.json({ success: true, ads });
+  } catch (err: any) {
+    console.error("Error retrieving feed ads:", err);
+    return res.status(500).json({ success: false, ads: [], error: err.message });
   }
 };
 
@@ -407,16 +502,26 @@ export const getMasterAds = async (_req: Request, res: Response) => {
 
       return {
         id: c.id,
+        creative_id: creative?.id || null,
         title: creative?.headline || c.campaign_name,
+        primary_text: creative?.primary_text || "",
         description: creative?.description || c.campaign_description || "",
+        media_type: creative?.media_type || (creative?.metadata?.video_url ? "video" : "image"),
         video_url: creative?.metadata?.video_url || "",
-        thumbnail_url: creative?.metadata?.thumbnail_url || "",
+        image_url: creative?.metadata?.image_url || creative?.metadata?.thumbnail_url || "",
+        mobile_image_url: creative?.metadata?.mobile_image_url || "",
+        thumbnail_url: creative?.metadata?.thumbnail_url || creative?.metadata?.image_url || "",
         click_url: creative?.destination_url || c.landing_page_url || "",
+        cta_label: creative?.call_to_action || "Learn More",
+        placement_type: creative?.metadata?.placement_type || "video_preroll",
         duration_seconds: Number(creative?.metadata?.duration_seconds || 15),
         advertiser_name: c.advertiser_accounts?.business_name || "Advertiser",
         budget_rwf: Number(c.total_budget || 0),
         spent_rwf: Number(c.total_spend || 0),
         status: c.campaign_status,
+        creative_status: creative?.creative_status || "draft",
+        moderation_status: creative?.moderation_status || "pending",
+        rejection_reason: creative?.rejection_reason || null,
         start_date: c.starts_at,
         end_date: c.ends_at,
         created_at: c.created_at,
@@ -923,6 +1028,499 @@ export const getMasterAdAnalytics = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("Error getting master ad analytics:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * MASTER ADMIN: POST /api/ads/master/:id/approve
+ */
+export const approveMasterAd = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const client = db();
+    const user = (req as any).user;
+    const nowIso = new Date().toISOString();
+
+    const { data: campaign, error: cErr } = await client
+      .from("advertising_campaigns")
+      .update({ campaign_status: "active", updated_at: nowIso })
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+
+    if (cErr) throw cErr;
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    const { data: creatives } = await client
+      .from("advertising_creatives")
+      .select("id, metadata")
+      .eq("campaign_id", id);
+
+    await client
+      .from("advertising_creatives")
+      .update({
+        creative_status: "approved",
+        moderation_status: "approved",
+        reviewed_by: user?.id || null,
+        reviewed_at: nowIso,
+        rejection_reason: null,
+        updated_at: nowIso,
+      })
+      .eq("campaign_id", id);
+
+    const placementType = creatives?.[0]?.metadata?.placement_type || "video_preroll";
+    const placement = await ensurePlacement(
+      ["video_preroll", "video_midroll", "video_postroll", "feed", "livestream"].includes(placementType)
+        ? placementType
+        : "video_preroll"
+    );
+
+    const { data: existingAssign } = await client
+      .from("advertising_campaign_placements")
+      .select("id")
+      .eq("campaign_id", id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!existingAssign) {
+      await client.from("advertising_campaign_placements").insert({
+        id: crypto.randomUUID(),
+        campaign_id: id,
+        placement_id: placement.id,
+        is_enabled: true,
+        bid_type: "cpm",
+        bid_amount: 500,
+        currency_code: "RWF",
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+    }
+
+    await logAdminAction({
+      actorUserId: user?.id || null,
+      actorRole: "master_admin",
+      actionKey: "APPROVE_AD_CAMPAIGN",
+      targetEntityType: "advertising_campaign",
+      targetEntityId: id,
+      description: `Approved campaign "${campaign.campaign_name}"`,
+      ipAddress: req.ip,
+      success: true,
+    });
+
+    return res.json({ success: true, ad: campaign, message: "Ad campaign approved and activated." });
+  } catch (err: any) {
+    console.error("Error approving ad:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * MASTER ADMIN: POST /api/ads/master/:id/reject
+ */
+export const rejectMasterAd = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const reason = String(req.body?.reason || "Does not meet PAYTUNE advertising guidelines.").trim();
+    const client = db();
+    const user = (req as any).user;
+    const nowIso = new Date().toISOString();
+
+    const { data: campaign, error: cErr } = await client
+      .from("advertising_campaigns")
+      .update({ campaign_status: "rejected", updated_at: nowIso })
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+
+    if (cErr) throw cErr;
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Campaign not found" });
+    }
+
+    await client
+      .from("advertising_creatives")
+      .update({
+        creative_status: "rejected",
+        moderation_status: "rejected",
+        reviewed_by: user?.id || null,
+        reviewed_at: nowIso,
+        rejection_reason: reason,
+        updated_at: nowIso,
+      })
+      .eq("campaign_id", id);
+
+    await logAdminAction({
+      actorUserId: user?.id || null,
+      actorRole: "master_admin",
+      actionKey: "REJECT_AD_CAMPAIGN",
+      targetEntityType: "advertising_campaign",
+      targetEntityId: id,
+      description: `Rejected campaign "${campaign.campaign_name}": ${reason}`,
+      ipAddress: req.ip,
+      success: true,
+    });
+
+    return res.json({ success: true, ad: campaign, message: "Ad campaign rejected." });
+  } catch (err: any) {
+    console.error("Error rejecting ad:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// ==========================================
+// CREATOR / ADVERTISER AD SUBMISSIONS
+// ==========================================
+
+/**
+ * CREATOR: GET /api/ads/creator/campaigns
+ */
+export const getCreatorAds = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const client = db();
+    const { data: accounts } = await client
+      .from("advertiser_accounts")
+      .select("id, business_name")
+      .eq("owner_user_id", user.id);
+
+    const accountIds = (accounts || []).map((a: any) => a.id);
+    const orParts = [`created_by.eq.${user.id}`];
+    if (accountIds.length > 0) {
+      orParts.push(`advertiser_account_id.in.(${accountIds.join(",")})`);
+    }
+
+    const { data: campaigns, error } = await client
+      .from("advertising_campaigns")
+      .select("*, advertising_creatives(*)")
+      .or(orParts.join(","))
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const campaignIds = (campaigns || []).map((c: any) => c.id);
+    const { data: events } =
+      campaignIds.length > 0
+        ? await client
+            .from("advertising_delivery_events")
+            .select("campaign_id, event_type")
+            .in("campaign_id", campaignIds)
+        : { data: [] as any[] };
+
+    const formatted = (campaigns || []).map((c: any) => {
+      const creative = Array.isArray(c.advertising_creatives) ? c.advertising_creatives[0] : c.advertising_creatives;
+      const campEvents = (events || []).filter((e: any) => e.campaign_id === c.id);
+      const impressions = campEvents.filter((e: any) => e.event_type === "impression").length;
+      const clicks = campEvents.filter((e: any) => e.event_type === "click").length;
+      return {
+        id: c.id,
+        creative_id: creative?.id || null,
+        title: creative?.headline || c.campaign_name,
+        description: creative?.description || c.campaign_description || "",
+        primary_text: creative?.primary_text || "",
+        media_type: creative?.media_type || (creative?.metadata?.video_url ? "video" : "image"),
+        video_url: creative?.metadata?.video_url || "",
+        image_url: creative?.metadata?.image_url || creative?.metadata?.thumbnail_url || "",
+        mobile_image_url: creative?.metadata?.mobile_image_url || "",
+        thumbnail_url: creative?.metadata?.thumbnail_url || creative?.metadata?.image_url || "",
+        click_url: creative?.destination_url || c.landing_page_url || "",
+        cta_label: creative?.call_to_action || "Learn More",
+        placement_type: creative?.metadata?.placement_type || "feed",
+        budget_rwf: Number(c.total_budget || 0),
+        spent_rwf: Number(c.total_spend || 0),
+        status: c.campaign_status,
+        creative_status: creative?.creative_status || "draft",
+        moderation_status: creative?.moderation_status || "pending",
+        rejection_reason: creative?.rejection_reason || null,
+        start_date: c.starts_at,
+        end_date: c.ends_at,
+        created_at: c.created_at,
+        metrics: { impressions, clicks },
+      };
+    });
+
+    return res.json({ success: true, ads: formatted });
+  } catch (err: any) {
+    console.error("Error loading creator ads:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * CREATOR: POST /api/ads/creator/campaigns
+ * Creates ad campaign + creative in 'draft' or 'pending_review' (never publicly served before Master approval).
+ */
+export const createCreatorAd = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const {
+      title,
+      primary_text,
+      description,
+      media_type = "image",
+      video_url,
+      image_url,
+      mobile_image_url,
+      thumbnail_url,
+      click_url,
+      cta_label = "Learn More",
+      placement_type = "feed",
+      advertiser_name,
+      budget_rwf = 50000,
+      duration_seconds = 15,
+      start_date,
+      end_date,
+      save_as_draft = false,
+      publication_status,
+    } = req.body || {};
+
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ success: false, message: "Campaign title is required." });
+    }
+    if (!video_url && !image_url && !thumbnail_url) {
+      return res.status(400).json({ success: false, message: "An image banner or video creative is required." });
+    }
+
+    const isDraft = Boolean(save_as_draft) || publication_status === "draft";
+    const campaignStatus = isDraft ? "draft" : "pending_review";
+    const creativeStatus = isDraft ? "draft" : "pending_review";
+
+    const client = db();
+    const nowIso = new Date().toISOString();
+
+    const { data: artist } = await client
+      .from("artist_profiles")
+      .select("artist_name")
+      .or(`primary_contact_user_id.eq.${user.id},created_by_user_id.eq.${user.id}`)
+      .limit(1)
+      .maybeSingle();
+
+    const advertiser = await ensureAdvertiserForUser(
+      user.id,
+      String(advertiser_name || artist?.artist_name || "Creator Advertiser").trim(),
+      user.email || ""
+    );
+
+    const campaignId = crypto.randomUUID();
+    const { data: campaign, error: cErr } = await client
+      .from("advertising_campaigns")
+      .insert({
+        id: campaignId,
+        advertiser_account_id: advertiser.id,
+        campaign_name: String(title).trim(),
+        campaign_description: String(description || "").trim(),
+        campaign_status: campaignStatus,
+        objective: "awareness",
+        currency_code: "RWF",
+        total_budget: Math.max(0, Number(budget_rwf) || 50000),
+        total_spend: 0,
+        starts_at: start_date ? new Date(start_date).toISOString() : nowIso,
+        ends_at: end_date ? new Date(end_date).toISOString() : null,
+        landing_page_url: String(click_url || "").trim() || null,
+        created_by: user.id,
+        metadata: {
+          placement_type,
+          submitted_by_creator: true,
+        },
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select("*")
+      .single();
+
+    if (cErr) throw cErr;
+
+    const cleanMediaType = media_type === "video" || Boolean(video_url) ? "video" : "image";
+    const { data: creative, error: crErr } = await client
+      .from("advertising_creatives")
+      .insert({
+        id: crypto.randomUUID(),
+        advertiser_account_id: advertiser.id,
+        campaign_id: campaignId,
+        creative_name: String(title).trim(),
+        creative_status: creativeStatus,
+        headline: String(title).trim(),
+        primary_text: String(primary_text || "").trim() || null,
+        description: String(description || "").trim() || null,
+        call_to_action: String(cta_label || "Learn More").trim(),
+        destination_url: String(click_url || "").trim() || null,
+        media_type: cleanMediaType,
+        moderation_status: "pending",
+        metadata: {
+          video_url: String(video_url || "").trim(),
+          image_url: String(image_url || thumbnail_url || "").trim(),
+          mobile_image_url: String(mobile_image_url || image_url || thumbnail_url || "").trim(),
+          thumbnail_url: String(thumbnail_url || image_url || "").trim(),
+          placement_type,
+          duration_seconds: Number(duration_seconds) || 15,
+        },
+        created_at: nowIso,
+        updated_at: nowIso,
+      })
+      .select("*")
+      .single();
+
+    if (crErr) throw crErr;
+
+    return res.status(201).json({
+      success: true,
+      ad: {
+        ...campaign,
+        creative_id: creative.id,
+        creative_status: creativeStatus,
+        title: campaign.campaign_name,
+        image_url: creative.metadata?.image_url || "",
+        mobile_image_url: creative.metadata?.mobile_image_url || "",
+        video_url: creative.metadata?.video_url || "",
+        placement_type,
+      },
+      message: isDraft ? "Ad saved as draft." : "Ad submitted for Master Admin approval.",
+    });
+  } catch (err: any) {
+    console.error("Error creating creator ad:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to create ad campaign" });
+  }
+};
+
+/**
+ * CREATOR: PUT /api/ads/creator/campaigns/:id
+ */
+export const updateCreatorAd = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) return res.status(401).json({ success: false, message: "Authentication required" });
+
+    const { id } = req.params;
+    const client = db();
+    const { data: campaign } = await client
+      .from("advertising_campaigns")
+      .select("*, advertiser_accounts(owner_user_id)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Ad campaign not found" });
+    }
+
+    const isOwner =
+      String(campaign.created_by || "") === String(user.id) ||
+      String(campaign.advertiser_accounts?.owner_user_id || "") === String(user.id);
+
+    if (!isOwner && user.role !== "master" && user.role !== "admin" && user.role !== "MASTER_ADMIN") {
+      return res.status(403).json({ success: false, message: "Unauthorized to update this ad campaign" });
+    }
+
+    const nowIso = new Date().toISOString();
+    const updates: Record<string, any> = { updated_at: nowIso };
+    if (req.body.title !== undefined) updates.campaign_name = String(req.body.title).trim();
+    if (req.body.description !== undefined) updates.campaign_description = String(req.body.description).trim();
+    if (req.body.budget_rwf !== undefined) updates.total_budget = Math.max(0, Number(req.body.budget_rwf) || 0);
+    if (req.body.click_url !== undefined) updates.landing_page_url = String(req.body.click_url).trim() || null;
+    if (req.body.start_date !== undefined) updates.starts_at = req.body.start_date ? new Date(req.body.start_date).toISOString() : nowIso;
+    if (req.body.end_date !== undefined) updates.ends_at = req.body.end_date ? new Date(req.body.end_date).toISOString() : null;
+
+    if (req.body.action === "submit_review" || req.body.status === "pending_review") {
+      updates.campaign_status = "pending_review";
+    } else if (req.body.status === "paused" && campaign.campaign_status === "active") {
+      updates.campaign_status = "paused";
+    } else if (req.body.status === "draft") {
+      updates.campaign_status = "draft";
+    }
+
+    const { data: updated, error } = await client
+      .from("advertising_campaigns")
+      .update(updates)
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+
+    const { data: creative } = await client
+      .from("advertising_creatives")
+      .select("*")
+      .eq("campaign_id", id)
+      .limit(1)
+      .maybeSingle();
+
+    if (creative) {
+      const prevMeta = creative.metadata && typeof creative.metadata === "object" ? creative.metadata : {};
+      const nextMeta = { ...prevMeta };
+      if (req.body.image_url !== undefined) nextMeta.image_url = req.body.image_url;
+      if (req.body.mobile_image_url !== undefined) nextMeta.mobile_image_url = req.body.mobile_image_url;
+      if (req.body.video_url !== undefined) nextMeta.video_url = req.body.video_url;
+      if (req.body.thumbnail_url !== undefined) nextMeta.thumbnail_url = req.body.thumbnail_url;
+      if (req.body.placement_type !== undefined) nextMeta.placement_type = req.body.placement_type;
+
+      const crUpdates: Record<string, any> = {
+        metadata: nextMeta,
+        updated_at: nowIso,
+      };
+      if (req.body.title !== undefined) crUpdates.headline = String(req.body.title).trim();
+      if (req.body.description !== undefined) crUpdates.description = String(req.body.description).trim();
+      if (req.body.click_url !== undefined) crUpdates.destination_url = String(req.body.click_url).trim() || null;
+      if (req.body.cta_label !== undefined) crUpdates.call_to_action = String(req.body.cta_label).trim();
+      if (updates.campaign_status === "pending_review") {
+        crUpdates.creative_status = "pending_review";
+        crUpdates.moderation_status = "pending";
+      } else if (updates.campaign_status === "draft") {
+        crUpdates.creative_status = "draft";
+      }
+
+      await client.from("advertising_creatives").update(crUpdates).eq("id", creative.id);
+    }
+
+    return res.json({ success: true, ad: updated });
+  } catch (err: any) {
+    console.error("Error updating creator ad:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * CREATOR: DELETE /api/ads/creator/campaigns/:id
+ */
+export const deleteCreatorAd = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user?.id) return res.status(401).json({ success: false, message: "Authentication required" });
+
+    const { id } = req.params;
+    const client = db();
+    const { data: campaign } = await client
+      .from("advertising_campaigns")
+      .select("*, advertiser_accounts(owner_user_id)")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: "Ad campaign not found" });
+    }
+
+    const isOwner =
+      String(campaign.created_by || "") === String(user.id) ||
+      String(campaign.advertiser_accounts?.owner_user_id || "") === String(user.id);
+
+    if (!isOwner && user.role !== "master" && user.role !== "admin" && user.role !== "MASTER_ADMIN") {
+      return res.status(403).json({ success: false, message: "Unauthorized to delete this ad campaign" });
+    }
+
+    const { error: delErr } = await client.from("advertising_campaigns").delete().eq("id", id);
+    if (delErr) throw delErr;
+
+    return res.json({ success: true, message: "Ad campaign deleted successfully" });
+  } catch (err: any) {
+    console.error("Error deleting creator ad:", err);
     return res.status(500).json({ success: false, error: err.message });
   }
 };

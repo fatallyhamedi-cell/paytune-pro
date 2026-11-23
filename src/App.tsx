@@ -52,6 +52,8 @@ const CopyrightHolderPortal = lazy(() => import("./pages/CopyrightHolderPortal")
 const SearchPage = lazy(() => import("./pages/Search"));
 const TrendingPage = lazy(() => import("./pages/Trending"));
 const FeedPage = lazy(() => import("./pages/Feed"));
+const FollowingPage = lazy(() => import("./pages/Following"));
+const DiscoverArtistsPage = lazy(() => import("./pages/DiscoverArtists"));
 const MusicPage = lazy(() => import("./pages/Music"));
 const CommunityPage = lazy(() => import("./pages/Community"));
 
@@ -84,7 +86,9 @@ function App() {
                       <Route path="/search" element={<SearchPage />} />
                       <Route path="/trending" element={<TrendingPage />} />
                       <Route path="/feed" element={<FeedPage />} />
-                      <Route path="/follows" element={<Navigate to="/feed" replace />} />
+                      <Route path="/follows" element={<FollowingPage />} />
+                      <Route path="/dashboard/following" element={<FollowingPage />} />
+                      <Route path="/artists" element={<DiscoverArtistsPage />} />
                       <Route path="/music" element={<MusicPage />} />
                       <Route path="/community" element={<CommunityPage />} />
                       <Route path="/live" element={<LiveStreams />} />
@@ -143,6 +147,7 @@ function App() {
                     <Route path="/login" element={<Navigate to="/auth" replace />} />
                     <Route path="/signup" element={<Navigate to="/auth?tab=signup" replace />} />
                     <Route path="/auth" element={<Auth />} />
+                    <Route path="/reset-password" element={<Auth />} />
                     <Route path="/auth/callback" element={<AuthCallback />} />
 
                     {/* Artist Authentication Routes */}

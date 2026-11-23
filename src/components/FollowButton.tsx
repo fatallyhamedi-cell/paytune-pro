@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserCheck, UserPlus, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import { notifyFollowingChanged } from '../lib/followingEvents';
 
 export interface FollowButtonProps {
   artistId: string;
@@ -19,6 +21,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
   size = 'md'
 }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isFollowing, setIsFollowing] = useState(initialFollowed);
   const [loading, setLoading] = useState(false);
 
@@ -30,15 +33,23 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
     e.stopPropagation();
     e.preventDefault();
     if (!user) {
-      window.location.href = `/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
 
     try {
       setLoading(true);
-      const res = await api.post(`/api/artists/${artistId}/follow`);
-      const nextState = res.data?.following !== undefined ? res.data.following : !isFollowing;
+      const res = isFollowing
+        ? await api.delete(`/api/artists/${artistId}/follow`)
+        : await api.post(`/api/artists/${artistId}/follow`, { action: 'follow' });
+      const nextState =
+        typeof res.data?.following === 'boolean'
+          ? res.data.following
+          : typeof res.data?.followed === 'boolean'
+          ? res.data.followed
+          : !isFollowing;
       setIsFollowing(nextState);
+      notifyFollowingChanged(user.id);
       if (onFollowChange) onFollowChange(nextState);
     } catch (err) {
       console.error('Follow toggle error:', err);
@@ -55,12 +66,13 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
 
   return (
     <button
+      type="button"
       onClick={handleToggle}
       disabled={loading}
-      className={`inline-flex items-center justify-center font-semibold rounded-full transition-all duration-200 ${
+      className={`inline-flex items-center justify-center font-semibold rounded-full transition-all duration-200 cursor-pointer ${
         isFollowing
           ? 'bg-gray-200 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-zinc-700'
-          : 'bg-purple-600 hover:bg-purple-700 text-black shadow-md hover:shadow-purple-600/20'
+          : 'bg-purple-600 hover:bg-purple-700 text-white shadow-md hover:shadow-purple-600/20'
       } ${sizeClasses} ${className}`}
     >
       {loading ? (

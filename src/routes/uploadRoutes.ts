@@ -3,8 +3,9 @@ import multer from 'multer';
 import path from 'path';
 import crypto from 'crypto';
 import { rawSupabaseAdmin, supabaseAdmin, isSupabaseConfigured } from '../config/supabase';
-import { authenticate, optionalAuthenticate } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { cacheService } from '../services/cacheService';
+import { validateUploadedMedia, deleteStorageObject, MediaCategory } from '../utils/uploadValidation';
 
 const router = Router();
 
@@ -116,7 +117,7 @@ async function processFileUpload(
 
 async function logMediaAsset(asset: {
   userId?: string;
-  assetType: 'avatar' | 'banner' | 'artwork' | 'audio' | 'video' | 'image';
+  assetType: 'avatar' | 'banner' | 'artwork' | 'audio' | 'video' | 'image' | 'caption';
   bucket: string;
   storagePath: string;
   publicUrl: string;
@@ -134,12 +135,19 @@ async function logMediaAsset(asset: {
     artwork: 'album_artwork',
     audio: 'music_source',
     video: 'video_source',
+    caption: 'subtitle_file',
     image: 'other',
+  };
+
+  const kindMap: Record<string, string> = {
+    audio: 'audio',
+    video: 'video',
+    caption: 'subtitle',
   };
 
   try {
     const now = new Date().toISOString();
-    const { data } = await client
+    const { data, error } = await client
       .from('media_assets')
       .insert({
         owner_user_id: asset.userId,
@@ -147,7 +155,7 @@ async function logMediaAsset(asset: {
         original_file_name: asset.originalName,
         file_extension: path.extname(asset.originalName).replace('.', '') || null,
         mime_type: asset.mimeType || 'application/octet-stream',
-        media_kind: asset.assetType === 'audio' ? 'audio' : asset.assetType === 'video' ? 'video' : 'image',
+        media_kind: kindMap[asset.assetType] || 'image',
         media_purpose: purposeMap[asset.assetType] || 'other',
         storage_provider: 'supabase',
         storage_bucket: asset.bucket,
@@ -160,6 +168,10 @@ async function logMediaAsset(asset: {
       })
       .select('*')
       .maybeSingle();
+    if (error) {
+      console.warn('Error persisting media_assets metadata:', error.message);
+      return null;
+    }
     return data;
   } catch (err) {
     console.warn('Error persisting media_assets metadata:', err);
@@ -193,18 +205,31 @@ router.post(
       const mime = String(file.mimetype || '').toLowerCase();
 
       let bucketName = String(requestedBucket || '').trim().toLowerCase();
-      let assetType: 'avatar' | 'banner' | 'artwork' | 'audio' | 'video' | 'image' = 'image';
+      let assetType: 'avatar' | 'banner' | 'artwork' | 'audio' | 'video' | 'image' | 'caption' = 'image';
+      let validationCat: MediaCategory = 'image';
 
       if (mime.startsWith('video/') || contentType === 'video' || contentType === 'short') {
         bucketName = bucketName || 'videos';
         assetType = 'video';
+        validationCat = 'video';
       } else if (mime.startsWith('audio/') || contentType === 'audio') {
         bucketName = bucketName || 'audio';
         assetType = 'audio';
+        validationCat = 'audio';
+      } else if (contentType === 'caption' || /\.(vtt|srt)$/i.test(file.originalname || '')) {
+        bucketName = bucketName || 'media_assets';
+        assetType = 'caption';
+        validationCat = 'caption';
       } else {
         const requested = bucketName || 'avatars';
         assetType = requested === 'artwork' ? 'artwork' : requested === 'banners' ? 'banner' : 'image';
         bucketName = requested === 'artwork' ? 'thumbnails' : requested;
+        validationCat = 'image';
+      }
+
+      const check = validateUploadedMedia(file, validationCat);
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid uploaded media file' });
       }
 
       const result = await processFileUpload(file, bucketName, userId.slice(0, 12));
@@ -251,7 +276,7 @@ router.post(
           const now = new Date().toISOString();
           const slug = `${String(title).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) || 'video'}-${crypto.randomBytes(3).toString('hex')}`;
 
-          const { data: insertedVid } = await db
+          const { data: insertedVid, error: vidInsertErr } = await db
             .from('videos')
             .insert({
               creator_channel_id: channel.id,
@@ -286,6 +311,11 @@ router.post(
             })
             .select('*')
             .maybeSingle();
+
+          if (vidInsertErr) {
+            await deleteStorageObject(db, result.url, result.bucket);
+            throw new Error(vidInsertErr.message || 'Failed to save video database record');
+          }
 
           videoRecord = insertedVid || null;
           if (videoRecord) {
@@ -386,9 +416,14 @@ router.post(
         return res.status(403).json({ error: 'Unauthorized to modify this artist profile' });
       }
 
+      const check = validateUploadedMedia(file, 'image');
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid avatar image file' });
+      }
+
       const result = await processFileUpload(file, 'avatars', user.id.slice(0, 12));
 
-      await logMediaAsset({
+      const avatarAsset = await logMediaAsset({
         userId: user.id,
         assetType: 'avatar',
         bucket: result.bucket,
@@ -396,7 +431,7 @@ router.post(
         publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
-        mimeType: result.mime,
+        mimeType: check.detectedType || result.mime,
       });
 
       const client = rawSupabaseAdmin || supabaseAdmin;
@@ -418,7 +453,14 @@ router.post(
           .eq('user_id', user.id);
       }
 
-      res.json({ success: true, url: result.url });
+      await Promise.all([
+        cacheService.del('paytune:videos:trending'),
+        cacheService.del('paytune:videos:new'),
+        cacheService.del('paytune:videos:catalog:all'),
+        cacheService.del('paytune:music:tracks:all:v2'),
+      ]);
+
+      res.json({ success: true, url: result.url, mediaAssetId: avatarAsset?.id || null });
     } catch (err: any) {
       console.error('Avatar upload error:', err);
       res.status(500).json({ error: err.message || 'Failed to upload avatar.' });
@@ -448,12 +490,18 @@ router.post(
         return res.status(403).json({ error: 'Unauthorized to modify this artist banner' });
       }
 
+      const check = validateUploadedMedia(file, 'image');
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid banner image file' });
+      }
+
+      const placement = String(req.body.placement || 'channel_cover');
       const result = await processFileUpload(file, 'banners', user.id.slice(0, 12));
       const focalX = req.body.focal_x != null ? Number(req.body.focal_x) : 50;
       const focalY = req.body.focal_y != null ? Number(req.body.focal_y) : 50;
       const zoom = req.body.zoom != null ? Number(req.body.zoom) : 1;
 
-      await logMediaAsset({
+      const bannerAsset = await logMediaAsset({
         userId: user.id,
         assetType: 'banner',
         bucket: result.bucket,
@@ -461,13 +509,13 @@ router.post(
         publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
-        mimeType: result.mime,
-        extraMeta: { focal_x: focalX, focal_y: focalY, zoom },
+        mimeType: check.detectedType || result.mime,
+        extraMeta: { focal_x: focalX, focal_y: focalY, zoom, placement },
       });
 
       const client = rawSupabaseAdmin || supabaseAdmin;
       const now = new Date().toISOString();
-      if (client) {
+      if (client && placement !== 'promo_banner' && placement !== 'ad_banner') {
         if (ownedArtist) {
           await client
             .from('artist_profiles')
@@ -483,6 +531,8 @@ router.post(
       res.json({
         success: true,
         url: result.url,
+        mediaAssetId: bannerAsset?.id || null,
+        placement,
         focal_x: focalX,
         focal_y: focalY,
         zoom,
@@ -565,10 +615,15 @@ router.post(
       const user = (req as any).user;
       if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
 
+      const check = validateUploadedMedia(file, 'audio');
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid audio file' });
+      }
+
       const result = await processFileUpload(file, 'audio', user.id.slice(0, 12));
       const trackTitle = req.body.title || path.basename(file.originalname, path.extname(file.originalname));
 
-      await logMediaAsset({
+      const mediaAsset = await logMediaAsset({
         userId: user.id,
         assetType: 'audio',
         bucket: result.bucket,
@@ -576,15 +631,16 @@ router.post(
         publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
-        mimeType: result.mime,
+        mimeType: check.detectedType || result.mime,
       });
 
       res.json({
         success: true,
         url: result.url,
+        mediaAssetId: mediaAsset?.id || null,
         original_name: result.originalName,
         size_bytes: result.size,
-        mime_type: result.mime,
+        mime_type: check.detectedType || result.mime,
         title: trackTitle,
       });
     } catch (err: any) {
@@ -608,9 +664,14 @@ router.post(
       const user = (req as any).user;
       if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
 
+      const check = validateUploadedMedia(file, 'image');
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid artwork image file' });
+      }
+
       const result = await processFileUpload(file, 'thumbnails', user.id.slice(0, 12));
 
-      await logMediaAsset({
+      const mediaAsset = await logMediaAsset({
         userId: user.id,
         assetType: 'artwork',
         bucket: result.bucket,
@@ -618,10 +679,10 @@ router.post(
         publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
-        mimeType: result.mime,
+        mimeType: check.detectedType || result.mime,
       });
 
-      res.json({ success: true, url: result.url });
+      res.json({ success: true, url: result.url, mediaAssetId: mediaAsset?.id || null });
     } catch (err: any) {
       console.error('Artwork upload error:', err);
       res.status(500).json({ error: err.message || 'Failed to upload artwork.' });
@@ -643,8 +704,13 @@ router.post(
       const user = (req as any).user;
       if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
 
+      const check = validateUploadedMedia(file, 'image');
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid image file' });
+      }
+
       const result = await processFileUpload(file, 'avatars', user.id.slice(0, 12));
-      await logMediaAsset({
+      const mediaAsset = await logMediaAsset({
         userId: user.id,
         assetType: 'image',
         bucket: result.bucket,
@@ -652,13 +718,58 @@ router.post(
         publicUrl: result.url,
         originalName: result.originalName,
         fileSize: result.size,
-        mimeType: result.mime,
+        mimeType: check.detectedType || result.mime,
       });
 
-      res.json({ success: true, url: result.url });
+      res.json({ success: true, url: result.url, mediaAssetId: mediaAsset?.id || null });
     } catch (err: any) {
       console.error('Image upload error:', err);
       res.status(500).json({ error: err.message || 'Failed to upload image.' });
+    }
+  }
+);
+
+router.post(
+  '/caption',
+  authenticate,
+  wrapMulterAny(imageUpload),
+  async (req: Request, res: Response) => {
+    const file = pickUploadedFile(req, ['caption', 'subtitle', 'file']);
+    if (!file) {
+      return res.status(400).json({ error: 'No subtitle/caption file (.vtt or .srt) provided.' });
+    }
+
+    try {
+      const user = (req as any).user;
+      if (!user?.id) return res.status(401).json({ error: 'Authentication required' });
+
+      const check = validateUploadedMedia(file, 'caption');
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error || 'Invalid caption file. Upload .vtt or .srt.' });
+      }
+
+      const result = await processFileUpload(file, 'media_assets', `sub-${user.id.slice(0, 12)}`);
+      const mediaAsset = await logMediaAsset({
+        userId: user.id,
+        assetType: 'caption',
+        bucket: result.bucket,
+        storagePath: result.storagePath,
+        publicUrl: result.url,
+        originalName: result.originalName,
+        fileSize: result.size,
+        mimeType: check.detectedType || result.mime,
+      });
+
+      res.status(201).json({
+        success: true,
+        url: result.url,
+        mediaAssetId: mediaAsset?.id || null,
+        original_name: result.originalName,
+        mime_type: check.detectedType || result.mime,
+      });
+    } catch (err: any) {
+      console.error('Caption upload error:', err);
+      res.status(500).json({ error: err.message || 'Failed to upload caption file.' });
     }
   }
 );
